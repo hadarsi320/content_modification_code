@@ -153,7 +153,7 @@ def retrieve_scores(test_indices, queries,score_file):
             doc = test_indices[i]
             if query not in results:
                 results[query]={}
-            results[query][doc]=float(score.split()[2].rstrip())
+            results[query][doc]=float(score.rstrip())
         return results
 
 
