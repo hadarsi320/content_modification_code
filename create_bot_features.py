@@ -1,23 +1,25 @@
 import logging
-import sys
-from optparse import OptionParser
-import gensim
-from gen_utils import run_bash_command, list_multiprocessing
+import math
 import os
+import sys
+from collections import defaultdict
 from copy import deepcopy
-from vector_functionality import query_term_freq, centroid_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
-    document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
+from functools import partial
+from multiprocessing import cpu_count
+from optparse import OptionParser
+
+import gensim
+import numpy as np
+from nltk import sent_tokenize
+
+from bot_competition import generate_sentence_tfidf_files
+from gen_utils import run_bash_command, list_multiprocessing
 from utils import clean_texts, read_trec_file, load_trectext_file, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
     transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict, \
     generate_pair_name
-from nltk import sent_tokenize
-import numpy as np
-import math
-from multiprocessing import cpu_count
-from functools import partial
-from collections import defaultdict
-from deprecated import deprecated
+from vector_functionality import query_term_freq, centroid_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
+    document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
 
 def create_sentence_pairs(top_docs, ref_doc, texts):
@@ -37,6 +39,10 @@ def create_sentence_pairs(top_docs, ref_doc, texts):
 
 def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, top_docs_index, current_epoch=None,
                        current_qid=None):
+    output_dir = os.path.dirname(output_file)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     with open(output_file, 'w') as output:
         for epoch in ranked_lists:
             if current_epoch and epoch != current_epoch:
@@ -275,7 +281,8 @@ def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc
 
 def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_index, top_doc_index,
                             doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir, qid, query_text,
-                            output_feature_files_dir, output_final_features_dir, workingset_file):
+                            output_feature_files_dir, output_final_features_dir, workingset_file,
+                            swig_path, indri_path):
     # TODO find a way to reuse the word_embedding model
     global word_embd_model
     if not os.path.exists(output_feature_files_dir):
@@ -284,6 +291,8 @@ def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_i
         os.makedirs(output_final_features_dir)
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
+    generate_sentence_tfidf_files(swig_path, indri_path, workingset_file, sentence_tfidf_vectors_dir)
+    input('created tfidf files (hopefully)')
     create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
                         sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qid)
     run_bash_command("perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file)
@@ -465,10 +474,7 @@ if __name__ == "__main__":
     parser.add_option("--workingset_file", default='./output/workingset.txt')
     parser.add_option("--raw_ds_out", default='./output/raw_ds_out.txt')
     parser.add_option("--index_path", default='~/work_files/merged_index/')
-    parser.add_option("--home_path", default='~/')
-    parser.add_option("--java_path", default='jdk-15/')
     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
-    parser.add_option("--stopwords_file", default='./data/stopwords_list')
     parser.add_option("--doc_tfidf_dir", default='./asr_tfidf_vectors/')
     parser.add_option("--sentences_tfidf_dir",
                       default='./output/sentences_tfidf_dir/')  # does this need to be competition specific?
@@ -476,12 +482,12 @@ if __name__ == "__main__":
     parser.add_option("--output_feature_files_dir", default='./output/feature_files/')
     parser.add_option("--output_final_feature_file_dir", default='./output/final_features/')
     parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
+    parser.add_option("--indri_path", default='~/indri/')
 
     # TODO find out what these are about
     parser.add_option("--sentence_trec_file", default=None)
     parser.add_option("--scripts_path", default=None)
     parser.add_option("--model", default=None)
-    parser.add_option("--indri_path", default=None)
     parser.add_option("--scores_dir", default=None)
     parser.add_option("--jar_path", default=None)
     parser.add_option("--queries_text_file", default=None)
@@ -494,35 +500,36 @@ if __name__ == "__main__":
     ranked_lists = read_trec_file(options.trec_file)
     doc_texts = load_trectext_file(options.trectext_file)
     mode = options.mode
+    raw_ds_file = options.raw_ds_out
 
     if mode == 'single':
         qrid = options.qrid  # qrid- query round id
         epoch, qid = reverese_query(qrid)
 
-        # if not os.path.exists(options.raw_ds_out):
-        create_raw_dataset(ranked_lists, doc_texts, options.raw_ds_out, options.ref_index, options.top_docs_index,
+        # if not os.path.exists(raw_ds):
+        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, options.ref_index, options.top_docs_index,
                            current_epoch=epoch, current_qid=qid)
-        create_sentence_vector_files(logger, options.sentences_tfidf_dir, options.raw_ds_out, options.index_path,
+        create_sentence_vector_files(logger, options.sentences_tfidf_dir, raw_ds_file, options.index_path,
                                      options.swig_path)
 
         query_text = get_query_text(options.queries_file, qrid)
         word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
-        feature_creation_single(options.raw_ds_out, ranked_lists, doc_texts, options.ref_index,
+        feature_creation_single(raw_ds_file, ranked_lists, doc_texts, options.ref_index,
                                 options.top_docs_index, options.doc_tfidf_dir, options.sentences_tfidf_dir, qrid,
                                 query_text, options.output_feature_files_dir, options.output_final_feature_file_dir,
-                                options.workingset_file)
+                                options.workingset_file, options.swig_path, options.indri_path)
 
     elif mode == 'multiple':
-        create_raw_dataset(ranked_lists, doc_texts, options.raw_ds_out, int(options.ref_index),
+        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(options.ref_index),
                            int(options.top_docs_index))
-        create_sentence_vector_files(logger, options.sentences_tfidf_dir, options.raw_ds_out, options.index_path,
+        create_sentence_vector_files(logger, options.sentences_tfidf_dir, raw_ds_file, options.index_path,
                                      options.swig_path)
         queries = read_queries_file(options.queries_file)
         queries = transform_query_text(queries)
         word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
-        feature_creation_parallel(options.raw_ds_out, ranked_lists, doc_texts, int(options.top_docs_index),
+        feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(options.top_docs_index),
                                   int(options.ref_index), options.doc_tfidf_dir,
                                   options.sentences_tfidf_dir, queries, options.output_feature_files_dir,
                                   options.output_final_feature_file_dir, options.workingset_file)

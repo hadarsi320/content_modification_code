@@ -374,6 +374,8 @@ def generate_trec_id(epoch, qid, player_id):
 
 
 def generate_pair_name(pair):
-    out_ = str(int(pair.split("_")[1]) + 1)
-    in_ = str(int(pair.split("_")[2]) + 1)
+    # out_ = str(int(pair.split("_")[1]) + 1)
+    # in_ = str(int(pair.split("_")[2]) + 1)
+    out_ = str(int(pair.split("_")[1]))
+    in_ = str(int(pair.split("_")[2]))
     return pair.split("$")[1].split("_")[0] + "_" + in_ + "_" + out_

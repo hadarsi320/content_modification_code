@@ -9,7 +9,7 @@ from utils import get_learning_data_path, get_model_name, get_qrid, load_trectex
     append_to_trectext_file, read_raw_trec_file
 from bot_competition import generate_learning_dataset, create_model, create_initial_trec_file, \
     create_initial_trectext_file, create_features, generate_predictions, get_highest_ranked_pair, \
-    get_game_state, generate_updated_document, append_to_trec_file
+    get_game_state, generate_updated_document, append_to_trec_file, generate_sentence_tfidf_files
 
 if __name__ == '__main__':
     program = os.path.basename(sys.argv[0])
@@ -84,7 +84,9 @@ if __name__ == '__main__':
         raw_ds_file = output_dir + 'raw_datasets/raw_ds_out_' + qrid + '_' + ','.join(competitor_list) + '.txt'
         features_file = output_dir + 'final_features/features_{}.dat'.format(qrid)
         winner_id, loser_id = get_game_state(comp_trec_file, epoch)
-
+        
+        generate_sentence_tfidf_files(options.swig_path, options.indri_path, workingset_file,
+                                      output_dir + 'tf_idf_vectors/')
         create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file)
         ranking_file = generate_predictions(model_path, options.svm_rank_scripts_dir, output_dir, features_file)
         max_pair = get_highest_ranked_pair(features_file, ranking_file)

@@ -5,10 +5,10 @@ from os.path import exists, basename, splitext
 from deprecated import deprecated
 from lxml import etree
 
-from create_bot_features import update_text_doc, run_reranking
+from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_trec_id, \
-    generate_trec_id, append_to_trectext_file
+    generate_trec_id
 
 
 def create_initial_trec_file(original_trec_file: str, output_dir: str, qid: str, competitors: list):
@@ -160,3 +160,11 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
 
 if __name__ == '__main__':
     pass
+
+
+def generate_sentence_tfidf_files(swig_path, indri_path, workingset_file, output_dir):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
+              + indri_path + ' ' + workingset_file + '_' + output_dir
+    run_and_print(command)
