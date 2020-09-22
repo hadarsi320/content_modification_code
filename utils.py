@@ -9,7 +9,7 @@ from lxml import etree
 
 
 def create_features_file_diff(features_dir, base_index_path, new_index_path, new_features_file, working_set_file,
-                              scripts_path, java_path, swig_path, stopwords_file, queries_text_file, home_path):
+                              scripts_path, swig_path, stopwords_file, queries_text_file):
     """
     Creates a feature file via a given index and a given working set file
     """
@@ -18,7 +18,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
         os.makedirs(features_dir)
     if not os.path.exists(os.path.dirname(new_features_file)):
         os.makedirs(os.path.dirname(new_features_file))
-    command = home_path + java_path + "/bin/java -Djava.library.path=" + swig_path + \
+    command = "java bin/java -Djava.library.path=" + swig_path + \
               " -cp seo_indri_utils.jar LTRFeatures " + base_index_path + " " + new_index_path + " " \
               + stopwords_file + " " + queries_text_file + " " + working_set_file + " " + features_dir
     print(command)
@@ -68,6 +68,10 @@ def create_trectext_file(document_texts, trectext_fname, working_set_fname=None)
     """
     creates trectext document from a given text file
     """
+    trectext_dir = os.path.dirname(trectext_fname)
+    if not os.path.exists(trectext_dir):
+        os.makedirs(trectext_dir)
+
     with open(trectext_fname, "w", encoding="utf-8") as f:
         f.write('<DATA>\n')
         query_to_docs = defaultdict(list)
@@ -113,29 +117,29 @@ def append_to_trectext_file(trectext_file, document_texts):
         f.write('</DATA>\n')
 
 
-def create_index(trec_text_file, index_path, new_index_name, home_path='/home/greg/', indri_path="indri_test"):
+def create_index(trec_text_file, index, home_path, indri_path):
     """
     Parse the trectext file given, and create an index.
     """
-    indri_build_index = home_path + '/' + indri_path + '/bin/IndriBuildIndex'
+    indri_build_index = home_path + indri_path + 'bin/IndriBuildIndex'
     corpus_path = trec_text_file
     corpus_class = 'trectext'
     memory = '1G'
-    index = index_path + "/" + new_index_name
+    stemmer = 'krovetz'
+    index_path = os.path.dirname(index)
     if not os.path.exists(index_path):
         os.makedirs(index_path)
-    stemmer = 'krovetz'
-    if not os.path.exists(home_path + "/" + index_path):
-        os.makedirs(home_path + "/" + index_path)
+    # if not os.path.exists(home_path + index_path): what is this
+    #     os.makedirs(home_path + index_path)
     command = indri_build_index + ' -corpus.path=' + corpus_path + ' -corpus.class=' + corpus_class + ' -index=' + \
               index + ' -memory=' + memory + ' -stemmer.name=' + stemmer
     print("##Running IndriBuildIndex command =" + command + "##", flush=True)
     out = run_bash_command(command)
-    print("IndriBuildIndex output:" + str(out), flush=True)
+    print("IndriBuildIndex output:" + out, flush=True)
     return index
 
 
-def merge_indices(merged_index, new_index_name, base_index, home_path='/home/greg/', indri_path="indri_test"):
+def merge_indices(merged_index, new_index_name, base_index, home_path, indri_path):
     """
     merges two different indri indices into one
     """
@@ -167,8 +171,7 @@ def order_trec_file(trec_file):
     :param trec_file: trec file path
     :return: the path to the sorted trec file
     """
-    final = trec_file.replace(".txt", "")
-    final += "_sorted.txt"
+    final = trec_file.replace(".txt", "") + '_sorted_txt'
     command = "sort -k1,1n -k5nr -k2,1 " + trec_file + " > " + final
     for line in run_command(command):
         print(line)
@@ -176,13 +179,11 @@ def order_trec_file(trec_file):
 
 
 def retrieve_scores(test_indices, queries, score_file):
-    results = {}
+    results = defaultdict(dict)
     with open(score_file) as scores:
         for i, score in enumerate(scores):
             query = queries[i]
             doc = test_indices[i]
-            if query not in results:
-                results[query] = {}
             results[query][doc] = float(score.split()[2].rstrip())
         return results
 
@@ -211,16 +212,15 @@ def create_index_to_query_dict(data_set_file):
         return query_index
 
 
-def run_model(test_file, home_path, java_path, jar_path, score_file, model_path):
-    full_java_path = home_path + "/" + java_path + "/bin/java"
+def run_model(features_file, jar_path, score_file, model_path):
     if not os.path.exists(os.path.dirname(score_file)):
         os.makedirs(os.path.dirname(score_file))
-    features = test_file
     run_bash_command('touch ' + score_file)
-    command = full_java_path + " -jar " + jar_path + " -load " + model_path + " -rank " + features + " -score " + \
+    command = "java -jar " + jar_path + " -load " + model_path + " -rank " + features_file + " -score " + \
               score_file
+    print(command)
     out = run_bash_command(command)
-    print(str(out))
+    print(out)
     return score_file
 
 

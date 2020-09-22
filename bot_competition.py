@@ -4,7 +4,7 @@ from os.path import exists, basename, splitext
 
 from lxml import etree
 
-from create_bot_features import update_text_doc
+from create_bot_features import update_text_doc, run_reranking
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_trec_id, \
     generate_trec_id, append_to_trectext_file
@@ -14,7 +14,7 @@ def create_initial_trec_file(original_trec_file: str, output_dir: str, qid: str,
     if not exists(output_dir):
         os.makedirs(output_dir)
     qrid = get_qrid(qid, 1)
-    new_trec_file = output_dir + 'trec_file_' + qid + '_[' + ','.join(competitors) + ']'
+    new_trec_file = output_dir + 'trec_file_' + qid + '_' + ','.join(competitors) + ''
     with open(original_trec_file, 'r') as trec_file:
         with open(new_trec_file, 'w') as f:
             for line in trec_file:
@@ -31,7 +31,7 @@ def create_initial_trectext_file(original_trectext_file, output_dir, qid, compet
     if not exists(output_dir):
         os.makedirs(output_dir)
     doc_list = [f'ROUND-01-{qid}-{competitor}' for competitor in competitors]
-    new_trectext_file = output_dir + f'documents_{qid}_[{",".join(competitors)}].trectext'
+    new_trectext_file = output_dir + f'documents_{qid}_{",".join(competitors)}.trectext'
 
     parser = etree.XMLParser(recover=True)
     tree = ET.parse(original_trectext_file, parser=parser)
@@ -133,12 +133,14 @@ def get_doc_text(doctext_file, trec_id):
                      .format(doctext_file, trec_id))
 
 
-def update_trectext_file(trec_file, trectext_file, raw_ds_file, doc_texts, epoch, qid, max_pair):
+def update_trec_files(logger, trec_file, trectext_file, raw_ds_file, doc_texts, epoch, qid, max_pair):
     winner_id, loser_id = get_game_state(trec_file)
-    new_loser_doc = generate_updated_document(max_pair, raw_ds_file, doc_texts)
+    updated_document = generate_updated_document(max_pair, raw_ds_file, doc_texts)
     winner_doc = doc_texts[generate_trec_id(epoch, qid, winner_id)]
     trectext_dict = {generate_trec_id(epoch + 1, qid, winner_id): winner_doc,
-                     generate_trec_id(epoch + 1, qid, loser_id): new_loser_doc}
+                     generate_trec_id(epoch + 1, qid, loser_id): updated_document}
     append_to_trectext_file(trectext_file, trectext_dict)
+
+    t = run_reranking(logger, )
 
 

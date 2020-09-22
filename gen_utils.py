@@ -24,13 +24,13 @@ def run_bash_command(command):
                          shell=True)
 
     out, err = p.communicate()
-    return out
+    return out.decode('utf-8')
 
 
 def run_and_print(command):
     print("##Running command: " + command + "##")
     out = run_bash_command(command)
-    print(out.decode('utf-8'), flush=True)
+    print(out, flush=True)
 
 
 def list_multiprocessing(param_lst, func, **kwargs):

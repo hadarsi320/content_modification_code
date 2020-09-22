@@ -1,11 +1,21 @@
+import logging
+import os
+import sys
 from optparse import OptionParser
 from os.path import exists
 
 from utils import get_learning_data_path, get_model_name, get_qrid, load_file
 from bot_competition import generate_learning_dataset, create_model, create_initial_trec_file, \
-    create_initial_trectext_file, create_features, generate_predictions, get_highest_ranked_pair, update_trectext_file
+    create_initial_trectext_file, create_features, generate_predictions, get_highest_ranked_pair, update_trec_files
 
 if __name__ == '__main__':
+    program = os.path.basename(sys.argv[0])
+    logger = logging.getLogger(program)
+
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
+    logging.root.setLevel(level=logging.INFO)
+    logger.info("running %s" % ' '.join(sys.argv))
+
     parser = OptionParser()
     # Mandatory variables
     parser.add_option('--label_aggregation_method', '--agg', choices=['harmonic', 'demotion', 'weighted'])
@@ -13,6 +23,7 @@ if __name__ == '__main__':
     parser.add_option('--svm_rank_c', '-c')
     parser.add_option('--qid')
     parser.add_option('--competitors')
+    parser.add_option('--rounds', '-r', type='int')
 
     # Optional variables
     parser.add_option('--svm_models_dir', default='./rank_svm_models/')
@@ -60,6 +71,5 @@ if __name__ == '__main__':
     ranking_file = generate_predictions(model_path, options.svm_rank_scripts_dir, output_dir, features_file)
     max_pair = get_highest_ranked_pair(features_file, ranking_file)
 
-    # update_trec_file()
-    update_trectext_file()
+    update_trec_files(comp_trec_file, comp_trectext_file, raw_ds_file, doc_texts, epoch, qid, max_pair)
 
