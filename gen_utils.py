@@ -2,9 +2,11 @@ import subprocess
 from multiprocessing import Pool
 from tqdm import tqdm
 
+
 def _apply_lst(args):
     params, func, num, kwargs = args
     return num, func(*params, **kwargs)
+
 
 def run_command(command):
     p = subprocess.Popen(command,
@@ -14,12 +16,22 @@ def run_command(command):
 
     return iter(p.stdout.readline, b'')
 
+
 def run_bash_command(command):
     p = subprocess.Popen(command,
                          stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, shell=True)
+                         stderr=subprocess.STDOUT,
+                         shell=True)
+
     out, err = p.communicate()
     return out
+
+
+def run_and_print(command):
+    print("##Running command: " + command + "##")
+    out = run_bash_command(command)
+    print(out.decode('utf-8'), flush=True)
+
 
 def list_multiprocessing(param_lst, func, **kwargs):
     workers = kwargs.pop('workers')
