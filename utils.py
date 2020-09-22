@@ -18,7 +18,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
         os.makedirs(features_dir)
     if not os.path.exists(os.path.dirname(new_features_file)):
         os.makedirs(os.path.dirname(new_features_file))
-    command = "java bin/java -Djava.library.path=" + swig_path + \
+    command = "java -Djava.library.path=" + swig_path + \
               " -cp seo_indri_utils.jar LTRFeatures " + base_index_path + " " + new_index_path + " " \
               + stopwords_file + " " + queries_text_file + " " + working_set_file + " " + features_dir
     print(command)
@@ -49,7 +49,7 @@ def read_trec_file(trec_file, current_round=None, current_qid=None, competitor_l
             if query not in stats[epoch]:
                 stats[epoch][query] = []
             stats[epoch][query].append(doc)
-    return stats
+    return dict(stats)
 
 
 def read_raw_trec_file(trec_file):
@@ -75,7 +75,7 @@ def create_trectext_file(document_texts, trectext_fname, working_set_fname=None)
     with open(trectext_fname, "w", encoding="utf-8") as f:
         f.write('<DATA>\n')
         query_to_docs = defaultdict(list)
-        for document in document_texts:
+        for document in sorted(document_texts):
             text = document_texts[document]
             query = document.split("-")[2]
             query_to_docs[query].append(document)
@@ -88,7 +88,7 @@ def create_trectext_file(document_texts, trectext_fname, working_set_fname=None)
             f.write('</DOC>\n')
         f.write('</DATA>\n')
 
-    # what is the purpose of this thing?
+    # what is the purpose of creating this file?
     if working_set_fname:
         with open(working_set_fname, 'w') as f:
             for query, docnos in query_to_docs.items():
@@ -100,28 +100,30 @@ def create_trectext_file(document_texts, trectext_fname, working_set_fname=None)
 
 
 def append_to_trectext_file(trectext_file, document_texts):
-    with open(trectext_file, 'r') as f:
-        trectext_lines = f.readlines()[:-1]
-    with open(trectext_file, "w", encoding="utf-8") as f:
-        for line in trectext_lines:
-            f.write(line)
-        for document in document_texts:
-            text = document_texts[document]
+    old_texts = load_trectext_file(trectext_file)
+    create_trectext_file({**old_texts, **document_texts}, trectext_file)
+    # with open(trectext_file, 'r') as f:
+    #     trectext_lines = f.readlines()[:-1]
+    # with open(trectext_file, "w", encoding="utf-8") as f:
+    #     for line in trectext_lines:
+    #         f.write(line)
+    #     for document in document_texts:
+    #         text = document_texts[document]
+    #
+    #         f.write('<DOC>\n')
+    #         f.write('<DOCNO>' + document + '</DOCNO>\n')
+    #         f.write('<TEXT>\n')
+    #         f.write(text.rstrip())
+    #         f.write('\n</TEXT>\n')
+    #         f.write('</DOC>\n')
+    #     f.write('</DATA>\n')
 
-            f.write('<DOC>\n')
-            f.write('<DOCNO>' + document + '</DOCNO>\n')
-            f.write('<TEXT>\n')
-            f.write(text.rstrip())
-            f.write('\n</TEXT>\n')
-            f.write('</DOC>\n')
-        f.write('</DATA>\n')
 
-
-def create_index(trec_text_file, index, home_path, indri_path):
+def create_index(trec_text_file, index, indri_path):
     """
     Parse the trectext file given, and create an index.
     """
-    indri_build_index = home_path + indri_path + 'bin/IndriBuildIndex'
+    indri_build_index = indri_path + 'bin/IndriBuildIndex'
     corpus_path = trec_text_file
     corpus_class = 'trectext'
     memory = '1G'
@@ -133,7 +135,7 @@ def create_index(trec_text_file, index, home_path, indri_path):
     #     os.makedirs(home_path + index_path)
     command = indri_build_index + ' -corpus.path=' + corpus_path + ' -corpus.class=' + corpus_class + ' -index=' + \
               index + ' -memory=' + memory + ' -stemmer.name=' + stemmer
-    print("##Running IndriBuildIndex command =" + command + "##", flush=True)
+    print("##Running IndriBuildIndex command: " + command + "##", flush=True)
     out = run_bash_command(command)
     print("IndriBuildIndex output:" + out, flush=True)
     return index
@@ -157,11 +159,10 @@ def merge_indices(merged_index, new_index_name, base_index, home_path, indri_pat
 def create_trec_eval_file(results, trec_file):
     if not os.path.exists(os.path.dirname(trec_file)):
         os.makedirs(os.path.dirname(trec_file))
-    trec_file_access = open(trec_file, 'w')
-    for query in results:
-        for doc in results[query]:
-            trec_file_access.write(query + " Q0 " + doc + " " + str(0) + " " + str(results[query][doc]) + " seo_task\n")
-    trec_file_access.close()
+    with open(trec_file, 'w') as f:
+        for query in results:
+            for doc in results[query]:
+                f.write(query + " Q0 " + doc + " " + str(0) + " " + str(results[query][doc]) + " seo_task\n")
     return trec_file
 
 
@@ -185,7 +186,7 @@ def retrieve_scores(test_indices, queries, score_file):
             query = queries[i]
             doc = test_indices[i]
             results[query][doc] = float(score.split()[2].rstrip())
-        return results
+        return dict(results)
 
 
 def create_index_to_doc_name_dict(data_set_file):
@@ -238,7 +239,7 @@ def reverese_query(qid):
     return epoch, query
 
 
-def load_file(filename):
+def load_trectext_file(filename):
     parser = etree.XMLParser(recover=True)
     tree = ET.parse(filename, parser=parser)
     root = tree.getroot()
@@ -370,3 +371,9 @@ def parse_trec_id(trec_id: str):
 
 def generate_trec_id(epoch, qid, player_id):
     return f'ROUND-{epoch:02d}-{qid}-{player_id}'
+
+
+def generate_pair_name(pair):
+    out_ = str(int(pair.split("_")[1]) + 1)
+    in_ = str(int(pair.split("_")[2]) + 1)
+    return pair.split("$")[1].split("_")[0] + "_" + in_ + "_" + out_

@@ -2,6 +2,7 @@ import os
 import xml.etree.ElementTree as ET
 from os.path import exists, basename, splitext
 
+from deprecated import deprecated
 from lxml import etree
 
 from create_bot_features import update_text_doc, run_reranking
@@ -30,7 +31,7 @@ def create_initial_trec_file(original_trec_file: str, output_dir: str, qid: str,
 def create_initial_trectext_file(original_trectext_file, output_dir, qid, competitors):
     if not exists(output_dir):
         os.makedirs(output_dir)
-    doc_list = [f'ROUND-01-{qid}-{competitor}' for competitor in competitors]
+    trec_id_list = [generate_trec_id(1, qid, competitor) for competitor in competitors]
     new_trectext_file = output_dir + f'documents_{qid}_{",".join(competitors)}.trectext'
 
     parser = etree.XMLParser(recover=True)
@@ -42,7 +43,7 @@ def create_initial_trectext_file(original_trectext_file, output_dir, qid, compet
         for att in doc:
             if att.tag == 'DOCNO':
                 name = att.text
-                if name not in doc_list:
+                if name not in trec_id_list:
                     break
             elif att.tag == 'TEXT':
                 docs[name] = att.text
@@ -109,15 +110,19 @@ def generate_updated_document(max_pair, raw_ds_file, doc_texts):
     return update_text_doc(ref_doc, sentence_in, sentence_out_index)
 
 
-def get_game_state(trec_file):
+def get_game_state(trec_file, current_epoch):
     competitors_ranked_list = []
     with open(trec_file, 'r') as f:
         for line in f:
+            epoch = int(line[2:4])
+            if epoch != current_epoch:
+                continue
             trec_id = line.split()[2]
             competitors_ranked_list.append(parse_trec_id(trec_id)[2])
     return competitors_ranked_list
 
 
+@deprecated(reason='Created for dumb reason')
 def get_doc_text(doctext_file, trec_id):
     xml_parser = etree.XMLParser(recover=True)
     tree = ET.parse(doctext_file, parser=xml_parser)
@@ -133,14 +138,25 @@ def get_doc_text(doctext_file, trec_id):
                      .format(doctext_file, trec_id))
 
 
-def update_trec_files(logger, trec_file, trectext_file, raw_ds_file, doc_texts, epoch, qid, max_pair):
-    winner_id, loser_id = get_game_state(trec_file)
-    updated_document = generate_updated_document(max_pair, raw_ds_file, doc_texts)
-    winner_doc = doc_texts[generate_trec_id(epoch, qid, winner_id)]
-    trectext_dict = {generate_trec_id(epoch + 1, qid, winner_id): winner_doc,
-                     generate_trec_id(epoch + 1, qid, loser_id): updated_document}
-    append_to_trectext_file(trectext_file, trectext_dict)
+def advance_round(line):
+    split_line = line.split()
 
-    t = run_reranking(logger, )
+    qid = line[:2]
+    epoch = int(line[2:4]) + 1
+    split_line[0] = qid + str(epoch).zfill(2)
+
+    trec_id = split_line[2].split('-')
+    trec_id[1] = str(epoch).zfill(2)
+    split_line[2] = '-'.join(trec_id)
+    return ' '.join(split_line)
 
 
+def append_to_trec_file(comp_trec_file, reranked_trec_file):
+    with open(comp_trec_file, 'a') as trec:
+        with open(reranked_trec_file, 'r') as reranked_trec:
+            for line in reranked_trec:
+                trec.write(advance_round(line)+'\n')
+
+
+if __name__ == '__main__':
+    pass

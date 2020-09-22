@@ -28,7 +28,7 @@ if __name__ == '__main__':
     trectext_file = './tmp/trectext_files/documents_017_01,22.trectext'
 
     max_pair = get_highest_ranked_pair(features_file, ranking_file)
-    doc_texts = load_file(trectext_file)
+    doc_texts = load_trectext_file(trectext_file)
     ranked_lists = read_raw_trec_file(trec_file)
 
     with open(raw_ds_file) as f:
@@ -41,10 +41,10 @@ if __name__ == '__main__':
                 sentence_out_index = int(key.split('_')[1])
                 break
 
-    run_reranking(logger, output_dir +'new_index', sentence_in, output_dir + 'specific_ws', ref_doc_trec_id,
-                  sentence_out_index, output_dir + 'new_trectext', ranked_lists, new_feature_file,
-                  output_dir +'feature_dir/', output_dir +'trec_file', output_dir +'score_file', '~/', 'indri/',
-                  '/lv_local/home/hadarsi/work_files/merged_index/', './scripts/',
-                  '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/', './data/stopwords_list',
-                  './data/working_comp_queries.txt', './scripts/RankLib.jar', './rank_models/model_lambdatamart')
+    # run_reranking(logger, output_dir + 'new_index', output_dir + 'specific_ws', sentence_out_index,
+    #               output_dir + 'new_trectext', new_feature_file, '/lv_local/home/hadarsi/work_files/merged_index/',
+    #               './scripts/', './data/stopwords_list', '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/',
+    #               './data/working_comp_queries.txt', './scripts/RankLib.jar',
+    #               './rank_models/model_lambdatamart',, sentence_in, ref_doc_trec_id, ranked_lists, output_dir +
+    #                 'feature_dir/', output_dir + 'trec_file', output_dir + 'score_file', '~/'
 

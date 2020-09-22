@@ -7,9 +7,10 @@ import os
 from copy import deepcopy
 from vector_functionality import query_term_freq, centroid_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
-from utils import clean_texts, read_trec_file, load_file, get_java_object, create_trectext_file, create_index, \
+from utils import clean_texts, read_trec_file, load_trectext_file, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
-    transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict
+    transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict, \
+    generate_pair_name
 from nltk import sent_tokenize
 import numpy as np
 import math
@@ -61,7 +62,7 @@ def read_raw_ds(raw_dataset):
             sentence_out = line.split("\t")[2]
             sentence_in = line.split("\t")[3].rstrip()
             result[query][key] = {"in": sentence_in, "out": sentence_out}
-    return result
+    return dict(result)
 
 
 def context_similarity(replacement_index, ref_sentences, sentence_compared, mode, model, stemmer=None):
@@ -129,9 +130,7 @@ def write_files(feature_list, feature_vals, output_dir, qrid, ref):
     for feature in feature_list:
         with open(output_dir + "doc" + feature + "_" + query_write, 'w') as out:
             for pair in feature_vals[feature]:
-                out_ = str(int(pair.split("_")[1]) + 1)
-                in_ = str(int(pair.split("_")[2]) + 1)
-                name = pair.split("$")[1].split("_")[0] + "_" + in_ + "_" + out_
+                name = generate_pair_name(pair)
                 value = feature_vals[feature][pair]
                 out.write(name + " " + str(value) + "\n")
 
@@ -355,9 +354,7 @@ def create_ws(raw_ds, ws_fname, ref):
             epoch, qid = reverese_query(qrid)
             query_write = qid + str(int(epoch)) + ind_name[ref]
             for i, pair in enumerate(raw_ds[qrid]):
-                out_ = str(int(pair.split("_")[1]) + 1)
-                in_ = str(int(pair.split("_")[2]) + 1)
-                name = pair.split("$")[1].split("_")[0] + "_" + in_ + "_" + out_
+                name = generate_pair_name(pair)
                 ws.write(query_write + " Q0 " + name + " 0 " + str(i + 1) + " pairs_seo\n")
 
 
@@ -367,42 +364,42 @@ def create_new_trectext(doc, texts, new_text, new_trectext_name):
     create_trectext_file(text_copy, new_trectext_name, "ws_debug")
 
 
-def create_specific_ws(qid, ranked_lists, fname):
+def create_specific_ws(qrid, ranked_lists, fname):
     with open(fname, 'w') as out:
-        for i, doc in enumerate(ranked_lists[qid]):
-            out.write(qid + " Q0 " + doc + " 0 " + str(i + 1) + " pairs_seo\n")
+        for i, doc in enumerate(ranked_lists[qrid]):
+            out.write(qrid + " Q0 " + doc + " 0 " + str(i + 1) + " pairs_seo\n")
 
 
-def run_reranking(logger, new_text, new_index, qrid, specific_ws, ref_doc, texts, new_trectext_name,
-                  ranked_lists, new_feature_file, feature_dir, trec_file, score_file, home_path, indri_path, index_path,
-                  scripts_path='./scripts/', swig_path, stopwords_file='./data', queries_text_file, jar_path, model):
-    create_new_trectext(ref_doc, texts, new_text, new_trectext_name)
-    create_specific_ws(qrid, ranked_lists, specific_ws)
+def run_reranking(logger, new_text, qrid, ref_doc, texts, ranked_lists, indri_path, index_path, swig_path, scripts_dir,
+                  stopwords_file, queries_text_file, jar_path, rank_model, output_dir, new_index, specific_ws, 
+                  new_trectext_name, new_feature_file, feature_dir, trec_file, score_file):
+    create_new_trectext(ref_doc, texts, new_text, output_dir + new_trectext_name)
+    create_specific_ws(qrid, ranked_lists, output_dir + specific_ws)
     logger.info("creating features")
-    create_index(new_trectext_name, new_index, home_path, indri_path)
-    features_file = create_features_file_diff(feature_dir, index_path, new_index,
-                                              new_feature_file, specific_ws, scripts_path, swig_path, stopwords_file, queries_text_file)
+    create_index(output_dir + new_trectext_name, output_dir + new_index, indri_path)
+    features_file = create_features_file_diff(output_dir + feature_dir, index_path, output_dir + new_index, output_dir + new_feature_file, output_dir + specific_ws,
+                                              scripts_dir, swig_path, stopwords_file, queries_text_file)
     logger.info("creating docname index")
     docname_index = create_index_to_doc_name_dict(features_file)
     logger.info("docname index creation is completed")
     query_index = create_index_to_query_dict(features_file)
     logger.info("features creation completed")
     logger.info("running ranking model on features file")
-    score_file = run_model(features_file, jar_path, score_file, model)
+    run_model(features_file, jar_path, output_dir + score_file, rank_model)
     logger.info("ranking completed")
     logger.info("retrieving scores")
-    scores = retrieve_scores(docname_index, query_index, score_file)
+    scores = retrieve_scores(docname_index, query_index, output_dir + score_file)
     logger.info("scores retrieval completed")
     logger.info("creating trec_eval file")
-    tmp_trec = create_trec_eval_file(scores, trec_file)
+    create_trec_eval_file(scores, output_dir + trec_file)
     logger.info("trec file creation is completed")
     logger.info("ordering trec file")
-    final = order_trec_file(tmp_trec)
+    final = order_trec_file(output_dir + trec_file)
     logger.info("ranking procedure completed")
     return final
 
 
-def create_qrels(raw_ds, base_trec, out_file, ref, new_indices_dir, texts, options):
+def create_qrels(raw_ds, base_trec, out_file, ref, new_indices_dir, texts):
     ind_name = {-1: "5", 1: "2"}
     with open(out_file, 'w') as qrels:
         ranked_lists = read_raw_trec_file(base_trec)
@@ -432,17 +429,14 @@ def create_qrels(raw_ds, base_trec, out_file, ref, new_indices_dir, texts, optio
                 ref_doc = pair.split("$")[0]
                 out_index = int(pair.split("_")[1])
                 query_write = query + epoch.lstrip('0') + ind_name[ref]
-                out_ = str(int(pair.split("_")[1]) + 1)
-                in_ = str(int(pair.split("_")[2]) + 1)
-                name = pair.split("$")[1].split("_")[0] + "_" + in_ + "_" + out_
+                name = generate_pair_name(pair)
                 fname_pair = pair.replace("$", "_")
                 feature_dir = "tmp_features/" + fname_pair + "/"
                 if not os.path.exists(feature_dir):
                     os.makedirs(feature_dir)
                 features_file = "qrels_features/" + fname_pair
-                final_trec = run_reranking(new_indices_dir + fname_pair, raw_stats[qid][pair]["in"], qid,
-                                           ref_doc, out_index, texts, ranked_lists, features_file, feature_dir, trec_dir + fname_pair,
-                                           scores_dir + fname_pair, options)
+                final_trec = run_reranking(new_indices_dir + fname_pair, raw_stats[qid][pair]["in"], ref_doc, texts,
+                                           ranked_lists, feature_dir)
                 new_lists = read_raw_trec_file(final_trec)
                 label = str(max(ranked_lists[qid].index(ref_doc) - new_lists[qid].index(ref_doc), 0))
                 qrels.write(query_write + " 0 " + name + " " + label + "\n")
@@ -468,8 +462,8 @@ if __name__ == "__main__":
     # Optional variables
     # parser.add_option("--competitors", default='13,43')  # this should be useless in the case of customized trec file
     # files can't shared between different processes, so these defaults can't stay
-    parser.add_option("--workingset_file", default='./tmp/workingset.txt')
-    parser.add_option("--raw_ds_out", default='./tmp/raw_ds_out.txt')
+    parser.add_option("--workingset_file", default='./output/workingset.txt')
+    parser.add_option("--raw_ds_out", default='./output/raw_ds_out.txt')
     parser.add_option("--index_path", default='~/work_files/merged_index/')
     parser.add_option("--home_path", default='~/')
     parser.add_option("--java_path", default='jdk-15/')
@@ -477,10 +471,10 @@ if __name__ == "__main__":
     parser.add_option("--stopwords_file", default='./data/stopwords_list')
     parser.add_option("--doc_tfidf_dir", default='./asr_tfidf_vectors/')
     parser.add_option("--sentences_tfidf_dir",
-                      default='./tmp/sentences_tfidf_dir/')  # does this need to be competition specific?
+                      default='./output/sentences_tfidf_dir/')  # does this need to be competition specific?
     parser.add_option("--queries_file", default='data/queries_seo_exp.xml')
-    parser.add_option("--output_feature_files_dir", default='./tmp/feature_files/')
-    parser.add_option("--output_final_feature_file_dir", default='./tmp/final_features/')
+    parser.add_option("--output_feature_files_dir", default='./output/feature_files/')
+    parser.add_option("--output_final_feature_file_dir", default='./output/final_features/')
     parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
 
     # TODO find out what these are about
@@ -498,7 +492,7 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
     ranked_lists = read_trec_file(options.trec_file)
-    doc_texts = load_file(options.trectext_file)
+    doc_texts = load_trectext_file(options.trectext_file)
     mode = options.mode
 
     if mode == 'single':
