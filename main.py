@@ -3,7 +3,6 @@ import os
 import sys
 from optparse import OptionParser
 from os.path import exists
-
 import gensim
 
 from create_bot_features import run_reranking
@@ -28,7 +27,7 @@ if __name__ == '__main__':
     parser.add_option('--competitors')
 
     # Optional variables
-    parser.add_option('--total_rounds', '-r', type='int', default=25)
+    parser.add_option('--total_rounds', '-r', type='int', default=20)
     parser.add_option('--label_aggregation_method', '--agg', choices=['harmonic', 'demotion', 'weighted'],
                       default='harmonic')
     parser.add_option('--label_aggregation_b', '-b',
