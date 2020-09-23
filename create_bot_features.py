@@ -12,7 +12,6 @@ import gensim
 import numpy as np
 from nltk import sent_tokenize
 
-from bot_competition import generate_sentence_tfidf_files
 from gen_utils import run_bash_command, list_multiprocessing
 from utils import clean_texts, read_trec_file, load_trectext_file, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
@@ -281,8 +280,7 @@ def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc
 
 def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_index, top_doc_index,
                             doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir, qid, query_text,
-                            output_feature_files_dir, output_final_features_dir, workingset_file,
-                            swig_path, indri_path):
+                            output_feature_files_dir, output_final_features_dir, workingset_file):
     # TODO find a way to reuse the word_embedding model
     global word_embd_model
     if not os.path.exists(output_feature_files_dir):
@@ -291,8 +289,6 @@ def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_i
         os.makedirs(output_final_features_dir)
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
-    generate_sentence_tfidf_files(swig_path, indri_path, workingset_file, sentence_tfidf_vectors_dir)
-    input('created tfidf files (hopefully)')
     create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
                         sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qid)
     run_bash_command("perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file)
@@ -512,13 +508,13 @@ if __name__ == "__main__":
         create_sentence_vector_files(logger, options.sentences_tfidf_dir, raw_ds_file, options.index_path,
                                      options.swig_path)
 
-        query_text = get_query_text(options.queries_file, qrid)
+        query_text = get_query_text(options.queries_file, qid)
         word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
         feature_creation_single(raw_ds_file, ranked_lists, doc_texts, options.ref_index,
                                 options.top_docs_index, options.doc_tfidf_dir, options.sentences_tfidf_dir, qrid,
                                 query_text, options.output_feature_files_dir, options.output_final_feature_file_dir,
-                                options.workingset_file, options.swig_path, options.indri_path)
+                                options.workingset_file)
 
     elif mode == 'multiple':
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(options.ref_index),

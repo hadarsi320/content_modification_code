@@ -6,10 +6,10 @@ from os.path import exists
 
 from create_bot_features import run_reranking
 from utils import get_learning_data_path, get_model_name, get_qrid, load_trectext_file, generate_trec_id, \
-    append_to_trectext_file, read_raw_trec_file
+    append_to_trectext_file, read_raw_trec_file, create_sentence_workingset
 from bot_competition import generate_learning_dataset, create_model, create_initial_trec_file, \
     create_initial_trectext_file, create_features, generate_predictions, get_highest_ranked_pair, \
-    get_game_state, generate_updated_document, append_to_trec_file, generate_sentence_tfidf_files
+    get_game_state, generate_updated_document, append_to_trec_file, generate_document_tfidf_files
 
 if __name__ == '__main__':
     program = os.path.basename(sys.argv[0])
@@ -58,6 +58,8 @@ if __name__ == '__main__':
     qid = options.qid.zfill(3)
     competitor_list = sorted(options.competitors.split(','))
     output_dir = options.output_dir
+    doc_tfidf_dir = output_dir + 'tf_idf_vectors/'
+    sentence_workingset_file = output_dir + 'document_ws.txt'
     # TODO implement some qid fool proofing protocol
     # if not in_dataset(qid, competitor_list):
     #     raise ValueError()
@@ -76,18 +78,20 @@ if __name__ == '__main__':
     comp_trec_file = create_initial_trec_file(options.trec_file, output_dir + 'trec_files/', qid, competitor_list)
     comp_trectext_file = create_initial_trectext_file(options.trectext_file, output_dir + 'trectext_files/', qid,
                                                       competitor_list)
-    doc_texts = load_trectext_file(comp_trectext_file)
 
     for epoch in range(1, options.total_rounds+1):
-        input('\n#########Starting round {}\n'.format(epoch))
+        print('\n#########Starting round {} (press enter to begin)\n'.format(epoch))
+        doc_texts = load_trectext_file(comp_trectext_file)
         qrid = get_qrid(qid, epoch)
         raw_ds_file = output_dir + 'raw_datasets/raw_ds_out_' + qrid + '_' + ','.join(competitor_list) + '.txt'
         features_file = output_dir + 'final_features/features_{}.dat'.format(qrid)
         winner_id, loser_id = get_game_state(comp_trec_file, epoch)
-        
-        generate_sentence_tfidf_files(options.swig_path, options.indri_path, workingset_file,
-                                      output_dir + 'tf_idf_vectors/')
-        create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file)
+
+        create_sentence_workingset(sentence_workingset_file, epoch, qid, competitor_list)
+        generate_document_tfidf_files(options.swig_path, options.index_path, sentence_workingset_file,
+                                      doc_tfidf_dir)
+
+        create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file, doc_tfidf_dir)
         ranking_file = generate_predictions(model_path, options.svm_rank_scripts_dir, output_dir, features_file)
         max_pair = get_highest_ranked_pair(features_file, ranking_file)
 

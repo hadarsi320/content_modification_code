@@ -328,17 +328,17 @@ def read_queries_file(queries_file, current_qrid=None):
     return stats
 
 
-def get_query_text(queries_file, current_qrid):
+def get_query_text(queries_file, current_qid):
     with open(queries_file) as file:
         for line in file:
             if "<number>" in line:
-                qrid = line.replace('<number>', '').replace('</number>', "").split("_")[0].rstrip() \
-                    .replace("\t", "").replace(" ", "")
-            if '<text>' in line and qrid == current_qrid:
+                qid = line.replace('<number>', '').replace('</number>', "").split("_")[0].rstrip() \
+                    .replace("\t", "").replace(" ", "")[:-2]
+            if '<text>' in line and qid == current_qid:
                 query_text = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "") \
                     .replace("#combine( ", "").replace(" )", "")
                 return query_text
-    raise Exception('No query with such qid: {}'.format(current_qrid))
+    raise Exception('No query with such qid: {}'.format(current_qid))
 
 
 def get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b):
@@ -379,3 +379,13 @@ def generate_pair_name(pair):
     out_ = str(int(pair.split("_")[1]))
     in_ = str(int(pair.split("_")[2]))
     return pair.split("$")[1].split("_")[0] + "_" + in_ + "_" + out_
+
+
+def create_sentence_workingset(output_file, epoch, qid, competitor_list):
+    output_dir = os.path.dirname(output_file)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    with open(output_file, 'w') as f:
+        for competitor in competitor_list:
+            line = get_qrid(qid, epoch) + ' Q0 ' + generate_trec_id(epoch, qid, competitor) + ' 0 0 indri'
+            f.write(line + '\n')

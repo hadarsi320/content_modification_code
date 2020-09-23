@@ -52,10 +52,11 @@ def create_initial_trectext_file(original_trectext_file, output_dir, qid, compet
     return new_trectext_file
 
 
-def create_features(qrid, trec_file, trectext_file, raw_ds_fname, mode='single', ref_index=1, top_docs_index=1):
+def create_features(qrid, trec_file, trectext_file, raw_ds_fname, doc_tdidf_dir, mode='single', ref_index=1,
+                    top_docs_index=1):
     command = f'python create_bot_features.py --mode={mode} --qrid={qrid} --ref_index={ref_index} ' \
               f'--top_docs_index={top_docs_index} --trec_file={trec_file} --trectext_file={trectext_file}' \
-              f' --raw_ds_out={raw_ds_fname}'
+              f' --raw_ds_out={raw_ds_fname} --doc_tfidf_dir={doc_tdidf_dir}'
     run_and_print(command)
 
 
@@ -114,7 +115,7 @@ def get_game_state(trec_file, current_epoch):
     competitors_ranked_list = []
     with open(trec_file, 'r') as f:
         for line in f:
-            epoch = int(line[2:4])
+            epoch = int(line.split()[0][-2:])
             if epoch != current_epoch:
                 continue
             trec_id = line.split()[2]
@@ -141,8 +142,9 @@ def get_doc_text(doctext_file, trec_id):
 def advance_round(line):
     split_line = line.split()
 
-    qid = line[:2]
-    epoch = int(line[2:4]) + 1
+    qrid = split_line[0]
+    qid = qrid[:-2]
+    epoch = int(qrid[-2:]) + 1
     split_line[0] = qid + str(epoch).zfill(2)
 
     trec_id = split_line[2].split('-')
@@ -162,9 +164,9 @@ if __name__ == '__main__':
     pass
 
 
-def generate_sentence_tfidf_files(swig_path, indri_path, workingset_file, output_dir):
+def generate_document_tfidf_files(swig_path, index_path, workingset_file, output_dir):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
-              + indri_path + ' ' + workingset_file + '_' + output_dir
+              + index_path + ' ' + workingset_file + ' ' + output_dir
     run_and_print(command)
