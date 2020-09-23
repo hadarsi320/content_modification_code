@@ -30,6 +30,7 @@ def create_initial_trec_file(original_trec_file: str, output_dir: str, qid: str,
 
 
 def create_initial_trectext_file(original_trectext_file, output_dir, qid, competitors):
+    # TODO trim and preprocess the documents
     if not exists(output_dir):
         os.makedirs(output_dir)
     trec_id_list = [generate_trec_id(1, qid, competitor) for competitor in competitors]
