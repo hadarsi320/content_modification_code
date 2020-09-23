@@ -61,8 +61,6 @@ def read_raw_ds(raw_dataset):
     with open(raw_dataset, encoding="utf-8") as ds:
         for line in ds:
             query = line.split("\t")[0]
-            # if query not in result:
-            #     result[query] = {}
             key = line.split("\t")[1]
             sentence_out = line.split("\t")[2]
             sentence_in = line.split("\t")[3].rstrip()

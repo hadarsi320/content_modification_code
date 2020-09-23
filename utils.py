@@ -233,9 +233,9 @@ def get_past_winners(ranked_lists, epoch, query):
     return past_winners
 
 
-def reverese_query(qid):
-    epoch = str(qid)[-2:]
-    query = str(qid)[:-2].zfill(3)
+def reverese_query(qrid):
+    epoch = str(qrid)[-2:]
+    query = str(qrid)[:-2].zfill(3)
     return epoch, query
 
 
@@ -332,8 +332,9 @@ def get_query_text(queries_file, current_qid):
     with open(queries_file) as file:
         for line in file:
             if "<number>" in line:
-                qid = line.replace('<number>', '').replace('</number>', "").split("_")[0].rstrip() \
-                    .replace("\t", "").replace(" ", "")[:-2]
+                qrid = line.replace('<number>', '').replace('</number>', "").split("_")[0].rstrip() \
+                    .replace("\t", "").replace(" ", "")
+                qid = reverese_query(qrid)[1]
             if '<text>' in line and qid == current_qid:
                 query_text = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "") \
                     .replace("#combine( ", "").replace(" )", "")
@@ -374,11 +375,9 @@ def generate_trec_id(epoch, qid, player_id):
 
 
 def generate_pair_name(pair):
-    # out_ = str(int(pair.split("_")[1]) + 1)
-    # in_ = str(int(pair.split("_")[2]) + 1)
     out_ = str(int(pair.split("_")[1]))
     in_ = str(int(pair.split("_")[2]))
-    return pair.split("$")[1].split("_")[0] + "_" + in_ + "_" + out_
+    return pair.split("$")[1].split("_")[0] + "_" + out_ + "_" + in_
 
 
 def create_sentence_workingset(output_file, epoch, qid, competitor_list):

@@ -72,13 +72,13 @@ def cosine_similarity(v1, v2):
     return sumxy / math.sqrt(sumxx * sumyy)
 
 
-def get_text_centroid(text, model, stemmer=None):
+def get_text_centroid(text, model, stemmer=False):
     sum_vector = None
     denom = 0
-    if stemmer is not None:
+    if stemmer:
         stem = Stemmer()
     for token in clean_sentence(text):
-        if stemmer is not None:
+        if stemmer:
             token = stem.stem(token)
         try:
             vector = model.wv[token]
@@ -86,7 +86,7 @@ def get_text_centroid(text, model, stemmer=None):
             continue
         if sum_vector is None:
             sum_vector = np.zeros(vector.shape[0])
-        sum_vector = sum_vector + vector
+        sum_vector += vector
         denom += 1
     if sum_vector is None:
         return None

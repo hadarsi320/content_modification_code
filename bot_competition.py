@@ -9,6 +9,7 @@ from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_trec_id, \
     generate_trec_id
+from vector_functionality import centroid_similarity
 
 
 def create_initial_trec_file(original_trec_file: str, output_dir: str, qid: str, competitors: list):
@@ -52,11 +53,11 @@ def create_initial_trectext_file(original_trectext_file, output_dir, qid, compet
     return new_trectext_file
 
 
-def create_features(qrid, trec_file, trectext_file, raw_ds_fname, doc_tdidf_dir, mode='single', ref_index=1,
+def create_features(qrid, trec_file, trectext_file, raw_ds_fname, doc_tdidf_dir, index, mode='single', ref_index=1,
                     top_docs_index=1):
     command = f'python create_bot_features.py --mode={mode} --qrid={qrid} --ref_index={ref_index} ' \
               f'--top_docs_index={top_docs_index} --trec_file={trec_file} --trectext_file={trectext_file}' \
-              f' --raw_ds_out={raw_ds_fname} --doc_tfidf_dir={doc_tdidf_dir}'
+              f' --raw_ds_out={raw_ds_fname} --doc_tfidf_dir={doc_tdidf_dir} --index_path={index}'
     run_and_print(command)
 
 
@@ -170,3 +171,17 @@ def generate_document_tfidf_files(swig_path, index_path, workingset_file, output
     command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
               + index_path + ' ' + workingset_file + ' ' + output_dir
     run_and_print(command)
+
+
+def document_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedding_model):
+    recent_documents = []
+    for document in doc_texts:
+        epoch = int(document.split('-')[1])
+        if epoch == current_epoch:
+            recent_documents.append(doc_texts[document])
+
+    if not os.path.exists(os.path.dirname(similarity_file)):
+        os.makedirs(os.path.dirname(similarity_file))
+    with open(similarity_file, 'a') as f:
+        similarity = centroid_similarity(*recent_documents, word_embedding_model)
+        f.write(f'{current_epoch}. {similarity}\n')

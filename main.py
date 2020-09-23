@@ -4,12 +4,15 @@ import sys
 from optparse import OptionParser
 from os.path import exists
 
+import gensim
+
 from create_bot_features import run_reranking
 from utils import get_learning_data_path, get_model_name, get_qrid, load_trectext_file, generate_trec_id, \
-    append_to_trectext_file, read_raw_trec_file, create_sentence_workingset
+    append_to_trectext_file, read_raw_trec_file, create_sentence_workingset, create_index
 from bot_competition import generate_learning_dataset, create_model, create_initial_trec_file, \
     create_initial_trectext_file, create_features, generate_predictions, get_highest_ranked_pair, \
-    get_game_state, generate_updated_document, append_to_trec_file, generate_document_tfidf_files
+    get_game_state, generate_updated_document, append_to_trec_file, generate_document_tfidf_files, \
+    document_doc_similarity
 
 if __name__ == '__main__':
     program = os.path.basename(sys.argv[0])
@@ -23,9 +26,9 @@ if __name__ == '__main__':
     # Mandatory variables
     parser.add_option('--qid')
     parser.add_option('--competitors')
-    parser.add_option('--total_rounds', '-r', type='int')
 
     # Optional variables
+    parser.add_option('--total_rounds', '-r', type='int', default=25)
     parser.add_option('--label_aggregation_method', '--agg', choices=['harmonic', 'demotion', 'weighted'],
                       default='harmonic')
     parser.add_option('--label_aggregation_b', '-b',
@@ -49,6 +52,7 @@ if __name__ == '__main__':
     parser.add_option('--index_path', default='~/work_files/merged_index/')
     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
     parser.add_option("--reranking_output_dir", default='./output/reranking_output/')
+    parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
     # parser.add_option('--', default='')
 
     (options, args) = parser.parse_args()
@@ -58,9 +62,15 @@ if __name__ == '__main__':
     qid = options.qid.zfill(3)
     competitor_list = sorted(options.competitors.split(','))
     output_dir = options.output_dir
-    doc_tfidf_dir = output_dir + 'tf_idf_vectors/'
+    doc_tfidf_dir = output_dir + 'document_tfidf_dir/'
     sentence_workingset_file = output_dir + 'document_ws.txt'
-    # TODO implement some qid fool proofing protocol
+    comp_index = output_dir + 'index_dir/index_{}_{}'.format(qid, ','.join(competitor_list))
+    similarity_file = './similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(competitor_list))
+    if os.path.exists(similarity_file):
+        os.remove(similarity_file)
+    word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
+                                                                           limit=700000)
+    # TODO implement some qid fool-proofing protocol
     # if not in_dataset(qid, competitor_list):
     #     raise ValueError()
 
@@ -79,19 +89,21 @@ if __name__ == '__main__':
     comp_trectext_file = create_initial_trectext_file(options.trectext_file, output_dir + 'trectext_files/', qid,
                                                       competitor_list)
 
-    for epoch in range(1, options.total_rounds+1):
-        print('\n#########Starting round {} (press enter to begin)\n'.format(epoch))
+    for epoch in range(1, options.total_rounds + 1):
+        print('\n#########Starting round {}\n'.format(epoch))  # (press enter to begin)
         doc_texts = load_trectext_file(comp_trectext_file)
+        document_doc_similarity(doc_texts, epoch, similarity_file, word_embedding_model)
         qrid = get_qrid(qid, epoch)
         raw_ds_file = output_dir + 'raw_datasets/raw_ds_out_' + qrid + '_' + ','.join(competitor_list) + '.txt'
         features_file = output_dir + 'final_features/features_{}.dat'.format(qrid)
         winner_id, loser_id = get_game_state(comp_trec_file, epoch)
 
+        create_index(comp_trectext_file, comp_index, options.indri_path)
         create_sentence_workingset(sentence_workingset_file, epoch, qid, competitor_list)
-        generate_document_tfidf_files(options.swig_path, options.index_path, sentence_workingset_file,
+        generate_document_tfidf_files(options.swig_path, comp_index, sentence_workingset_file,
                                       doc_tfidf_dir)
 
-        create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file, doc_tfidf_dir)
+        create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file, doc_tfidf_dir, comp_index)
         ranking_file = generate_predictions(model_path, options.svm_rank_scripts_dir, output_dir, features_file)
         max_pair = get_highest_ranked_pair(features_file, ranking_file)
 

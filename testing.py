@@ -41,4 +41,12 @@ if __name__ == '__main__':
     #             sentence_out_index = int(key.split('_')[1])
     #             break
 
-    print(get_query_text('data/queries_seo_exp.xml', '164'))
+    with open('foobar.txt', 'w') as f:
+        f.write('asdasd\nasdasd\nasdasd')
+    input('enter')
+    with open('foobar.txt', 'w') as f:
+        pass
+    input('enter')
+    with open('foobar.txt', 'w') as f:
+        f.write(None)
+    input('enter')
