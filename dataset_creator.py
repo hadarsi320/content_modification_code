@@ -1,5 +1,6 @@
 import sys
 import os
+from utils import ensure_dir
 
 
 def read_labels(fname):
@@ -77,8 +78,7 @@ def create_weighted_mean_score(seo_scores, coherency_scores, beta):
 
 
 def rewrite_features(labels, features_fname, output_features_fname):
-    if not os.path.exists(os.path.dirname(output_features_fname)):
-        os.makedirs(os.path.dirname(output_features_fname))
+    ensure_dir(output_dir)
     with open(output_features_fname, 'w') as output:
         with open(features_fname) as base_features:
             for data_point in base_features:
@@ -90,8 +90,7 @@ def rewrite_features(labels, features_fname, output_features_fname):
 
 
 def rewrite_qrels(lables, output_qrels_fname):
-    if not os.path.exists(os.path.dirname(output_qrels_fname)):
-        os.makedirs(os.path.dirname(output_qrels_fname))
+    ensure_dir(output_qrels_fname)
     with open(output_qrels_fname, 'w') as output:
         for qid in lables:
             for doc in lables[qid]:

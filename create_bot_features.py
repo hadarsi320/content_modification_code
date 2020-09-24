@@ -337,10 +337,6 @@ def update_texts(doc_texts, pairs_ranked_lists, sentence_data):
         ref_doc = chosen_pair.split("$")[0]
         replacement_index = int(chosen_pair.split("_")[1])
         sentence_in = sentence_data[qid][chosen_pair]["in"]
-        # sentences = sent_tokenize(doc_texts[ref_doc])
-        # sentences[replacement_index] = sentence_in
-        # new_text = "\n".join(sentences)
-        # new_texts[ref_doc] = new_text
         new_texts[ref_doc] = update_text_doc(doc_texts[ref_doc], sentence_in, replacement_index)
     for doc in doc_texts:
         if doc not in new_texts:
@@ -350,8 +346,7 @@ def update_texts(doc_texts, pairs_ranked_lists, sentence_data):
 
 def create_ws(raw_ds, ws_fname, ref):
     ind_name = {-1: "5", 1: "2"}
-    if not os.path.exists(os.path.dirname(ws_fname)):
-        os.makedirs(os.path.dirname(ws_fname))
+    ensure_dir(ws_fname)
     with open(ws_fname, 'w') as ws:
         for qrid in raw_ds:
             epoch, qid = reverese_query(qrid)
@@ -466,16 +461,17 @@ if __name__ == "__main__":
     # Optional variables
     # parser.add_option("--competitors", default='13,43')  # this should be useless in the case of customized trec file
     # files can't shared between different processes, so these defaults can't stay
-    parser.add_option("--workingset_file", default='./output/workingset.txt')
-    parser.add_option("--raw_ds_out", default='./output/raw_ds_out.txt')
+    parser.add_option('--output_dir', default='./output/')
+    parser.add_option("--workingset_file", default='workingset.txt')
+    parser.add_option("--raw_ds_out", default='raw_ds_out.txt')
     parser.add_option("--index_path", default='~/work_files/merged_index/')
     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
     parser.add_option("--doc_tfidf_dir", default='./asr_tfidf_vectors/')
     parser.add_option("--sentences_tfidf_dir",
-                      default='./output/sentences_tfidf_dir/')  # does this need to be competition specific?
+                      default='sentences_tfidf_dir/')  # does this need to be competition specific?
     parser.add_option("--queries_file", default='data/queries_seo_exp.xml')
-    parser.add_option("--output_feature_files_dir", default='./output/feature_files/')
-    parser.add_option("--output_final_feature_file_dir", default='./output/final_features/')
+    parser.add_option("--output_feature_files_dir", default='feature_files/')
+    parser.add_option("--output_final_feature_file_dir", default='final_features/')
     parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
     parser.add_option("--indri_path", default='~/indri/')
 
@@ -495,7 +491,10 @@ if __name__ == "__main__":
     ranked_lists = read_trec_file(options.trec_file)
     doc_texts = load_trectext_file(options.trectext_file)
     mode = options.mode
+    sentences_tfidf_dir = options.output_dir + options.sentences_tfidf_dir
     raw_ds_file = options.raw_ds_out
+    output_feature_files_dir = options.output_dir + options.output_feature_files_dir
+    output_final_feature_file_dir = options.output_dir + options.output_final_feature_file_dir
 
     if mode == 'single':
         qrid = options.qrid  # qrid- query round id
@@ -504,21 +503,21 @@ if __name__ == "__main__":
         # if not os.path.exists(raw_ds):
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, options.ref_index, options.top_docs_index,
                            current_epoch=epoch, current_qid=qid)
-        create_sentence_vector_files(logger, options.sentences_tfidf_dir, raw_ds_file, options.index_path,
+        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, options.index_path,
                                      options.swig_path)
 
         query_text = get_query_text(options.queries_file, qid)
         word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
         feature_creation_single(raw_ds_file, ranked_lists, doc_texts, options.ref_index,
-                                options.top_docs_index, options.doc_tfidf_dir, options.sentences_tfidf_dir, qrid,
-                                query_text, options.output_feature_files_dir, options.output_final_feature_file_dir,
+                                options.top_docs_index, options.doc_tfidf_dir, sentences_tfidf_dir, qrid,
+                                query_text, output_feature_files_dir, output_final_feature_file_dir,
                                 options.workingset_file)
 
     elif mode == 'multiple':
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(options.ref_index),
                            int(options.top_docs_index))
-        create_sentence_vector_files(logger, options.sentences_tfidf_dir, raw_ds_file, options.index_path,
+        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, options.index_path,
                                      options.swig_path)
         queries = read_queries_file(options.queries_file)
         queries = transform_query_text(queries)
@@ -526,8 +525,8 @@ if __name__ == "__main__":
                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
         feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(options.top_docs_index),
                                   int(options.ref_index), options.doc_tfidf_dir,
-                                  options.sentences_tfidf_dir, queries, options.output_feature_files_dir,
-                                  options.output_final_feature_file_dir, options.workingset_file)
+                                  sentences_tfidf_dir, queries, output_feature_files_dir,
+                                  output_final_feature_file_dir, options.workingset_file)
 
     else:
         raise ValueError('mode value must be given, and it must be either \'single\' or \'multiple\'')

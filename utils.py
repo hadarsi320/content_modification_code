@@ -16,8 +16,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     run_bash_command("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
     if not os.path.exists(features_dir):
         os.makedirs(features_dir)
-    if not os.path.exists(os.path.dirname(new_features_file)):
-        os.makedirs(os.path.dirname(new_features_file))
+    ensure_dir(new_features_file)
     command = "java -Djava.library.path=" + swig_path + \
               " -cp seo_indri_utils.jar LTRFeatures " + base_index_path + " " + new_index_path + " " \
               + stopwords_file + " " + queries_text_file + " " + working_set_file + " " + features_dir
@@ -147,8 +146,7 @@ def merge_indices(merged_index, new_index_name, base_index, home_path, indri_pat
     # new_index_name = home_path +'/' + index_path +'/' + new_index_name
     if os.path.exists(merged_index):
         os.remove(merged_index)
-    if not os.path.exists(os.path.dirname(merged_index)):
-        os.makedirs(os.path.dirname(merged_index))
+    ensure_dir(merged_index)
     command = home_path + "/" + indri_path + '/bin/dumpindex ' + merged_index + ' merge ' + new_index_name + ' ' +  \
               base_index
     print("##merging command:", command + "##", flush=True)
@@ -158,8 +156,7 @@ def merge_indices(merged_index, new_index_name, base_index, home_path, indri_pat
 
 
 def create_trec_eval_file(results, trec_file):
-    if not os.path.exists(os.path.dirname(trec_file)):
-        os.makedirs(os.path.dirname(trec_file))
+    ensure_dir(trec_file)
     with open(trec_file, 'w') as f:
         for query in results:
             for doc in results[query]:
@@ -215,8 +212,7 @@ def create_index_to_query_dict(data_set_file):
 
 
 def run_model(features_file, jar_path, score_file, model_path):
-    if not os.path.exists(os.path.dirname(score_file)):
-        os.makedirs(os.path.dirname(score_file))
+    ensure_dir(score_file)
     run_bash_command('touch ' + score_file)
     command = "java -jar " + jar_path + " -load " + model_path + " -rank " + features_file + " -score " + \
               score_file
@@ -382,10 +378,14 @@ def generate_pair_name(pair):
 
 
 def create_sentence_workingset(output_file, epoch, qid, competitor_list):
-    output_dir = os.path.dirname(output_file)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    ensure_dir(output_file)
     with open(output_file, 'w') as f:
         for competitor in competitor_list:
             line = get_qrid(qid, epoch) + ' Q0 ' + generate_trec_id(epoch, qid, competitor) + ' 0 0 indri'
             f.write(line + '\n')
+
+
+def ensure_dir(file_name):
+    dir_name = os.path.dirname(file_name)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)

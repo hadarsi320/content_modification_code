@@ -11,7 +11,7 @@ from utils import get_learning_data_path, get_model_name, get_qrid, load_trectex
 from bot_competition import generate_learning_dataset, create_model, create_initial_trec_file, \
     create_initial_trectext_file, create_features, generate_predictions, get_highest_ranked_pair, \
     get_game_state, generate_updated_document, append_to_trec_file, generate_document_tfidf_files, \
-    document_doc_similarity
+    record_doc_similarity
 
 if __name__ == '__main__':
     program = os.path.basename(sys.argv[0])
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     parser.add_option('--unranked_features_file', default='./data/features_bot_sorted.txt')
     parser.add_option('--trec_file', default='./trecs/trec_file_original_sorted.txt')
     parser.add_option('--trectext_file', default='./data/documents.trectext')
-    parser.add_option('--output_dir', default='./output/')
+    parser.add_option('--output_dir', default='./output/tmp/')
     parser.add_option('--rank_model', default='./rank_models/model_lambdatamart')
     parser.add_option('--ranklib_jar', default='./scripts/RankLib.jar')
     parser.add_option('--queries_text_file', default='./data/working_comp_queries.txt')
@@ -51,7 +51,6 @@ if __name__ == '__main__':
     parser.add_option('--index_path', default='~/work_files/merged_index/')
     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
     parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
-    # parser.add_option('--', default='')
 
     (options, args) = parser.parse_args()
     label_aggregation_method = options.label_aggregation_method
@@ -60,7 +59,8 @@ if __name__ == '__main__':
     qid = options.qid.zfill(3)
     competitor_list = sorted(options.competitors.split(','))
     output_dir = options.output_dir
-    doc_tfidf_dir = output_dir + 'document_tfidf_dir/'
+    doc_tfidf_dir = output_dir + 'document_tfidf/'
+    reranking_dir = output_dir + 'reranking/'
     sentence_workingset_file = output_dir + 'document_ws.txt'
     comp_index = output_dir + 'index_dir/index_{}_{}'.format(qid, ','.join(competitor_list))
     similarity_file = './similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(competitor_list))
@@ -88,9 +88,9 @@ if __name__ == '__main__':
                                                       competitor_list)
 
     for epoch in range(1, options.total_rounds + 1):
-        print('\n#########Starting round {}\n'.format(epoch))  # (press enter to begin)
+        print('\n{} Starting round {}\n'.format('#' * 8, epoch))  # (press enter to begin)
         doc_texts = load_trectext_file(comp_trectext_file)
-        document_doc_similarity(doc_texts, epoch, similarity_file, word_embedding_model)
+        record_doc_similarity(doc_texts, epoch, similarity_file, word_embedding_model)
         qrid = get_qrid(qid, epoch)
         raw_ds_file = output_dir + 'raw_datasets/raw_ds_out_' + qrid + '_' + ','.join(competitor_list) + '.txt'
         features_file = output_dir + 'final_features/features_{}.dat'.format(qrid)
@@ -98,14 +98,14 @@ if __name__ == '__main__':
 
         create_index(comp_trectext_file, comp_index, options.indri_path)
         create_sentence_workingset(sentence_workingset_file, epoch, qid, competitor_list)
-        generate_document_tfidf_files(options.swig_path, comp_index, sentence_workingset_file,
-                                      doc_tfidf_dir)
+        generate_document_tfidf_files(options.swig_path, comp_index, sentence_workingset_file, doc_tfidf_dir)
 
-        create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file, doc_tfidf_dir, comp_index)
+        create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file, doc_tfidf_dir, comp_index, output_dir)
+        raise Exception('Stop for debugging')
         ranking_file = generate_predictions(model_path, options.svm_rank_scripts_dir, output_dir, features_file)
         max_pair = get_highest_ranked_pair(features_file, ranking_file)
 
-        print('########################## max pair {}'.format(max_pair))
+        print('$$$$ max pair {}'.format(max_pair))
         updated_document = generate_updated_document(max_pair, raw_ds_file, doc_texts)
         winner_doc = doc_texts[generate_trec_id(epoch, qid, winner_id)]
         trectext_dict = {generate_trec_id(epoch + 1, qid, winner_id): winner_doc,
@@ -115,10 +115,11 @@ if __name__ == '__main__':
         ranked_list = read_raw_trec_file(comp_trec_file)
         # consider creating a file which only contains the files from the current round
         # otherwise there might be some issues in later rounds
+        # TODO use multiprocessing
         reranked_trec_file = run_reranking(logger, updated_document, qrid, generate_trec_id(epoch, qid, loser_id),
                                            doc_texts, ranked_list, options.indri_path, options.index_path,
                                            options.swig_path, options.scripts_dir, options.stopwords_file,
                                            options.queries_text_file, options.ranklib_jar, options.rank_model,
-                                           reranking_output_dir, 'new_index', 'specific_ws', 'new_trectext_file',
+                                           reranking_dir, 'new_index', 'specific_ws', 'new_trectext_file',
                                            'new_feature_file', 'feature_dir/', 'trec_file', 'score_file')
         append_to_trec_file(comp_trec_file, reranked_trec_file)
