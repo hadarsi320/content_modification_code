@@ -24,11 +24,7 @@ if __name__ == '__main__':
         sim_lists.append(sim_list)
 
     rounds = max(len(sim_list) for sim_list in sim_lists)
-    for sim_list in sim_lists:
-        if len(sim_list) < rounds:
-            sim_lists.remove(sim_list)
-
-    sim_matrix = np.array(sim_lists)
+    sim_matrix = np.array([list for list in sim_lists if len(list) == rounds])
 
     # line plot
     averaged_mat = np.average(sim_matrix, axis=0)
@@ -41,13 +37,16 @@ if __name__ == '__main__':
     plt.show()
 
     # histogram
-    alpha = 0.7
+    alpha = 0.5
     bins = 12
+    plt.hist(sim_matrix[:, 0], bins=bins, label='First Round', alpha=alpha)
     for i in range(0, sim_matrix.shape[1], 10):
+        if i == 0 or i == sim_matrix.shape[1] - 1:
+            continue
         plt.hist(sim_matrix[:, i], bins=bins, alpha=alpha, label='Round {}'.format(i))
     plt.hist(sim_matrix[:, -1], bins=bins, label='Last Round', alpha=alpha)
     plt.legend()
-    plt.title('Similarity Histogram with {} Bins'.format(bins))
+    plt.title('Similarity Histogram')
     plt.xlabel('Cosine Similarity')
     plt.ylabel('Counts')
     plt.savefig(plots_dir + 'similarity_histogram.png')

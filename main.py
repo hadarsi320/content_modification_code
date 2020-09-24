@@ -50,7 +50,6 @@ if __name__ == '__main__':
     parser.add_option('--indri_path', default='~/indri/')
     parser.add_option('--index_path', default='~/work_files/merged_index/')
     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
-    parser.add_option("--reranking_output_dir", default='./output/reranking_output/')
     parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
     # parser.add_option('--', default='')
 
@@ -77,8 +76,8 @@ if __name__ == '__main__':
     model_path = options.svm_models_dir + model_name
     if not exists(options.svm_models_dir + model_name):
         learning_data_dir = options.aggregated_data_dir + 'feature_sets/'
-        learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method,
-                                                    label_aggregation_b)
+        learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b)
+
         if not exists(learning_data_path):
             generate_learning_dataset(options.aggregated_data_dir, label_aggregation_method, options.seo_qrels_file,
                                       options.coherency_qrels_file, options.unranked_features_file)
@@ -120,7 +119,6 @@ if __name__ == '__main__':
                                            doc_texts, ranked_list, options.indri_path, options.index_path,
                                            options.swig_path, options.scripts_dir, options.stopwords_file,
                                            options.queries_text_file, options.ranklib_jar, options.rank_model,
-                                           options.reranking_output_dir, 'new_index', 'specific_ws',
-                                           'new_trectext_file', 'new_feature_file', 'feature_dir/', 'trec_file',
-                                           'score_file')
+                                           reranking_output_dir, 'new_index', 'specific_ws', 'new_trectext_file',
+                                           'new_feature_file', 'feature_dir/', 'trec_file', 'score_file')
         append_to_trec_file(comp_trec_file, reranked_trec_file)

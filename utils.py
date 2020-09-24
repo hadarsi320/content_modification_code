@@ -123,7 +123,6 @@ def create_index(trec_text_file, index, indri_path):
     """
     Parse the trectext file given, and create an index.
     """
-    indri_build_index = indri_path + 'bin/IndriBuildIndex'
     corpus_path = trec_text_file
     corpus_class = 'trectext'
     memory = '1G'
@@ -133,8 +132,8 @@ def create_index(trec_text_file, index, indri_path):
         os.makedirs(index_path)
     # if not os.path.exists(home_path + index_path): what is this
     #     os.makedirs(home_path + index_path)
-    command = indri_build_index + ' -corpus.path=' + corpus_path + ' -corpus.class=' + corpus_class + ' -index=' + \
-              index + ' -memory=' + memory + ' -stemmer.name=' + stemmer
+    command = indri_path + 'bin/IndriBuildIndex -corpus.path=' + corpus_path + ' -corpus.class=' + corpus_class + \
+              ' -index=' + index + ' -memory=' + memory + ' -stemmer.name=' + stemmer
     print("##Running IndriBuildIndex command: " + command + "##", flush=True)
     out = run_bash_command(command)
     print("IndriBuildIndex output:" + out, flush=True)
@@ -146,9 +145,11 @@ def merge_indices(merged_index, new_index_name, base_index, home_path, indri_pat
     merges two different indri indices into one
     """
     # new_index_name = home_path +'/' + index_path +'/' + new_index_name
+    if os.path.exists(merged_index):
+        os.remove(merged_index)
     if not os.path.exists(os.path.dirname(merged_index)):
         os.makedirs(os.path.dirname(merged_index))
-    command = home_path + "/" + indri_path + '/bin/dumpindex ' + merged_index + ' merge ' + new_index_name + ' ' + \
+    command = home_path + "/" + indri_path + '/bin/dumpindex ' + merged_index + ' merge ' + new_index_name + ' ' +  \
               base_index
     print("##merging command:", command + "##", flush=True)
     out = run_bash_command(command)

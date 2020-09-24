@@ -380,8 +380,9 @@ def run_reranking(logger, new_text, qrid, ref_doc, texts, ranked_lists, indri_pa
     create_specific_ws(qrid, ranked_lists, output_dir + specific_ws)
     logger.info("creating features")
     create_index(output_dir + new_trectext_name, output_dir + new_index, indri_path)
-    features_file = create_features_file_diff(output_dir + feature_dir, index_path, output_dir + new_index, output_dir + new_feature_file, output_dir + specific_ws,
-                                              scripts_dir, swig_path, stopwords_file, queries_text_file)
+    features_file = create_features_file_diff(output_dir + feature_dir, index_path, output_dir + new_index,
+                                              output_dir + new_feature_file, output_dir + specific_ws, scripts_dir,
+                                              swig_path, stopwords_file, queries_text_file)
     logger.info("creating docname index")
     docname_index = create_index_to_doc_name_dict(features_file)
     logger.info("docname index creation is completed")
