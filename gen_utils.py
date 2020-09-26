@@ -23,8 +23,10 @@ def run_bash_command(command):
                          stderr=subprocess.STDOUT,
                          shell=True)
 
-    out, err = p.communicate()
-    return out.decode('utf-8')
+    out = p.communicate()[0].decode('utf-8')
+    if 'Exception' in out:
+        raise Exception('Error in command: \n{}'.format(out))
+    return out
 
 
 def run_and_print(command):

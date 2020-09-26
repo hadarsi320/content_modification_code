@@ -277,7 +277,7 @@ def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc
 
 
 def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_index, top_doc_index,
-                            doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir, qid, query_text,
+                            doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir, qrid, query_text,
                             output_feature_files_dir, output_final_features_dir, workingset_file, word_embed_model):
     # TODO find a way to reuse the word_embedding model
     if not os.path.exists(output_feature_files_dir):
@@ -287,7 +287,7 @@ def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_i
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
     create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
-                        sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qid, word_embed_model)
+                        sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qrid, word_embed_model)
     run_bash_command("perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file)
     run_bash_command("mv features " + output_final_features_dir + 'features_' + qrid + '.dat')
 
@@ -371,12 +371,20 @@ def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri
                   stopwords_file, queries_text_file, jar_path, rank_model, output_dir, new_index='new_index',
                   specific_ws='specific_ws', new_trectext_name='new_trectext_file', new_feature_file='new_feature_file',
                   feature_dir='feature_dir/', trec_file='trec_file', score_file='score_file'):
-    create_new_trectext(ref_doc_id, texts, new_text, output_dir + new_trectext_name)
-    create_specific_ws(qrid, ranked_lists, output_dir + specific_ws)
+    new_trectext_path = output_dir + new_trectext_name
+    specific_ws_path = output_dir + specific_ws
+    index_path = output_dir + new_index
+    feature_file_path = output_dir + new_feature_file
+    score_file_path = output_dir + score_file
+    trec_file_path = output_dir + trec_file
+    full_feature_dir = output_dir + feature_dir
+
+    create_new_trectext(ref_doc_id, texts, new_text, new_trectext_path)
+    create_specific_ws(qrid, ranked_lists, specific_ws_path)
     logger.info("creating features")
-    create_index(output_dir + new_trectext_name, output_dir + new_index, indri_path)
-    features_file = create_features_file_diff(output_dir + feature_dir, index_path, output_dir + new_index,
-                                              output_dir + new_feature_file, output_dir + specific_ws, scripts_dir,
+    create_index(new_trectext_path, index_path, indri_path)
+    features_file = create_features_file_diff(full_feature_dir, index_path, index_path,
+                                              feature_file_path, specific_ws_path, scripts_dir,
                                               swig_path, stopwords_file, queries_text_file)
     logger.info("creating docname index")
     docname_index = create_index_to_doc_name_dict(features_file)
@@ -384,16 +392,16 @@ def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri
     query_index = create_index_to_query_dict(features_file)
     logger.info("features creation completed")
     logger.info("running ranking model on features file")
-    run_model(features_file, jar_path, output_dir + score_file, rank_model)
+    run_model(features_file, jar_path, score_file_path, rank_model)
     logger.info("ranking completed")
     logger.info("retrieving scores")
-    scores = retrieve_scores(docname_index, query_index, output_dir + score_file)
+    scores = retrieve_scores(docname_index, query_index, score_file_path)
     logger.info("scores retrieval completed")
     logger.info("creating trec_eval file")
-    create_trec_eval_file(scores, output_dir + trec_file)
+    create_trec_eval_file(scores, trec_file_path)
     logger.info("trec file creation is completed")
     logger.info("ordering trec file")
-    final = order_trec_file(output_dir + trec_file)
+    final = order_trec_file(trec_file_path)
     logger.info("ranking procedure completed")
     return final
 
@@ -475,8 +483,6 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
                                      swig_path)
         queries = read_queries_file(queries_file)
         queries = transform_query_text(queries)
-        word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file, binary=True,
-                                                                          limit=700000)  #### Modify this line in case you are using other types of embeedings
         feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),
                                   int(ref_index), doc_tfidf_dir,
                                   sentences_tfidf_dir, queries, output_feature_files_dir,

@@ -131,4 +131,4 @@ if __name__ == '__main__':
                                            options.queries_text_file, options.ranklib_jar, options.rank_model,
                                            output_dir=reranking_dir)
         append_to_trec_file(comp_trec_file, reranked_trec_file)
-        shutil.rmtree(reranking_dir)
+        # shutil.rmtree(reranking_dir)
