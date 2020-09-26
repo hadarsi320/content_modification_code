@@ -16,23 +16,24 @@ from gen_utils import run_bash_command, list_multiprocessing
 from utils import clean_texts, read_trec_file, load_trectext_file, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
     transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict, \
-    generate_pair_name
+    generate_pair_name, ensure_dir, tokenize_document
 from vector_functionality import query_term_freq, centroid_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
 
 def create_sentence_pairs(top_docs, ref_doc, texts):
     result = {}
-
-    ref_sentences = sent_tokenize(texts[ref_doc])
+    ref_sentences = tokenize_document(texts[ref_doc])  # sent_tokenize(texts[ref_doc])  # texts[ref_doc].split('\n')
     for doc in top_docs:
-        doc_sentences = sent_tokenize(texts[doc])
-        for i, top_sentence in enumerate(doc_sentences):
+        doc_sentences = tokenize_document(texts[doc])  # sent_tokenize(texts[doc])  # texts[doc].split('\n')
+        for in_index, top_sentence in enumerate(doc_sentences):
+            # if top_sentence.replace("\n", " ").rstrip() in ref_sentences:
             if top_sentence in ref_sentences:
                 continue
-            for j, ref_sentence in enumerate(ref_sentences):
-                key = ref_doc + "$" + doc + "_" + str(j) + "_" + str(i)
-                result[key] = ref_sentence.rstrip().replace("\n", "") + "\t" + top_sentence.rstrip().replace("\n", "")
+            for out_index, ref_sentence in enumerate(ref_sentences):
+                key = ref_doc + "$" + doc + "_" + str(out_index) + "_" + str(in_index)
+                # result[key] = ref_sentence.replace("\n", " ").rstrip() + "\t" + top_sentence.replace("\n", " ").rstrip()
+                result[key] = ref_sentence + "\t" + top_sentence
     return result
 
 
@@ -139,11 +140,10 @@ def write_files(feature_list, feature_vals, output_dir, qrid, ref):
 
 
 def create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
-                        sentence_tfidf_vectors_dir, query_text, output_dir, qrid):
-    global word_embd_model
+                        sentence_tfidf_vectors_dir, query_text, output_dir, qrid, word_embed_model):
     feature_vals = defaultdict(dict)
     relevant_pairs = raw_ds[qrid]
-    current_epoch, qid = reverese_query(qrid)
+    epoch, qid = reverese_query(qrid)
     query_text = clean_texts(query_text)
     feature_list = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
                     "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
@@ -151,18 +151,18 @@ def create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_
                     "SimilarityToPrev", "SimilarityToRefSentence", "SimilarityToPred", "SimilarityToPrevRef",
                     "SimilarityToPredRef"]
 
-    past_winners = get_past_winners(ranked_lists, current_epoch, qid)
-    past_winners_semantic_centroid_vector = past_winners_centroid(past_winners, doc_texts, word_embd_model, True)
+    past_winners = get_past_winners(ranked_lists, epoch, qid)
+    past_winners_semantic_centroid_vector = past_winners_centroid(past_winners, doc_texts, word_embed_model, True)
     past_winners_tfidf_centroid_vector = get_past_winners_tfidf_centroid(past_winners, doc_tfidf_vectors_dir)
-    top_docs = ranked_lists[current_epoch][qid][:top_doc_index]
-    ref_doc = ranked_lists[current_epoch][qid][ref_doc_index]
-    ref_sentences = sent_tokenize(doc_texts[ref_doc])
+    top_docs = ranked_lists[epoch][qid][:top_doc_index]
+    ref_doc = ranked_lists[epoch][qid][ref_doc_index]
+    ref_sentences = sent_tokenize(doc_texts[ref_doc])  # doc_texts[ref_doc].split('\n')
     top_docs_tfidf_centroid = document_centroid([get_java_object(doc_tfidf_vectors_dir + doc) for doc in top_docs])
     for pair in relevant_pairs:
         sentence_in = relevant_pairs[pair]["in"]
         sentence_out = relevant_pairs[pair]["out"]
-        in_vec = get_text_centroid(clean_texts(sentence_in), word_embd_model, True)
-        out_vec = get_text_centroid(clean_texts(sentence_out), word_embd_model, True)
+        in_vec = get_text_centroid(clean_texts(sentence_in), word_embed_model, True)
+        out_vec = get_text_centroid(clean_texts(sentence_out), word_embed_model, True)
         replace_index = int(pair.split("_")[1])
 
         feature_vals['FractionOfQueryWordsIn'][pair] = query_term_freq("avg", clean_texts(sentence_in), query_text)
@@ -173,9 +173,9 @@ def create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_
         feature_vals['CosineToCentroidOut'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
             sentence_tfidf_vectors_dir + pair.split("$")[0] + "_" + pair.split("_")[1], top_docs_tfidf_centroid)
         feature_vals["CosineToCentroidInVec"][pair] = \
-            calculate_semantic_similarity_to_top_docs(sentence_in, top_docs, doc_texts, word_embd_model, True)
+            calculate_semantic_similarity_to_top_docs(sentence_in, top_docs, doc_texts, word_embed_model, True)
         feature_vals["CosineToCentroidOutVec"][pair] = \
-            calculate_semantic_similarity_to_top_docs(sentence_out, top_docs, doc_texts, word_embd_model, True)
+            calculate_semantic_similarity_to_top_docs(sentence_out, top_docs, doc_texts, word_embed_model, True)
         feature_vals['CosineToWinnerCentroidInVec'][pair] = \
             cosine_similarity(in_vec, past_winners_semantic_centroid_vector)
         feature_vals['CosineToWinnerCentroidOutVec'][pair] = \
@@ -187,13 +187,13 @@ def create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_
             sentence_tfidf_vectors_dir + pair.split("$")[0] + "_" + pair.split("_")[1],
             past_winners_tfidf_centroid_vector)
         feature_vals['SimilarityToPrev'][pair] = \
-            context_similarity(replace_index, ref_sentences, sentence_in, "prev", word_embd_model, True)
+            context_similarity(replace_index, ref_sentences, sentence_in, "prev", word_embed_model, True)
         feature_vals['SimilarityToRefSentence'][pair] = \
-            context_similarity(replace_index, ref_sentences, sentence_in, "own", word_embd_model, True)
+            context_similarity(replace_index, ref_sentences, sentence_in, "own", word_embed_model, True)
         feature_vals['SimilarityToPred'][pair] = \
-            context_similarity(replace_index, ref_sentences, sentence_in, "pred", word_embd_model, True)
+            context_similarity(replace_index, ref_sentences, sentence_in, "pred", word_embed_model, True)
         feature_vals['SimilarityToPrevRef'][pair] = \
-            context_similarity(replace_index, ref_sentences, sentence_out, "prev", word_embd_model, True)
+            context_similarity(replace_index, ref_sentences, sentence_out, "prev", word_embed_model, True)
     write_files(feature_list, feature_vals, output_dir, qrid, ref_doc_index)
 
 
@@ -215,7 +215,7 @@ def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_i
     past_winners_tfidf_centroid_vector = get_past_winners_tfidf_centroid(past_winners, doc_tfidf_vectors_dir)
     top_docs = ranked_lists[epoch][qid][:top_doc_index]
     ref_doc = ranked_lists[epoch][qid][ref_doc_index]
-    ref_sentences = sent_tokenize(doc_texts[ref_doc])
+    ref_sentences = sent_tokenize(doc_texts[ref_doc])  # doc_texts[ref_doc].split('\n')
     top_docs_tfidf_centroid = document_centroid([get_java_object(doc_tfidf_vectors_dir + doc) for doc in top_docs])
     for pair in relevant_pairs:
         sentence_in = relevant_pairs[pair]["in"]
@@ -278,9 +278,8 @@ def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc
 
 def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_index, top_doc_index,
                             doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir, qid, query_text,
-                            output_feature_files_dir, output_final_features_dir, workingset_file):
+                            output_feature_files_dir, output_final_features_dir, workingset_file, word_embed_model):
     # TODO find a way to reuse the word_embedding model
-    global word_embd_model
     if not os.path.exists(output_feature_files_dir):
         os.makedirs(output_feature_files_dir)
     if not os.path.exists(output_final_features_dir):
@@ -288,7 +287,7 @@ def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_i
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
     create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
-                        sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qid)
+                        sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qid, word_embed_model)
     run_bash_command("perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file)
     run_bash_command("mv features " + output_final_features_dir + 'features_' + qrid + '.dat')
 
@@ -324,9 +323,9 @@ def create_sentence_vector_files(logger, output_dir, raw_ds_file, index_path, sw
     logger.info("Command output: " + str(out))
 
 
-def update_text_doc(text, new_sentence, index):
-    sentences = sent_tokenize(text)
-    sentences[index] = new_sentence
+def update_text_doc(text, new_sentence, replacement_index):
+    sentences = sent_tokenize(text)  # text.split('\n')
+    sentences[replacement_index] = new_sentence
     return "\n".join(sentences)
 
 
@@ -368,10 +367,11 @@ def create_specific_ws(qrid, ranked_lists, fname):
             out.write(qrid + " Q0 " + doc + " 0 " + str(i + 1) + " pairs_seo\n")
 
 
-def run_reranking(logger, new_text, qrid, ref_doc, texts, ranked_lists, indri_path, index_path, swig_path, scripts_dir,
-                  stopwords_file, queries_text_file, jar_path, rank_model, output_dir, new_index, specific_ws, 
-                  new_trectext_name, new_feature_file, feature_dir, trec_file, score_file):
-    create_new_trectext(ref_doc, texts, new_text, output_dir + new_trectext_name)
+def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri_path, index_path, swig_path, scripts_dir,
+                  stopwords_file, queries_text_file, jar_path, rank_model, output_dir, new_index='new_index',
+                  specific_ws='specific_ws', new_trectext_name='new_trectext_file', new_feature_file='new_feature_file',
+                  feature_dir='feature_dir/', trec_file='trec_file', score_file='score_file'):
+    create_new_trectext(ref_doc_id, texts, new_text, output_dir + new_trectext_name)
     create_specific_ws(qrid, ranked_lists, output_dir + specific_ws)
     logger.info("creating features")
     create_index(output_dir + new_trectext_name, output_dir + new_index, indri_path)
@@ -441,92 +441,136 @@ def create_qrels(raw_ds, base_trec, out_file, ref, new_indices_dir, texts):
                 qrels.write(query_write + " 0 " + name + " " + label + "\n")
 
 
-if __name__ == "__main__":
-    program = os.path.basename(sys.argv[0])
-    logger = logging.getLogger(program)
-
-    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
-    logging.root.setLevel(level=logging.INFO)
-    logger.info("running %s" % ' '.join(sys.argv))
-
-    parser = OptionParser()
-    # Mandatory variables
-    parser.add_option("--mode", choices=['single', 'multiple'])
-    parser.add_option("--qrid")
-    parser.add_option("--ref_index", type="int")
-    parser.add_option("--top_docs_index", type="int")
-    parser.add_option("--trec_file")
-    parser.add_option("--trectext_file")
-
-    # Optional variables
-    # parser.add_option("--competitors", default='13,43')  # this should be useless in the case of customized trec file
-    # files can't shared between different processes, so these defaults can't stay
-    parser.add_option('--output_dir', default='./output/')
-    parser.add_option("--workingset_file", default='workingset.txt')
-    parser.add_option("--raw_ds_out", default='raw_ds_out.txt')
-    parser.add_option("--index_path", default='~/work_files/merged_index/')
-    parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
-    parser.add_option("--doc_tfidf_dir", default='./asr_tfidf_vectors/')
-    parser.add_option("--sentences_tfidf_dir",
-                      default='sentences_tfidf_dir/')  # does this need to be competition specific?
-    parser.add_option("--queries_file", default='data/queries_seo_exp.xml')
-    parser.add_option("--output_feature_files_dir", default='feature_files/')
-    parser.add_option("--output_final_feature_file_dir", default='final_features/')
-    parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
-    parser.add_option("--indri_path", default='~/indri/')
-
-    # TODO find out what these are about
-    parser.add_option("--sentence_trec_file", default=None)
-    parser.add_option("--scripts_path", default=None)
-    parser.add_option("--model", default=None)
-    parser.add_option("--scores_dir", default=None)
-    parser.add_option("--jar_path", default=None)
-    parser.add_option("--queries_text_file", default=None)
-
-    # are these useless?
-    parser.add_option("--new_trectext_file", default=None)
-    parser.add_option("--svm_model_file", default=None)
-
-    (options, args) = parser.parse_args()
-    ranked_lists = read_trec_file(options.trec_file)
-    doc_texts = load_trectext_file(options.trectext_file)
-    mode = options.mode
-    sentences_tfidf_dir = options.output_dir + options.sentences_tfidf_dir
-    raw_ds_file = options.raw_ds_out
-    output_feature_files_dir = options.output_dir + options.output_feature_files_dir
-    output_final_feature_file_dir = options.output_dir + options.output_final_feature_file_dir
+def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, doc_texts, output_dir, word_embed_model,
+                        mode, sentences_tfidf_dir='sentences_tfidf_dir/',
+                        raw_ds_file='raw_ds_out.txt', output_feature_files_dir='feature_files/',
+                        output_final_feature_file_dir='final_features/', workingset_file='workingset.txt',
+                        index_path='~/work_files/merged_index/', queries_file='data/queries_seo_exp.xml',
+                        swig_path='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/',
+                        embedding_model_file='~/work_files/word2vec_model/word2vec_model',
+                        doc_tfidf_dir='./asr_tfidf_vectors/'):
+    sentences_tfidf_dir = output_dir + sentences_tfidf_dir
+    output_feature_files_dir = output_dir + output_feature_files_dir
+    output_final_feature_file_dir = output_dir + output_final_feature_file_dir
+    workingset_file = output_dir + workingset_file
 
     if mode == 'single':
-        qrid = options.qrid  # qrid- query round id
         epoch, qid = reverese_query(qrid)
 
         # if not os.path.exists(raw_ds):
-        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, options.ref_index, options.top_docs_index,
+        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, top_docs_index,
                            current_epoch=epoch, current_qid=qid)
-        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, options.index_path,
-                                     options.swig_path)
+        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path,
+                                     swig_path)
 
-        query_text = get_query_text(options.queries_file, qid)
-        word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
-                                                                          limit=700000)  #### Modify this line in case you are using other types of embeedings
-        feature_creation_single(raw_ds_file, ranked_lists, doc_texts, options.ref_index,
-                                options.top_docs_index, options.doc_tfidf_dir, sentences_tfidf_dir, qrid,
-                                query_text, output_feature_files_dir, output_final_feature_file_dir,
-                                options.workingset_file)
+        query_text = get_query_text(queries_file, qid)
+        feature_creation_single(raw_ds_file, ranked_lists, doc_texts, ref_index, top_docs_index,
+                                doc_tfidf_dir, sentences_tfidf_dir, qrid, query_text,  output_feature_files_dir,
+                                output_final_feature_file_dir, workingset_file, word_embed_model)
 
     elif mode == 'multiple':
-        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(options.ref_index),
-                           int(options.top_docs_index))
-        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, options.index_path,
-                                     options.swig_path)
-        queries = read_queries_file(options.queries_file)
+        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
+                           int(top_docs_index))
+        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path,
+                                     swig_path)
+        queries = read_queries_file(queries_file)
         queries = transform_query_text(queries)
-        word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
+        word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file, binary=True,
                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
-        feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(options.top_docs_index),
-                                  int(options.ref_index), options.doc_tfidf_dir,
+        feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),
+                                  int(ref_index), doc_tfidf_dir,
                                   sentences_tfidf_dir, queries, output_feature_files_dir,
-                                  output_final_feature_file_dir, options.workingset_file)
+                                  output_final_feature_file_dir, workingset_file)
 
     else:
         raise ValueError('mode value must be given, and it must be either \'single\' or \'multiple\'')
+
+# if __name__ == "__main__":
+#     program = os.path.basename(sys.argv[0])
+#     logger = logging.getLogger(program)
+#
+#     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
+#     logging.root.setLevel(level=logging.INFO)
+#     logger.info("running %s" % ' '.join(sys.argv))
+#
+#     parser = OptionParser()
+#     # Mandatory variables
+#     parser.add_option("--mode", choices=['single', 'multiple'])
+#     parser.add_option("--qrid")
+#     parser.add_option("--ref_index", type="int")
+#     parser.add_option("--top_docs_index", type="int")
+#     parser.add_option("--trec_file")
+#     parser.add_option("--trectext_file")
+#
+#     # Optional variables
+#     # parser.add_option("--competitors", default='13,43')  # this should be useless in the case of customized trec file
+#     # files can't shared between different processes, so these defaults can't stay
+#     parser.add_option('--output_dir', default='./output/')
+#     parser.add_option("--workingset_file", default='workingset.txt')
+#     parser.add_option("--raw_ds_out", default='raw_ds_out.txt')
+#     parser.add_option("--index_path", default='~/work_files/merged_index/')
+#     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
+#     parser.add_option("--doc_tfidf_dir", default='./asr_tfidf_vectors/')
+#     parser.add_option("--sentences_tfidf_dir",
+#                       default='sentences_tfidf_dir/')  # does this need to be competition specific?
+#     parser.add_option("--queries_file", default='data/queries_seo_exp.xml')
+#     parser.add_option("--output_feature_files_dir", default='feature_files/')
+#     parser.add_option("--output_final_feature_file_dir", default='final_features/')
+#     parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
+#
+#     # TODO find out what these are about
+#     parser.add_option("--indri_path", default='~/indri/')
+#     parser.add_option("--sentence_trec_file", default=None)
+#     parser.add_option("--scripts_path", default=None)
+#     parser.add_option("--model", default=None)
+#     parser.add_option("--scores_dir", default=None)
+#     parser.add_option("--jar_path", default=None)
+#     parser.add_option("--queries_text_file", default=None)
+#
+#     # are these useless?
+#     parser.add_option("--new_trectext_file", default=None)
+#     parser.add_option("--svm_model_file", default=None)
+#
+#     (options, args) = parser.parse_args()
+#     ranked_lists = read_trec_file(options.trec_file)
+#     doc_texts = load_trectext_file(options.trectext_file)
+#     mode = options.mode
+#     sentences_tfidf_dir = options.output_dir + options.sentences_tfidf_dir
+#     raw_ds_file = options.raw_ds_out
+#     output_feature_files_dir = options.output_dir + options.output_feature_files_dir
+#     output_final_feature_file_dir = options.output_dir + options.output_final_feature_file_dir
+#     workingset_file = options.output_dir + options.workingset_file
+#
+#     if mode == 'single':
+#         qrid = options.qrid  # qrid- query round id
+#         epoch, qid = reverese_query(qrid)
+#
+#         # if not os.path.exists(raw_ds):
+#         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, options.ref_index, options.top_docs_index,
+#                            current_epoch=epoch, current_qid=qid)
+#         create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, options.index_path,
+#                                      options.swig_path)
+#
+#         query_text = get_query_text(options.queries_file, qid)
+#         word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
+#                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
+#         feature_creation_single(raw_ds_file, ranked_lists, doc_texts, options.ref_index,
+#                                 options.top_docs_index, options.doc_tfidf_dir, sentences_tfidf_dir, qrid,
+#                                 query_text, output_feature_files_dir, output_final_feature_file_dir, workingset_file)
+#
+#     elif mode == 'multiple':
+#         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(options.ref_index),
+#                            int(options.top_docs_index))
+#         create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, options.index_path,
+#                                      options.swig_path)
+#         queries = read_queries_file(options.queries_file)
+#         queries = transform_query_text(queries)
+#         word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
+#                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
+#         feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(options.top_docs_index),
+#                                   int(options.ref_index), options.doc_tfidf_dir,
+#                                   sentences_tfidf_dir, queries, output_feature_files_dir,
+#                                   output_final_feature_file_dir, options.workingset_file)
+#
+#     else:
+#         raise ValueError('mode value must be given, and it must be either \'single\' or \'multiple\'')

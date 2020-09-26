@@ -1,17 +1,18 @@
 import logging
 import os
+import shutil
 import sys
 from optparse import OptionParser
 from os.path import exists
 import gensim
 
-from create_bot_features import run_reranking
-from utils import get_learning_data_path, get_model_name, get_qrid, load_trectext_file, generate_trec_id, \
-    append_to_trectext_file, read_raw_trec_file, create_sentence_workingset, create_index
+from create_bot_features import run_reranking, create_bot_features
+from utils import get_learning_data_path, get_model_name, get_qrid, load_trectext_file, generate_doc_id, \
+    append_to_trectext_file, read_raw_trec_file, create_sentence_workingset, create_index, read_trec_file
 from bot_competition import generate_learning_dataset, create_model, create_initial_trec_file, \
     create_initial_trectext_file, create_features, generate_predictions, get_highest_ranked_pair, \
     get_game_state, generate_updated_document, append_to_trec_file, generate_document_tfidf_files, \
-    record_doc_similarity
+    record_doc_similarity, report_replacement
 
 if __name__ == '__main__':
     program = os.path.basename(sys.argv[0])
@@ -56,6 +57,7 @@ if __name__ == '__main__':
     label_aggregation_method = options.label_aggregation_method
     label_aggregation_b = options.label_aggregation_b
     svm_rank_c = options.svm_rank_c
+
     qid = options.qid.zfill(3)
     competitor_list = sorted(options.competitors.split(','))
     output_dir = options.output_dir
@@ -63,32 +65,33 @@ if __name__ == '__main__':
     reranking_dir = output_dir + 'reranking/'
     sentence_workingset_file = output_dir + 'document_ws.txt'
     comp_index = output_dir + 'index_dir/index_{}_{}'.format(qid, ','.join(competitor_list))
-    similarity_file = './similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(competitor_list))
-    if os.path.exists(similarity_file):
-        os.remove(similarity_file)
-    word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
-                                                                           limit=700000)
-    # TODO implement some qid fool-proofing protocol
-    # if not in_dataset(qid, competitor_list):
-    #     raise ValueError()
+    replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(competitor_list))
+    similarity_file = output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(competitor_list))
 
-    model_name = get_model_name(label_aggregation_method, label_aggregation_b, svm_rank_c)
-    model_path = options.svm_models_dir + model_name
-    if not exists(options.svm_models_dir + model_name):
+    for file in [replacements_file, similarity_file]:
+        if exists(file):
+            os.remove(file)
+
+    model_path = options.svm_models_dir + get_model_name(label_aggregation_method, label_aggregation_b, svm_rank_c)
+    if not exists(model_path):
         learning_data_dir = options.aggregated_data_dir + 'feature_sets/'
         learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b)
 
         if not exists(learning_data_path):
             generate_learning_dataset(options.aggregated_data_dir, label_aggregation_method, options.seo_qrels_file,
                                       options.coherency_qrels_file, options.unranked_features_file)
-        create_model(options.svm_rank_scripts_dir, options.svm_models_dir, model_name, learning_data_path, svm_rank_c)
+        create_model(options.svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
 
     comp_trec_file = create_initial_trec_file(options.trec_file, output_dir + 'trec_files/', qid, competitor_list)
     comp_trectext_file = create_initial_trectext_file(options.trectext_file, output_dir + 'trectext_files/', qid,
                                                       competitor_list)
+    word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
+                                                                           limit=700000)
 
     for epoch in range(1, options.total_rounds + 1):
-        print('\n{} Starting round {}\n'.format('#' * 8, epoch))  # (press enter to begin)
+        print('\n{} Starting round {}\n'.format('#' * 8, epoch))
+        # input('press enter to begin')
+
         doc_texts = load_trectext_file(comp_trectext_file)
         record_doc_similarity(doc_texts, epoch, similarity_file, word_embedding_model)
         qrid = get_qrid(qid, epoch)
@@ -100,26 +103,32 @@ if __name__ == '__main__':
         create_sentence_workingset(sentence_workingset_file, epoch, qid, competitor_list)
         generate_document_tfidf_files(options.swig_path, comp_index, sentence_workingset_file, doc_tfidf_dir)
 
-        create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file, doc_tfidf_dir, comp_index, output_dir)
-        raise Exception('Stop for debugging')
+        # create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file, doc_tfidf_dir, comp_index, output_dir)
+        ranked_list = read_trec_file(comp_trec_file)
+        create_bot_features(logger, qrid, 1, 1, ranked_list, doc_texts, output_dir, word_embedding_model, mode='single',
+                            raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir, index_path=comp_index)
+        # input('features created')
         ranking_file = generate_predictions(model_path, options.svm_rank_scripts_dir, output_dir, features_file)
         max_pair = get_highest_ranked_pair(features_file, ranking_file)
+        report_replacement(replacements_file, epoch, max_pair)
 
-        print('$$$$ max pair {}'.format(max_pair))
-        updated_document = generate_updated_document(max_pair, raw_ds_file, doc_texts)
-        winner_doc = doc_texts[generate_trec_id(epoch, qid, winner_id)]
-        trectext_dict = {generate_trec_id(epoch + 1, qid, winner_id): winner_doc,
-                         generate_trec_id(epoch + 1, qid, loser_id): updated_document}
-        append_to_trectext_file(comp_trectext_file, trectext_dict)
+        print('#### max pair {}'.format(max_pair))
+        updated_document = generate_updated_document(doc_texts, max_pair,
+                                                     ref_doc_id=generate_doc_id(epoch, qid, loser_id),
+                                                     rep_doc_id=generate_doc_id(epoch, qid, winner_id))
+        winner_doc = doc_texts[generate_doc_id(epoch, qid, winner_id)]
+        trectext_dict = {generate_doc_id(epoch + 1, qid, winner_id): winner_doc,
+                         generate_doc_id(epoch + 1, qid, loser_id): updated_document}
+        append_to_trectext_file(comp_trectext_file, doc_texts, trectext_dict)
 
-        ranked_list = read_raw_trec_file(comp_trec_file)
-        # consider creating a file which only contains the files from the current round
+        # consider creating a trec file which only contains the files from the current round
         # otherwise there might be some issues in later rounds
         # TODO use multiprocessing
-        reranked_trec_file = run_reranking(logger, updated_document, qrid, generate_trec_id(epoch, qid, loser_id),
+        ranked_list = read_raw_trec_file(comp_trec_file)
+        reranked_trec_file = run_reranking(logger, updated_document, qrid, generate_doc_id(epoch, qid, loser_id),
                                            doc_texts, ranked_list, options.indri_path, options.index_path,
                                            options.swig_path, options.scripts_dir, options.stopwords_file,
                                            options.queries_text_file, options.ranklib_jar, options.rank_model,
-                                           reranking_dir, 'new_index', 'specific_ws', 'new_trectext_file',
-                                           'new_feature_file', 'feature_dir/', 'trec_file', 'score_file')
+                                           output_dir=reranking_dir)
         append_to_trec_file(comp_trec_file, reranked_trec_file)
+        shutil.rmtree(reranking_dir)

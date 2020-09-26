@@ -36,17 +36,9 @@ if __name__ == '__main__':
     #         pair = line.split('\t')[1]
     #         key = pair.split('$')[1]
     #         if key == max_pair:
-    #             ref_doc_trec_id = pair.split('$')[0]
+    #             ref_doc_id = pair.split('$')[0]
     #             sentence_in = line.split('\t')[3].strip('\n')
     #             sentence_out_index = int(key.split('_')[1])
     #             break
 
-    with open('foobar.txt', 'w') as f:
-        f.write('asdasd\nasdasd\nasdasd')
-    input('enter')
-    with open('foobar.txt', 'w') as f:
-        pass
-    input('enter')
-    with open('foobar.txt', 'w') as f:
-        f.write(None)
-    input('enter')
+    comp_trectext_file = create_initial_trectext_file('./data/documents.trectext', 'foobar/', '002', ['44', '14'])

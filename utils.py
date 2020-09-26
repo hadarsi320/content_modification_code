@@ -1,11 +1,13 @@
 import os
 import re
+import shutil
 from collections import defaultdict
 import javaobj
 
 from gen_utils import run_bash_command, run_command
 import xml.etree.ElementTree as ET
 from lxml import etree
+from nltk import sent_tokenize
 
 
 def create_features_file_diff(features_dir, base_index_path, new_index_path, new_features_file, working_set_file,
@@ -82,7 +84,7 @@ def create_trectext_file(document_texts, trectext_fname, working_set_fname=None)
             f.write('<DOC>\n')
             f.write('<DOCNO>' + document + '</DOCNO>\n')
             f.write('<TEXT>\n')
-            f.write(text.rstrip())
+            f.write(text.rstrip().strip('\n'))
             f.write('\n</TEXT>\n')
             f.write('</DOC>\n')
         f.write('</DATA>\n')
@@ -98,9 +100,8 @@ def create_trectext_file(document_texts, trectext_fname, working_set_fname=None)
     return trectext_fname
 
 
-def append_to_trectext_file(trectext_file, document_texts):
-    old_texts = load_trectext_file(trectext_file)
-    create_trectext_file({**old_texts, **document_texts}, trectext_file)
+def append_to_trectext_file(trectext_file, old_documents, new_documents):
+    create_trectext_file({**old_documents, **new_documents}, trectext_file)
     # with open(trectext_file, 'r') as f:
     #     trectext_lines = f.readlines()[:-1]
     # with open(trectext_file, "w", encoding="utf-8") as f:
@@ -118,25 +119,26 @@ def append_to_trectext_file(trectext_file, document_texts):
     #     f.write('</DATA>\n')
 
 
-def create_index(trec_text_file, index, indri_path):
+def create_index(trec_text_file, index_path, indri_path):
     """
     Parse the trectext file given, and create an index.
     """
+    if os.path.exists(index_path):
+        shutil.rmtree(index_path)
+
     corpus_path = trec_text_file
     corpus_class = 'trectext'
     memory = '1G'
     stemmer = 'krovetz'
-    index_path = os.path.dirname(index)
-    if not os.path.exists(index_path):
-        os.makedirs(index_path)
+    ensure_dir(index_path)
     # if not os.path.exists(home_path + index_path): what is this
     #     os.makedirs(home_path + index_path)
     command = indri_path + 'bin/IndriBuildIndex -corpus.path=' + corpus_path + ' -corpus.class=' + corpus_class + \
-              ' -index=' + index + ' -memory=' + memory + ' -stemmer.name=' + stemmer
+              ' -index=' + index_path + ' -memory=' + memory + ' -stemmer.name=' + stemmer
     print("##Running IndriBuildIndex command: " + command + "##", flush=True)
     out = run_bash_command(command)
     print("IndriBuildIndex output:" + out, flush=True)
-    return index
+    return index_path
 
 
 def merge_indices(merged_index, new_index_name, base_index, home_path, indri_path):
@@ -147,7 +149,7 @@ def merge_indices(merged_index, new_index_name, base_index, home_path, indri_pat
     if os.path.exists(merged_index):
         os.remove(merged_index)
     ensure_dir(merged_index)
-    command = home_path + "/" + indri_path + '/bin/dumpindex ' + merged_index + ' merge ' + new_index_name + ' ' +  \
+    command = home_path + "/" + indri_path + '/bin/dumpindex ' + merged_index + ' merge ' + new_index_name + ' ' + \
               base_index
     print("##merging command:", command + "##", flush=True)
     out = run_bash_command(command)
@@ -254,7 +256,7 @@ def load_trectext_file(filename):
 def get_java_object(obj_file):
     with open(obj_file, 'rb') as fd:
         obj = javaobj.load(fd)
-        return obj
+    return obj
 
 
 def clean_texts(text):
@@ -290,6 +292,9 @@ def clean_texts(text):
     text = text.replace("/", " ")
     text = text.replace("(", "")
     text = text.replace(")", "")
+    # my additions
+    text = text.replace("\t", " ")\
+        .strip()
     return text.lower()
 
 
@@ -363,11 +368,11 @@ def get_qrid(qid: str, epoch: int):
     return qid.lstrip('0') + str(epoch).zfill(2)
 
 
-def parse_trec_id(trec_id: str):
-    return trec_id.strip(' ').split('-')[1:]
+def parse_doc_id(doc_id: str):
+    return doc_id.strip(' ').split('-')[1:]
 
 
-def generate_trec_id(epoch, qid, player_id):
+def generate_doc_id(epoch, qid, player_id):
     return f'ROUND-{epoch:02d}-{qid}-{player_id}'
 
 
@@ -381,7 +386,7 @@ def create_sentence_workingset(output_file, epoch, qid, competitor_list):
     ensure_dir(output_file)
     with open(output_file, 'w') as f:
         for competitor in competitor_list:
-            line = get_qrid(qid, epoch) + ' Q0 ' + generate_trec_id(epoch, qid, competitor) + ' 0 0 indri'
+            line = get_qrid(qid, epoch) + ' Q0 ' + generate_doc_id(epoch, qid, competitor) + ' 0 0 indri'
             f.write(line + '\n')
 
 
@@ -389,3 +394,11 @@ def ensure_dir(file_name):
     dir_name = os.path.dirname(file_name)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
+
+
+def tokenize_document(document):
+    return [clean_texts(sentence) for sentence in sent_tokenize(document)]
+
+
+# def preprocess_document(document):
+#     return '\n'.join(sent_tokenize(document))

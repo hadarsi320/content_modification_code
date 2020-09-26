@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    similarity_dir = './similarity_results/'
+    similarity_dir = './output/run_25.9/simi/'
     plots_dir = './plots/'
     similarity_files = sorted(os.listdir(similarity_dir))
 
