@@ -102,23 +102,24 @@ def get_highest_ranked_pair(features_file, predictions_file):
     return max_pair
 
 
-# def generate_updated_document(max_pair, raw_ds_file, doc_texts):
-#     # TODO use update texts for the multiple competitions version
-#     with open(raw_ds_file) as f:
-#         for line in f:
-#             pair = line.split('\t')[1]
-#             key = pair.split('$')[1]
-#             if key == max_pair:
-#                 ref_doc_id = pair.split('$')[0]
-#                 sentence_in = line.split('\t')[3].strip('\n')
-#                 sentence_out_index = int(key.split('_')[1])
-#                 break
-#
-#     ref_doc = doc_texts[ref_doc_id]
-#     return update_text_doc(ref_doc, sentence_in, sentence_out_index)
+@deprecated(reason='This version uses the sentences from the raw dataset file, which are cleaned and shouldnt be used')
+def generate_updated_document_dep(max_pair, raw_ds_file, doc_texts):
+    with open(raw_ds_file) as f:
+        for line in f:
+            pair = line.split('\t')[1]
+            key = pair.split('$')[1]
+            if key == max_pair:
+                ref_doc_id = pair.split('$')[0]
+                sentence_in = line.split('\t')[3].strip('\n')
+                sentence_out_index = int(key.split('_')[1])
+                break
+
+    ref_doc = doc_texts[ref_doc_id]
+    return update_text_doc(ref_doc, sentence_in, sentence_out_index)
 
 
 def generate_updated_document(doc_texts, max_pair, ref_doc_id, rep_doc_id):
+    # TODO use update texts for the multiple competitions version
     out_index, in_index = [int(item) for item in max_pair.split('_')[1:]]
     ref_doc = sent_tokenize(doc_texts[ref_doc_id])
     rep_doc = sent_tokenize(doc_texts[rep_doc_id])
@@ -200,4 +201,4 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
 def report_replacement(replacements_file, epoch, max_pair):
     ensure_dir(replacements_file)
     with open(replacements_file, 'a') as f:
-        f.write(f'{epoch}. {max_pair}')
+        f.write(f'{epoch}. {max_pair}\n')

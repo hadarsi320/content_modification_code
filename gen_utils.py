@@ -24,13 +24,13 @@ def run_bash_command(command):
                          shell=True)
 
     out = p.communicate()[0].decode('utf-8')
-    if 'Exception' in out:
+    if 'Exception' in out or 'Error' in out:
         raise Exception('Error returned: \n{}'.format(out))
     return out
 
 
 def run_and_print(command):
-    print("##Running command: " + command + "##")
+    print("## Running command: " + command + " ##")
     out = run_bash_command(command)
     print(out, flush=True)
 

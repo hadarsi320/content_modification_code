@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_option('--competitors')
 
     # Optional variables
-    parser.add_option('--total_rounds', '-r', type='int', default=20)
+    parser.add_option('--total_rounds', '-r', type='int', default=8)
     parser.add_option('--label_aggregation_method', '--agg', choices=['harmonic', 'demotion', 'weighted'],
                       default='harmonic')
     parser.add_option('--label_aggregation_b', '-b',
@@ -131,4 +131,4 @@ if __name__ == '__main__':
                                            options.queries_text_file, options.ranklib_jar, options.rank_model,
                                            output_dir=reranking_dir)
         append_to_trec_file(comp_trec_file, reranked_trec_file)
-        # shutil.rmtree(reranking_dir)
+        shutil.rmtree(reranking_dir)

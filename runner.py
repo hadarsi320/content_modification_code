@@ -22,14 +22,15 @@ if __name__ == '__main__':
     trec = './trecs/trec_file_original_sorted.txt'
     competitors = get_competitors_dict(trec)
     competitors_combinations = {qid: list(combinations(competitors[qid], 2)) for qid in competitors}
-    # for i in range(10):
-    #     for qid in competitors_combinations:
-    #         command = 'python main.py --qid=' + qid + ' --competitors=' + ','.join(competitors_combinations[qid][i])
-    #         run_and_print(command)
-    for qid in competitors_combinations:
-        competitors = sample(competitors_combinations[qid], 1)[0]
-        command = 'python main.py --qid={0} --competitors={1} --output_dir=./output/run_25.9/'\
-            .format(qid, ','.join(competitors))
-        run_and_print(command)
-        break
+    for i in range(10):
+        for qid in competitors_combinations:
+            command = 'python main.py --qid=' + qid + ' --competitors=' + ','.join(competitors_combinations[qid][i]) + \
+                ' --output_dir=./output/run_26_9/'
+            run_and_print(command)
+    # for qid in competitors_combinations:
+    #     competitors = sample(competitors_combinations[qid], 1)[0]
+    #     command = 'python main.py --qid={} --competitors={} --output_dir=./output/run_26_9/ -r 8'\
+    #         .format(qid, ','.join(competitors))
+    #     run_and_print(command)
+    #     break
 
