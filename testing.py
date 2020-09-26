@@ -40,5 +40,6 @@ if __name__ == '__main__':
     #             sentence_in = line.split('\t')[3].strip('\n')
     #             sentence_out_index = int(key.split('_')[1])
     #             break
-
-    comp_trectext_file = create_initial_trectext_file('./data/documents.trectext', 'foobar/', '002', ['44', '14'])
+    sim_file = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/tmp/similarity_results/' \
+               'similarity_051_04,46.txt'
+    complete_sim_file(sim_file, 8)

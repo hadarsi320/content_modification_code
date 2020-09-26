@@ -400,5 +400,21 @@ def tokenize_document(document):
     return [clean_texts(sentence) for sentence in sent_tokenize(document)]
 
 
+def is_file_empty(file):
+    with open(file) as f:
+        text = f.read()
+    return text == ''
+
+
+def complete_sim_file(similarity_file, total_rounds):
+    lines = 0
+    with open(similarity_file, 'r') as f:
+        for line in f:
+            if len(line) > 0:
+                lines += 1
+    with open(similarity_file, 'a') as f:
+        for i in range(total_rounds - lines + 1):
+            f.write('{}. {}\n'.format(lines+i, 1))
+
 # def preprocess_document(document):
 #     return '\n'.join(sent_tokenize(document))

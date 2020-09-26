@@ -8,7 +8,8 @@ import gensim
 
 from create_bot_features import run_reranking, create_bot_features
 from utils import get_learning_data_path, get_model_name, get_qrid, load_trectext_file, generate_doc_id, \
-    append_to_trectext_file, read_raw_trec_file, create_sentence_workingset, create_index, read_trec_file
+    append_to_trectext_file, read_raw_trec_file, create_sentence_workingset, create_index, read_trec_file, \
+    complete_sim_file
 from bot_competition import generate_learning_dataset, create_model, create_initial_trec_file, \
     create_initial_trectext_file, create_features, generate_predictions, get_highest_ranked_pair, \
     get_game_state, generate_updated_document, append_to_trec_file, generate_document_tfidf_files, \
@@ -28,7 +29,9 @@ if __name__ == '__main__':
     parser.add_option('--competitors')
 
     # Optional variables
-    parser.add_option('--total_rounds', '-r', type='int', default=8)
+    parser.add_option('--total_rounds', '-r', type='int', default=8)  # setting the rounds to be any more the 8 causes
+    # a bug, because there are only 8 rounds in the file data/working_comp_queries.txt, so more need to be added
+    parser.add_option('--output_dir', default='./output/tmp/')
     parser.add_option('--label_aggregation_method', '--agg', choices=['harmonic', 'demotion', 'weighted'],
                       default='harmonic')
     parser.add_option('--label_aggregation_b', '-b',
@@ -42,7 +45,6 @@ if __name__ == '__main__':
     parser.add_option('--unranked_features_file', default='./data/features_bot_sorted.txt')
     parser.add_option('--trec_file', default='./trecs/trec_file_original_sorted.txt')
     parser.add_option('--trectext_file', default='./data/documents.trectext')
-    parser.add_option('--output_dir', default='./output/tmp/')
     parser.add_option('--rank_model', default='./rank_models/model_lambdatamart')
     parser.add_option('--ranklib_jar', default='./scripts/RankLib.jar')
     parser.add_option('--queries_text_file', default='./data/working_comp_queries.txt')
@@ -61,6 +63,7 @@ if __name__ == '__main__':
     qid = options.qid.zfill(3)
     competitor_list = sorted(options.competitors.split(','))
     output_dir = options.output_dir
+    total_rounds = options.total_rounds
     doc_tfidf_dir = output_dir + 'document_tfidf/'
     reranking_dir = output_dir + 'reranking/'
     sentence_workingset_file = output_dir + 'document_ws.txt'
@@ -87,13 +90,13 @@ if __name__ == '__main__':
                                                       competitor_list)
     word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
                                                                            limit=700000)
-
-    for epoch in range(1, options.total_rounds + 1):
+    doc_texts = load_trectext_file(comp_trectext_file)
+    record_doc_similarity(doc_texts, 1, similarity_file, word_embedding_model)
+    premature_end = False
+    for epoch in range(1, total_rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
         # input('press enter to begin')
 
-        doc_texts = load_trectext_file(comp_trectext_file)
-        record_doc_similarity(doc_texts, epoch, similarity_file, word_embedding_model)
         qrid = get_qrid(qid, epoch)
         raw_ds_file = output_dir + 'raw_datasets/raw_ds_out_' + qrid + '_' + ','.join(competitor_list) + '.txt'
         features_file = output_dir + 'final_features/features_{}.dat'.format(qrid)
@@ -105,8 +108,12 @@ if __name__ == '__main__':
 
         # create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file, doc_tfidf_dir, comp_index, output_dir)
         ranked_list = read_trec_file(comp_trec_file)
-        create_bot_features(logger, qrid, 1, 1, ranked_list, doc_texts, output_dir, word_embedding_model, mode='single',
-                            raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir, index_path=comp_index)
+        premature_end = create_bot_features(logger, qrid, 1, 1, ranked_list, doc_texts, output_dir,
+                                            word_embedding_model, mode='single', raw_ds_file=raw_ds_file,
+                                            doc_tfidf_dir=doc_tfidf_dir, index_path=comp_index)
+        if premature_end:
+            complete_sim_file(similarity_file, total_rounds)
+            break
         # input('features created')
         ranking_file = generate_predictions(model_path, options.svm_rank_scripts_dir, output_dir, features_file)
         max_pair = get_highest_ranked_pair(features_file, ranking_file)
@@ -132,3 +139,10 @@ if __name__ == '__main__':
                                            output_dir=reranking_dir)
         append_to_trec_file(comp_trec_file, reranked_trec_file)
         shutil.rmtree(reranking_dir)
+        doc_texts = load_trectext_file(comp_trectext_file)
+        record_doc_similarity(doc_texts, epoch+1, similarity_file, word_embedding_model)
+    # if premature_end:
+    #         complete_sim_file(similarity_file, total_rounds)
+    # else:
+    #     doc_texts = load_trectext_file(comp_trectext_file)
+    #     record_doc_similarity(doc_texts, total_rounds+1, similarity_file, word_embedding_model)

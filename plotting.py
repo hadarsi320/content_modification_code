@@ -3,12 +3,11 @@ import os
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    similarity_dir = './output/run_25.9/simi/'
+    similarity_dir = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/run_26_9' \
+                     '/similarity_results/'
     plots_dir = './plots/'
     similarity_files = sorted(os.listdir(similarity_dir))
 
-    if not os.path.exists(similarity_dir):
-        os.makedirs(similarity_dir)
     if not os.path.exists(plots_dir):
         os.makedirs(plots_dir)
 
@@ -37,17 +36,17 @@ if __name__ == '__main__':
     plt.show()
 
     # histogram
-    alpha = 0.5
-    bins = 12
-    plt.hist(sim_matrix[:, 0], bins=bins, label='First Round', alpha=alpha)
-    for i in range(0, sim_matrix.shape[1], 10):
-        if i == 0 or i == sim_matrix.shape[1] - 1:
-            continue
-        plt.hist(sim_matrix[:, i], bins=bins, alpha=alpha, label='Round {}'.format(i))
-    plt.hist(sim_matrix[:, -1], bins=bins, label='Last Round', alpha=alpha)
-    plt.legend()
-    plt.title('Similarity Histogram')
-    plt.xlabel('Cosine Similarity')
-    plt.ylabel('Counts')
-    plt.savefig(plots_dir + 'similarity_histogram.png')
-    plt.show()
+    # alpha = 0.5
+    # bins = 12
+    # plt.hist(sim_matrix[:, 0], bins=bins, label='First Round', alpha=alpha)
+    # for i in range(0, sim_matrix.shape[1], 10):
+    #     if i == 0 or i == sim_matrix.shape[1] - 1:
+    #         continue
+    #     plt.hist(sim_matrix[:, i], bins=bins, alpha=alpha, label='Round {}'.format(i))
+    # plt.hist(sim_matrix[:, -1], bins=bins, label='Last Round', alpha=alpha)
+    # plt.legend()
+    # plt.title('Similarity Histogram')
+    # plt.xlabel('Cosine Similarity')
+    # plt.ylabel('Counts')
+    # plt.savefig(plots_dir + 'similarity_histogram.png')
+    # plt.show()

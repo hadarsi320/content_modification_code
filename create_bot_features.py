@@ -16,7 +16,7 @@ from gen_utils import run_bash_command, list_multiprocessing
 from utils import clean_texts, read_trec_file, load_trectext_file, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
     transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict, \
-    generate_pair_name, ensure_dir, tokenize_document
+    generate_pair_name, ensure_dir, tokenize_document, is_file_empty
 from vector_functionality import query_term_freq, centroid_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
@@ -468,6 +468,8 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
         # if not os.path.exists(raw_ds):
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, top_docs_index,
                            current_epoch=epoch, current_qid=qid)
+        if is_file_empty(raw_ds_file):
+            return True
         create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path,
                                      swig_path)
 
@@ -490,6 +492,8 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
 
     else:
         raise ValueError('mode value must be given, and it must be either \'single\' or \'multiple\'')
+
+    return False
 
 # if __name__ == "__main__":
 #     program = os.path.basename(sys.argv[0])

@@ -192,10 +192,9 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
         if epoch == current_epoch:
             recent_documents.append(doc_texts[document])
 
-    ensure_dir(similarity_file)
     similarity = centroid_similarity(*recent_documents, word_embedding_model)
     with open(similarity_file, 'a') as f:
-        f.write(f'{current_epoch}. {similarity}\n')
+        f.write(f'{current_epoch-1}. {similarity}\n')
 
 
 def report_replacement(replacements_file, epoch, max_pair):
