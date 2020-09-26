@@ -25,7 +25,7 @@ def run_bash_command(command):
 
     out = p.communicate()[0].decode('utf-8')
     if 'Exception' in out:
-        raise Exception('Error in command: \n{}'.format(out))
+        raise Exception('Error returned: \n{}'.format(out))
     return out
 
 

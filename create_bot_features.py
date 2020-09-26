@@ -373,7 +373,7 @@ def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri
                   feature_dir='feature_dir/', trec_file='trec_file', score_file='score_file'):
     new_trectext_path = output_dir + new_trectext_name
     specific_ws_path = output_dir + specific_ws
-    index_path = output_dir + new_index
+    new_index_path = output_dir + new_index
     feature_file_path = output_dir + new_feature_file
     score_file_path = output_dir + score_file
     trec_file_path = output_dir + trec_file
@@ -382,8 +382,8 @@ def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri
     create_new_trectext(ref_doc_id, texts, new_text, new_trectext_path)
     create_specific_ws(qrid, ranked_lists, specific_ws_path)
     logger.info("creating features")
-    create_index(new_trectext_path, index_path, indri_path)
-    features_file = create_features_file_diff(full_feature_dir, index_path, index_path,
+    create_index(new_trectext_path, new_index_path, indri_path)
+    features_file = create_features_file_diff(full_feature_dir, index_path, new_index_path,
                                               feature_file_path, specific_ws_path, scripts_dir,
                                               swig_path, stopwords_file, queries_text_file)
     logger.info("creating docname index")
