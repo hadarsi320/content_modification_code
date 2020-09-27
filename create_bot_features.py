@@ -12,7 +12,7 @@ import gensim
 import numpy as np
 from nltk import sent_tokenize
 
-from gen_utils import run_bash_command, list_multiprocessing
+from gen_utils import run_bash_command, list_multiprocessing, run_and_print
 from utils import clean_texts, read_trec_file, load_trectext_file, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
     transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict, \
@@ -288,8 +288,10 @@ def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_i
     create_ws(raw_ds, workingset_file, ref_doc_index)
     create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
                         sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qrid, word_embed_model)
-    run_bash_command("perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file)
-    run_bash_command("mv features " + output_final_features_dir + 'features_' + qrid + '.dat')
+    # run_bash_command("perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file)
+    # run_bash_command("mv features " + output_final_features_dir + 'features_' + qrid + '.dat')
+    run_and_print("perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file)
+    run_and_print("mv features " + output_final_features_dir + 'features_' + qrid + '.dat')
 
 
 def run_svm_rank_model(test_file, model_file, predictions_folder):

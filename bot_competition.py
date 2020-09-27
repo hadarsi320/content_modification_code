@@ -197,7 +197,7 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
         f.write(f'{current_epoch-1}. {similarity}\n')
 
 
-def report_replacement(replacements_file, epoch, max_pair):
+def record_replacement(replacements_file, epoch, max_pair):
     ensure_dir(replacements_file)
     with open(replacements_file, 'a') as f:
         f.write(f'{epoch}. {max_pair}\n')

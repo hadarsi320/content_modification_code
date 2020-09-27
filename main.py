@@ -13,7 +13,7 @@ from utils import get_learning_data_path, get_model_name, get_qrid, load_trectex
 from bot_competition import generate_learning_dataset, create_model, create_initial_trec_file, \
     create_initial_trectext_file, create_features, generate_predictions, get_highest_ranked_pair, \
     get_game_state, generate_updated_document, append_to_trec_file, generate_document_tfidf_files, \
-    record_doc_similarity, report_replacement
+    record_doc_similarity, record_replacement
 
 if __name__ == '__main__':
     program = os.path.basename(sys.argv[0])
@@ -117,7 +117,7 @@ if __name__ == '__main__':
         # input('features created')
         ranking_file = generate_predictions(model_path, options.svm_rank_scripts_dir, output_dir, features_file)
         max_pair = get_highest_ranked_pair(features_file, ranking_file)
-        report_replacement(replacements_file, epoch, max_pair)
+        record_replacement(replacements_file, epoch, max_pair)
 
         print('#### max pair {}'.format(max_pair))
         updated_document = generate_updated_document(doc_texts, max_pair,

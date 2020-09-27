@@ -8,6 +8,7 @@ from nltk import sent_tokenize
 from create_bot_features import *
 from bot_competition import *
 from utils import *
+from vector_functionality import *
 
 if __name__ == '__main__':
     # comp_trec_file = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/tmp/trec_files' \
@@ -40,6 +41,9 @@ if __name__ == '__main__':
     #             sentence_in = line.split('\t')[3].strip('\n')
     #             sentence_out_index = int(key.split('_')[1])
     #             break
-    sim_file = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/tmp/similarity_results/' \
-               'similarity_051_04,46.txt'
-    complete_sim_file(sim_file, 8)
+    s = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/tmp/document_tfidf/ROUND-01-182-10'
+    t = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/tmp/document_tfidf/ROUND-01-182-11'
+    sv = get_java_object(s)
+    tv = get_java_object(t)
+    print(dict_cosine_similarity(tv, sv))
+    pass
