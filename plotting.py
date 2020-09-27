@@ -27,26 +27,26 @@ if __name__ == '__main__':
 
     # line plot
     averaged_mat = np.average(sim_matrix, axis=0)
-    plt.plot(range(1, rounds+1), averaged_mat, 'o-')
-    plt.xticks(range(1, rounds+1))
+    plt.plot(range(0, rounds), averaged_mat, 'o-')
+    plt.xticks(range(0, rounds+1))
     plt.title(f'Similarity Measure Averaged Across {len(sim_matrix)} Competitions')
-    plt.savefig(plots_dir + 'similarity_plots.png')
     plt.xlabel('Round')
     plt.ylabel('Cosine Similarity')
+    # plt.savefig(plots_dir + 'similarity_plots.png')
     plt.show()
 
     # histogram
-    # alpha = 0.5
-    # bins = 12
-    # plt.hist(sim_matrix[:, 0], bins=bins, label='First Round', alpha=alpha)
-    # for i in range(0, sim_matrix.shape[1], 10):
-    #     if i == 0 or i == sim_matrix.shape[1] - 1:
-    #         continue
-    #     plt.hist(sim_matrix[:, i], bins=bins, alpha=alpha, label='Round {}'.format(i))
-    # plt.hist(sim_matrix[:, -1], bins=bins, label='Last Round', alpha=alpha)
-    # plt.legend()
-    # plt.title('Similarity Histogram')
-    # plt.xlabel('Cosine Similarity')
-    # plt.ylabel('Counts')
+    alpha = 0.5
+    bins = 12
+    plt.hist(sim_matrix[:, 0], bins=bins, label='First Round', alpha=alpha)
+    for i in range(0, sim_matrix.shape[1], 4):
+        if i == 0 or i == sim_matrix.shape[1] - 1:
+            continue
+        plt.hist(sim_matrix[:, i], bins=bins, alpha=alpha, label='Round {}'.format(i))
+    plt.hist(sim_matrix[:, -1], bins=bins, label='Last Round', alpha=alpha)
+    plt.legend()
+    plt.title('Similarity Histogram')
+    plt.xlabel('Cosine Similarity')
+    plt.ylabel('Counts')
     # plt.savefig(plots_dir + 'similarity_histogram.png')
-    # plt.show()
+    plt.show()

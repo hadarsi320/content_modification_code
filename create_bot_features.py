@@ -455,7 +455,6 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
                         output_final_feature_file_dir='final_features/', workingset_file='workingset.txt',
                         index_path='~/work_files/merged_index/', queries_file='data/queries_seo_exp.xml',
                         swig_path='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/',
-                        embedding_model_file='~/work_files/word2vec_model/word2vec_model',
                         doc_tfidf_dir='./asr_tfidf_vectors/'):
     sentences_tfidf_dir = output_dir + sentences_tfidf_dir
     output_feature_files_dir = output_dir + output_feature_files_dir
