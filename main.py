@@ -91,7 +91,10 @@ if __name__ == '__main__':
     word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
                                                                            limit=700000)
     doc_texts = load_trectext_file(comp_trectext_file)
-    record_doc_similarity(doc_texts, 1, similarity_file, word_embedding_model)
+    generate_document_tfidf_files(qid, 1, comp_trectext_file, competitor_list, sentence_workingset_file,
+                                  output_dir=doc_tfidf_dir, new_index=comp_index, swig_path=options.swig_path,
+                                  indri_path=options.indri_path)
+    record_doc_similarity(doc_texts, 1, similarity_file, word_embedding_model, doc_tfidf_dir)
     premature_end = False
     for epoch in range(1, total_rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
@@ -102,11 +105,7 @@ if __name__ == '__main__':
         features_file = output_dir + 'final_features/features_{}.dat'.format(qrid)
         winner_id, loser_id = get_game_state(comp_trec_file, epoch)
 
-        create_index(comp_trectext_file, comp_index, options.indri_path)
-        create_sentence_workingset(sentence_workingset_file, epoch, qid, competitor_list)
-        generate_document_tfidf_files(options.swig_path, comp_index, sentence_workingset_file, doc_tfidf_dir)
 
-        # create_features(qrid, comp_trec_file, comp_trectext_file, raw_ds_file, doc_tfidf_dir, comp_index, output_dir)
         ranked_list = read_trec_file(comp_trec_file)
         premature_end = create_bot_features(logger, qrid, 1, 1, ranked_list, doc_texts, output_dir,
                                             word_embedding_model, mode='single', raw_ds_file=raw_ds_file,
@@ -114,7 +113,7 @@ if __name__ == '__main__':
         if premature_end:
             complete_sim_file(similarity_file, total_rounds)
             break
-        # input('features created')
+
         ranking_file = generate_predictions(model_path, options.svm_rank_scripts_dir, output_dir, features_file)
         max_pair = get_highest_ranked_pair(features_file, ranking_file)
         record_replacement(replacements_file, epoch, max_pair)
@@ -139,8 +138,12 @@ if __name__ == '__main__':
                                            output_dir=reranking_dir)
         append_to_trec_file(comp_trec_file, reranked_trec_file)
         shutil.rmtree(reranking_dir)
+
         doc_texts = load_trectext_file(comp_trectext_file)
-        record_doc_similarity(doc_texts, epoch+1, similarity_file, word_embedding_model)
+        generate_document_tfidf_files(qid, epoch + 1, comp_trectext_file, competitor_list, sentence_workingset_file,
+                                      output_dir=doc_tfidf_dir, base_index=options.index_path,  new_index=comp_index,
+                                      swig_path=options.swig_path, indri_path=options.indri_path)
+        record_doc_similarity(doc_texts, epoch+1, similarity_file, word_embedding_model, doc_tfidf_dir)
     # if premature_end:
     #         complete_sim_file(similarity_file, total_rounds)
     # else:

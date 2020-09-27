@@ -9,8 +9,8 @@ from nltk import sent_tokenize
 from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    generate_doc_id, ensure_dir
-from vector_functionality import centroid_similarity
+    generate_doc_id, ensure_dir, create_index, create_sentence_workingset
+from vector_functionality import centroid_similarity, document_tfidf_similarity
 
 
 def create_initial_trec_file(original_trec_file: str, output_dir: str, qid: str, competitors: list):
@@ -176,25 +176,34 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(advance_round(line) + '\n')
 
 
-def generate_document_tfidf_files(swig_path, index_path, workingset_file, output_dir):
+def generate_document_tfidf_files(qid, epoch, trectext_file, competitor_list, workingset_file, output_dir, base_index,
+                                  new_index, swig_path, indri_path):
+    create_index(trectext_file, new_index, indri_path)
+    create_sentence_workingset(workingset_file, epoch, qid, competitor_list)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
-              + index_path + ' ' + workingset_file + ' ' + output_dir
+    # command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
+    #           + index_path + ' ' + workingset_file + ' ' + output_dir
+    command = f'java _djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
+              f'{base_index} {new_index} {workingset_file} {output_dir}'
     run_and_print(command)
 
 
-def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedding_model):
+def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedding_model, document_tfidf_dir):
     ensure_dir(similarity_file)
     recent_documents = []
+    recent_texts = []
     for document in doc_texts:
         epoch = int(document.split('-')[1])
         if epoch == current_epoch:
-            recent_documents.append(doc_texts[document])
+            recent_documents.append(document)
+            recent_texts.append(doc_texts[document])
+    assert len(recent_documents) == 2
 
-    similarity = centroid_similarity(*recent_documents, word_embedding_model)
+    tfidf_similarity = document_tfidf_similarity(*[document_tfidf_dir + doc for doc in recent_documents])
+    embedding_similarity = centroid_similarity(*recent_texts, word_embedding_model)
     with open(similarity_file, 'a') as f:
-        f.write(f'{current_epoch-1}. {similarity}\n')
+        f.write(f'{current_epoch-1}. {tfidf_similarity} {embedding_similarity}\n')
 
 
 def record_replacement(replacements_file, epoch, max_pair):

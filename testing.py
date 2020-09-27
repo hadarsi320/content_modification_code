@@ -10,6 +10,7 @@ from bot_competition import *
 from utils import *
 from vector_functionality import *
 
+
 if __name__ == '__main__':
     # comp_trec_file = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/tmp/trec_files' \
     #                  '/trec_file_010_[40,49]'
@@ -41,9 +42,14 @@ if __name__ == '__main__':
     #             sentence_in = line.split('\t')[3].strip('\n')
     #             sentence_out_index = int(key.split('_')[1])
     #             break
-    s = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/tmp/document_tfidf/ROUND-01-182-10'
-    t = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/tmp/document_tfidf/ROUND-01-182-11'
-    sv = get_java_object(s)
-    tv = get_java_object(t)
-    print(dict_cosine_similarity(tv, sv))
+    # s = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/tmp/document_tfidf/ROUND-01-045-16'
+    # t = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/tmp/document_tfidf/ROUND-01-045-17'
+    # sv = get_java_object(s)
+    # tv = get_java_object(t)
+    # print(dict_cosine_similarity(tv, sv))
+    # print(document_tfidf_similarity(s, t))
+    try:
+        raise Exception('lol wut')
+    except Exception as e:
+        print(str(e))
     pass
