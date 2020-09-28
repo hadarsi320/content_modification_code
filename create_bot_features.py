@@ -1,19 +1,16 @@
-import logging
 import math
 import os
-import sys
 from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from multiprocessing import cpu_count
-from optparse import OptionParser
 
-import gensim
 import numpy as np
+from deprecated import deprecated
 from nltk import sent_tokenize
 
 from gen_utils import run_bash_command, list_multiprocessing, run_and_print
-from utils import clean_texts, read_trec_file, load_trectext_file, get_java_object, create_trectext_file, create_index, \
+from utils import clean_texts, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
     transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict, \
     generate_pair_name, ensure_dir, tokenize_document, is_file_empty
@@ -32,7 +29,6 @@ def create_sentence_pairs(top_docs, ref_doc, texts):
                 continue
             for out_index, ref_sentence in enumerate(ref_sentences):
                 key = ref_doc + "$" + doc + "_" + str(out_index) + "_" + str(in_index)
-                # result[key] = ref_sentence.replace("\n", " ").rstrip() + "\t" + top_sentence.replace("\n", " ").rstrip()
                 result[key] = ref_sentence + "\t" + top_sentence
     return result
 
@@ -276,7 +272,7 @@ def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc
     run_bash_command("mv features " + output_final_features_dir)
 
 
-def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_index, top_doc_index,
+def feature_creation_single(logger, raw_dataset_file, ranked_lists, doc_texts, ref_doc_index, top_doc_index,
                             doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir, qrid, query_text,
                             output_feature_files_dir, output_final_features_dir, workingset_file, word_embed_model):
     # TODO find a way to reuse the word_embedding model
@@ -288,20 +284,21 @@ def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_i
     create_ws(raw_ds, workingset_file, ref_doc_index)
     create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
                         sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qrid, word_embed_model)
-    # run_bash_command("perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file)
-    # run_bash_command("mv features " + output_final_features_dir + 'features_' + qrid + '.dat')
-    run_and_print("perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file)
-    run_and_print("mv features " + output_final_features_dir + 'features_' + qrid + '.dat')
+    command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
+    logger.info(command)
+    run_bash_command(command)
+    command = "mv features " + output_final_features_dir + 'features_' + qrid + '.dat'
+    logger.info(command)
+    run_bash_command(command)
+    print()
 
 
-def run_svm_rank_model(test_file, model_file, predictions_folder):
+def run_svm_rank_model(logger, test_file, model_file, predictions_folder):
     if not os.path.exists(predictions_folder):
         os.makedirs(predictions_folder)
     predictions_file = predictions_folder + os.path.basename(model_file)
     command = "./svm_rank_classify " + test_file + " " + model_file + " " + predictions_file
-    print("##Running command: " + command + "##")
-    out = run_bash_command(command)
-    print("Output of ranking command: " + str(out), flush=True)
+    run_and_print(logger, command, command_name='Ranking')
     return predictions_file
 
 
@@ -320,9 +317,7 @@ def create_index_to_doc_name_dict(features):
 def create_sentence_vector_files(logger, output_dir, raw_ds_file, index_path, swig_path):
     command = "java -Djava.library.path=" + swig_path + " -cp seo_indri_utils.jar PrepareTFIDFVectorsSentences " \
               + index_path + " " + raw_ds_file + " " + output_dir
-    logger.info("##Running command: " + command + "##")
-    out = str(run_bash_command(command))
-    logger.info("Command output: " + str(out))
+    run_and_print(logger, command, command_name='PrepareTFIDFVectorsSentences')
 
 
 def update_text_doc(text, new_sentence, replacement_index):
@@ -384,8 +379,8 @@ def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri
     create_new_trectext(ref_doc_id, texts, new_text, new_trectext_path)
     create_specific_ws(qrid, ranked_lists, specific_ws_path)
     logger.info("creating features")
-    create_index(new_trectext_path, new_index_path, indri_path)
-    features_file = create_features_file_diff(full_feature_dir, index_path, new_index_path,
+    create_index(logger, new_trectext_path, new_index_path, indri_path)
+    features_file = create_features_file_diff(logger, full_feature_dir, index_path, new_index_path,
                                               feature_file_path, specific_ws_path, scripts_dir,
                                               swig_path, stopwords_file, queries_text_file)
     logger.info("creating docname index")
@@ -394,7 +389,7 @@ def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri
     query_index = create_index_to_query_dict(features_file)
     logger.info("features creation completed")
     logger.info("running ranking model on features file")
-    run_model(features_file, jar_path, score_file_path, rank_model)
+    run_model(logger, features_file, jar_path, score_file_path, rank_model)
     logger.info("ranking completed")
     logger.info("retrieving scores")
     scores = retrieve_scores(docname_index, query_index, score_file_path)
@@ -408,6 +403,7 @@ def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri
     return final
 
 
+@deprecated(reason='The functions this function uses have been altered')
 def create_qrels(raw_ds, base_trec, out_file, ref, new_indices_dir, texts):
     ind_name = {-1: "5", 1: "2"}
     with open(out_file, 'w') as qrels:
@@ -473,7 +469,7 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
 
         create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path, swig_path)
         query_text = get_query_text(queries_file, qid)
-        feature_creation_single(raw_ds_file, ranked_lists, doc_texts, ref_index, top_docs_index,
+        feature_creation_single(logger, raw_ds_file, ranked_lists, doc_texts, ref_index, top_docs_index,
                                 doc_tfidf_dir, sentences_tfidf_dir, qrid, query_text,  output_feature_files_dir,
                                 output_final_feature_file_dir, workingset_file, word_embed_model)
 
@@ -492,93 +488,3 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
         raise ValueError('mode value must be given, and it must be either \'single\' or \'multiple\'')
 
     return False
-
-# if __name__ == "__main__":
-#     program = os.path.basename(sys.argv[0])
-#     logger = logging.getLogger(program)
-#
-#     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
-#     logging.root.setLevel(level=logging.INFO)
-#     logger.info("running %s" % ' '.join(sys.argv))
-#
-#     parser = OptionParser()
-#     # Mandatory variables
-#     parser.add_option("--mode", choices=['single', 'multiple'])
-#     parser.add_option("--qrid")
-#     parser.add_option("--ref_index", type="int")
-#     parser.add_option("--top_docs_index", type="int")
-#     parser.add_option("--trec_file")
-#     parser.add_option("--trectext_file")
-#
-#     # Optional variables
-#     # parser.add_option("--competitors", default='13,43')  # this should be useless in the case of customized trec file
-#     # files can't shared between different processes, so these defaults can't stay
-#     parser.add_option('--output_dir', default='./output/')
-#     parser.add_option("--workingset_file", default='workingset.txt')
-#     parser.add_option("--raw_ds_out", default='raw_ds_out.txt')
-#     parser.add_option("--index_path", default='~/work_files/merged_index/')
-#     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
-#     parser.add_option("--doc_tfidf_dir", default='./asr_tfidf_vectors/')
-#     parser.add_option("--sentences_tfidf_dir",
-#                       default='sentences_tfidf_dir/')  # does this need to be competition specific?
-#     parser.add_option("--queries_file", default='data/queries_seo_exp.xml')
-#     parser.add_option("--output_feature_files_dir", default='feature_files/')
-#     parser.add_option("--output_final_feature_file_dir", default='final_features/')
-#     parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
-#
-#     # TODO find out what these are about
-#     parser.add_option("--indri_path", default='~/indri/')
-#     parser.add_option("--sentence_trec_file", default=None)
-#     parser.add_option("--scripts_path", default=None)
-#     parser.add_option("--model", default=None)
-#     parser.add_option("--scores_dir", default=None)
-#     parser.add_option("--jar_path", default=None)
-#     parser.add_option("--queries_text_file", default=None)
-#
-#     # are these useless?
-#     parser.add_option("--new_trectext_file", default=None)
-#     parser.add_option("--svm_model_file", default=None)
-#
-#     (options, args) = parser.parse_args()
-#     ranked_lists = read_trec_file(options.trec_file)
-#     doc_texts = load_trectext_file(options.trectext_file)
-#     mode = options.mode
-#     sentences_tfidf_dir = options.output_dir + options.sentences_tfidf_dir
-#     raw_ds_file = options.raw_ds_out
-#     output_feature_files_dir = options.output_dir + options.output_feature_files_dir
-#     output_final_feature_file_dir = options.output_dir + options.output_final_feature_file_dir
-#     workingset_file = options.output_dir + options.workingset_file
-#
-#     if mode == 'single':
-#         qrid = options.qrid  # qrid- query round id
-#         epoch, qid = reverese_query(qrid)
-#
-#         # if not os.path.exists(raw_ds):
-#         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, options.ref_index, options.top_docs_index,
-#                            current_epoch=epoch, current_qid=qid)
-#         create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, options.index_path,
-#                                      options.swig_path)
-#
-#         query_text = get_query_text(options.queries_file, qid)
-#         word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
-#                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
-#         feature_creation_single(raw_ds_file, ranked_lists, doc_texts, options.ref_index,
-#                                 options.top_docs_index, options.doc_tfidf_dir, sentences_tfidf_dir, qrid,
-#                                 query_text, output_feature_files_dir, output_final_feature_file_dir, workingset_file)
-#
-#     elif mode == 'multiple':
-#         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(options.ref_index),
-#                            int(options.top_docs_index))
-#         create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, options.index_path,
-#                                      options.swig_path)
-#         queries = read_queries_file(options.queries_file)
-#         queries = transform_query_text(queries)
-#         word_embd_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
-#                                                                           limit=700000)  #### Modify this line in case you are using other types of embeedings
-#         feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(options.top_docs_index),
-#                                   int(options.ref_index), options.doc_tfidf_dir,
-#                                   sentences_tfidf_dir, queries, output_feature_files_dir,
-#                                   output_final_feature_file_dir, options.workingset_file)
-#
-#     else:
-#         raise ValueError('mode value must be given, and it must be either \'single\' or \'multiple\'')

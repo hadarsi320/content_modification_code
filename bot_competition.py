@@ -9,11 +9,11 @@ from nltk import sent_tokenize
 from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    generate_doc_id, ensure_dir, create_index, create_sentence_workingset
+    generate_doc_id, ensure_dir, create_sentence_workingset
 from vector_functionality import centroid_similarity, document_tfidf_similarity
 
 
-def create_initial_trec_file(original_trec_file: str, output_dir: str, qid: str, competitors: list):
+def create_initial_trec_file(logger, original_trec_file: str, output_dir: str, qid: str, competitors: list):
     new_trec_file = output_dir + 'trec_file_' + qid + '_' + ','.join(competitors)
     ensure_dir(new_trec_file)
     qrid = get_qrid(qid, 1)
@@ -30,10 +30,11 @@ def create_initial_trec_file(original_trec_file: str, output_dir: str, qid: str,
                     lines_written += 1
     if lines_written != len(competitors):
         raise ValueError('Competitors/Qid not in dataset')
+    logger.info('Competition trec file created')
     return new_trec_file
 
 
-def create_initial_trectext_file(original_trectext_file, output_dir, qid, competitors):
+def create_initial_trectext_file(logger, original_trectext_file, output_dir, qid, competitors):
     # TODO trim and preprocess the documents
     if not exists(output_dir):
         os.makedirs(output_dir)
@@ -55,39 +56,40 @@ def create_initial_trectext_file(original_trectext_file, output_dir, qid, compet
                 docs[name] = '\n'.join(sent_tokenize(att.text))
 
     create_trectext_file(docs, new_trectext_file)
+    logger.info('Competition trectext file created')
     return new_trectext_file
 
 
 @deprecated(reason='The module create_bot_features no longer has a main')
-def create_features(qrid, trec_file, trectext_file, raw_ds_file, doc_tdidf_dir, index, output_dir,
+def create_features(logger, qrid, trec_file, trectext_file, raw_ds_file, doc_tdidf_dir, index, output_dir,
                     mode='single', ref_index=1, top_docs_index=1):
     # TODO replace this with a function
     command = f'python create_bot_features.py --mode={mode} --qrid={qrid} --ref_index={ref_index} ' \
               f'--top_docs_index={top_docs_index} --trec_file={trec_file} --trectext_file={trectext_file} ' \
               f'--raw_ds_out={raw_ds_file} --doc_tfidf_dir={doc_tdidf_dir} --index_path={index} ' \
               f'--output_dir={output_dir}'
-    run_and_print(command)
+    run_and_print(logger, command)
 
 
-def generate_learning_dataset(output_dir, label_aggregation_method, seo_qrels, coherency_qrels, feature_fname):
+def generate_learning_dataset(logger, output_dir, label_aggregation_method, seo_qrels, coherency_qrels, feature_fname):
     command = 'python dataset_creator.py ' + output_dir + ' ' + label_aggregation_method + ' ' + seo_qrels + ' ' + \
               coherency_qrels + ' ' + feature_fname
-    run_and_print(command)
+    run_and_print(logger, command)
 
 
-def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
+def create_model(logger, svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
     ensure_dir(model_path)
     command = svm_rank_scripts_dir + 'svm_rank_learn -c ' + svm_rank_c + ' ' + learning_data + ' ' + model_path
-    run_and_print(command)
+    run_and_print(logger, command)
 
 
-def generate_predictions(model_path, svm_rank_scripts_dir, output_dir, feature_file):
+def generate_predictions(logger, model_path, svm_rank_scripts_dir, output_dir, feature_file):
     rankings_dir = output_dir + 'predictions/'
     if not exists(rankings_dir):
         os.makedirs(rankings_dir)
     rankings_file = rankings_dir + '_predictions'.join(splitext(basename(feature_file)))
     command = svm_rank_scripts_dir + 'svm_rank_classify ' + feature_file + ' ' + model_path + ' ' + rankings_file
-    run_and_print(command)
+    run_and_print(logger, command)
     return rankings_file
 
 
@@ -176,8 +178,8 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(advance_round(line) + '\n')
 
 
-def generate_document_tfidf_files(qid, epoch, competitor_list, workingset_file, output_dir, swig_path, new_index,
-                                  base_index=None):
+def generate_document_tfidf_files(logger, qid, epoch, competitor_list, workingset_file, output_dir, swig_path,
+                                  new_index, base_index=None):
     create_sentence_workingset(workingset_file, epoch, qid, competitor_list)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -185,10 +187,10 @@ def generate_document_tfidf_files(qid, epoch, competitor_list, workingset_file, 
               + new_index + ' ' + workingset_file + ' ' + output_dir
     # command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
     #           f'{base_index} {new_index} {workingset_file} {output_dir}'
-    run_and_print(command)
+    run_and_print(logger, command, command_name='PrepareTFIDFVectorsWS')
 
 
-def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedding_model, document_tfidf_dir):
+def record_doc_similarity(logger, doc_texts, current_epoch, similarity_file, word_embedding_model, document_tfidf_dir):
     ensure_dir(similarity_file)
     recent_documents = []
     recent_texts = []
@@ -203,6 +205,7 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
     embedding_similarity = centroid_similarity(*recent_texts, word_embedding_model)
     with open(similarity_file, 'a') as f:
         f.write(f'{current_epoch-1}. {tfidf_similarity} {embedding_similarity}\n')
+    logger.info('Recorded document similarity')
 
 
 def record_replacement(replacements_file, epoch, max_pair):

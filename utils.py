@@ -11,8 +11,8 @@ from lxml import etree
 from nltk import sent_tokenize
 
 
-def create_features_file_diff(features_dir, base_index_path, new_index_path, new_features_file, working_set_file,
-                              scripts_path, swig_path, stopwords_file, queries_text_file):
+def create_features_file_diff(logger, features_dir, base_index_path, new_index_path, new_features_file,
+                              working_set_file, scripts_path, swig_path, stopwords_file, queries_text_file):
     """
     Creates a feature file via a given index and a given working set file
     """
@@ -23,17 +23,16 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     command = "java -Djava.library.path=" + swig_path + \
               " -cp seo_indri_utils.jar LTRFeatures " + base_index_path + " " + new_index_path + " " \
               + stopwords_file + " " + queries_text_file + " " + working_set_file + " " + features_dir
-    print(command)
-    out = run_bash_command(command)
-    print(out)
+    run_and_print(logger, command, command_name='LTRFeatures')
+
     command = "perl " + scripts_path + "generate.pl " + features_dir + " " + working_set_file
-    print(command)
-    out = run_bash_command(command)
-    print(out)
+    logger.info(command)
+    run_bash_command(command)
+
     command = "mv features " + new_features_file
-    print(command)
-    out = run_bash_command(command)
-    print(out)
+    logger.info(command)
+    run_bash_command(command)
+
     run_bash_command("mv featureID " + os.path.dirname(new_features_file))
     return new_features_file
 
@@ -118,7 +117,7 @@ def append_to_trectext_file(trectext_file, old_documents, new_documents):
     #     f.write('</DATA>\n')
 
 
-def create_index(trec_text_file, index_path, indri_path):
+def create_index(logger, trec_text_file, index_path, indri_path):
     """
     Parse the trectext file given, and create an index.
     """
@@ -133,9 +132,7 @@ def create_index(trec_text_file, index_path, indri_path):
     #           ' -index=' + index_path + ' -memory=' + memory + ' -stemmer.name=' + stemmer
     command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trec_text_file} -corpus.class={corpus_class} ' \
               f'-index={index_path} -memory={memory} -stemmer.name={stemmer}'
-    print("## Running IndriBuildIndex command: " + command + " ##", flush=True)
-    out = run_bash_command(command)
-    print("IndriBuildIndex output:" + out, flush=True)
+    run_and_print(logger, command, command_name='IndriBuildIndex')
     return index_path
 
 
@@ -211,14 +208,12 @@ def create_index_to_query_dict(data_set_file):
         return query_index
 
 
-def run_model(features_file, jar_path, score_file, model_path):
+def run_model(logger, features_file, jar_path, score_file, model_path):
     ensure_dir(score_file)
     run_bash_command('touch ' + score_file)
     command = "java -jar " + jar_path + " -load " + model_path + " -rank " + features_file + " -score " + \
               score_file
-    print(command)
-    out = run_bash_command(command)
-    print(out)
+    run_and_print(logger, command)
     return score_file
 
 

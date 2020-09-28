@@ -29,10 +29,12 @@ def run_bash_command(command):
     return out
 
 
-def run_and_print(command):
-    print("## Running command: " + command + " ##")
+def run_and_print(logger, command, command_name=None):
+    print_string = f'Running {command_name if command_name else ""} command: {command}'
+    logger.info(print_string)
     out = run_bash_command(command)
-    print(out, flush=True)
+    output_string = (command_name.rstrip() if command_name else 'Command') + ' output:\n'
+    print(output_string, out, sep='\n', flush=True)
 
 
 def list_multiprocessing(param_lst, func, **kwargs):
