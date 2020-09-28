@@ -408,7 +408,7 @@ def complete_sim_file(similarity_file, total_rounds):
     with open(similarity_file, 'a') as f:
         for i in range(total_rounds - lines + 1):
             # replace this with actual similarity
-            f.write('{}. {} {}\n'.format(lines + i, 1, 1))
+            f.write('{}\t{}\t{}\n'.format(lines + i, 1, 1))
 
 # def preprocess_document(document):
 #     return '\n'.join(sent_tokenize(document))

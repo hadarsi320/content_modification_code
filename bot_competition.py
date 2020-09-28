@@ -204,7 +204,9 @@ def record_doc_similarity(logger, doc_texts, current_epoch, similarity_file, wor
     tfidf_similarity = document_tfidf_similarity(*[document_tfidf_dir + doc for doc in recent_documents])
     embedding_similarity = centroid_similarity(*recent_texts, word_embedding_model)
     with open(similarity_file, 'a') as f:
-        f.write(f'{current_epoch-1}. {tfidf_similarity} {embedding_similarity}\n')
+        if current_epoch == 1:
+            f.write('Round\ttfidf\tembedding\n')
+        f.write(f'{current_epoch-1}\t{round(tfidf_similarity, 3)}\t{round(embedding_similarity, 3)}\n')
     logger.info('Recorded document similarity')
 
 

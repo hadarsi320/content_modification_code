@@ -28,7 +28,8 @@ if __name__ == '__main__':
     # Mandatory variables
     parser.add_option('--qid')
     parser.add_option('--competitors')
-    parser.add_option('--competition_file')
+    # parser.add_option('--competition_file')
+    # TODO implement the use of competition file, this way
 
     # Optional variables that may be changed
     parser.add_option('--total_rounds', '-r', type='int', default=8)  # setting the rounds to be any more then 8 causes

@@ -3,29 +3,30 @@ import os
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    similarity_dir = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/run_26_9' \
-                     '/similarity_results/'
+    similarity_dir = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/run_28_9/similarity_results/'
     plots_dir = './plots/'
     similarity_files = sorted(os.listdir(similarity_dir))
 
     if not os.path.exists(plots_dir):
         os.makedirs(plots_dir)
 
-    sim_lists = []
+    sim_lists = [], []
     for file in similarity_files:
-        sim_list = []
-        with open(similarity_dir + file) as f:
-            for line in f:
-                value = float(line.split()[1])
-                if value == 0:
-                    break
-                sim_list.append(value)
-        sim_lists.append(sim_list)
+        sim_list = [], []
+        with open(similarity_dir+file) as f:
+            for num, line in enumerate(f):
+                if num == 0:
+                    continue
+                for i in [0, 1]:
+                    sim_list[i].append(float(line.split('\t')[i+1]))
+        for i in [0, 1]:
+            sim_lists[i].append(sim_list[i])
 
-    rounds = max(len(sim_list) for sim_list in sim_lists)
-    sim_matrix = np.array([list for list in sim_lists if len(list) == rounds])
+    rounds = max(len(list) for list in sim_lists[0])
+    lex_sim_matrix = np.array([list for list in sim_lists[0] if len(list) == rounds])
+    embed_sim_matrix = np.array([list for list in sim_lists[1] if len(list) == rounds])
 
-    # line plot
+
     averaged_mat = np.average(sim_matrix, axis=0)
     plt.plot(range(0, rounds), averaged_mat, 'o-')
     plt.xticks(range(0, rounds+1))
