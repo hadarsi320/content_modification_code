@@ -3,8 +3,9 @@ import re
 import shutil
 from collections import defaultdict
 import javaobj
+from deprecated import deprecated
 
-from gen_utils import run_bash_command, run_command
+from gen_utils import run_bash_command, run_command, run_and_print
 import xml.etree.ElementTree as ET
 from lxml import etree
 from nltk import sent_tokenize
@@ -54,15 +55,13 @@ def read_trec_file(trec_file, current_round=None, current_qid=None, competitor_l
 
 
 def read_raw_trec_file(trec_file):
-    stats = {}
+    stats = defaultdict(list)
     with open(trec_file) as file:
         for line in file:
-            doc = line.split()[2]
             query = line.split()[0]
-            if query not in stats:
-                stats[query] = []
-            stats[query].append(doc)
-    return stats
+            doc_id = line.split()[2]
+            stats[query].append(doc_id)
+    return dict(stats)
 
 
 def create_trectext_file(document_texts, trectext_fname, working_set_fname=None):
@@ -126,16 +125,15 @@ def create_index(trec_text_file, index_path, indri_path):
     if os.path.exists(index_path):
         shutil.rmtree(index_path)
 
-    corpus_path = trec_text_file
     corpus_class = 'trectext'
     memory = '1G'
     stemmer = 'krovetz'
     ensure_dir(index_path)
-    # if not os.path.exists(home_path + index_path): what is this
-    #     os.makedirs(home_path + index_path)
-    command = indri_path + 'bin/IndriBuildIndex -corpus.path=' + corpus_path + ' -corpus.class=' + corpus_class + \
-              ' -index=' + index_path + ' -memory=' + memory + ' -stemmer.name=' + stemmer
-    print("##Running IndriBuildIndex command: " + command + "##", flush=True)
+    # command = indri_path + 'bin/IndriBuildIndex -corpus.path=' + trec_text_file + ' -corpus.class=' + corpus_class + \
+    #           ' -index=' + index_path + ' -memory=' + memory + ' -stemmer.name=' + stemmer
+    command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trec_text_file} -corpus.class={corpus_class} ' \
+              f'-index={index_path} -memory={memory} -stemmer.name={stemmer}'
+    print("## Running IndriBuildIndex command: " + command + " ##", flush=True)
     out = run_bash_command(command)
     print("IndriBuildIndex output:" + out, flush=True)
     return index_path
@@ -293,7 +291,7 @@ def clean_texts(text):
     text = text.replace("(", "")
     text = text.replace(")", "")
     # my additions
-    text = text.replace("\t", " ")\
+    text = text.replace("\t", " ") \
         .strip()
     return text.lower()
 
@@ -357,7 +355,7 @@ def get_model_name(label_aggregation_method: str, label_aggregation_b: str, svm_
            + 'c=' + svm_rank_c + '.dat'
 
 
-# TODO consider deleting this
+@deprecated(reason='This was created a while ago')
 def print_and_delete(file_path):
     with open(file_path) as f:
         print(f.read())
@@ -415,7 +413,7 @@ def complete_sim_file(similarity_file, total_rounds):
     with open(similarity_file, 'a') as f:
         for i in range(total_rounds - lines + 1):
             # replace this with actual similarity
-            f.write('{}. {} {}\n'.format(lines+i, 1, 1))
+            f.write('{}. {} {}\n'.format(lines + i, 1, 1))
 
 # def preprocess_document(document):
 #     return '\n'.join(sent_tokenize(document))

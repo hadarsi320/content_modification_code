@@ -40,13 +40,13 @@ if __name__ == '__main__':
             command = f'python main.py --qid={qid} --competitors={",".join(curr_comp)} --output_dir={output_dir}'
             try:
                 run_and_print(command)
-            except Exception:
-                print(f'#### Error occured in competition {qid} {", ".join(curr_comp)}')
+            except Exception as e:
+                print(f'#### Error occured in competition {qid} {", ".join(curr_comp)}: \nstr(e)\n')
                 log_error(error_file, qid, curr_comp)
 
     # for qid in competitors_combinations:
     #     competitors = sample(competitors_combinations[qid], 1)[0]
-    #     command = 'python main.py --qid={} --competitors={} --output_dir=./output/run_26_9/ -r 8'\
+    #     command = 'python 2of2_competition.py --qid={} --competitors={} --output_dir=./output/run_26_9/ -r 8'\
     #         .format(qid, ','.join(competitors))
     #     run_and_print(command)
     #     break

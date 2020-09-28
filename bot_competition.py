@@ -127,7 +127,7 @@ def generate_updated_document(doc_texts, max_pair, ref_doc_id, rep_doc_id):
     return '\n'.join(ref_doc)
 
 
-def get_game_state(trec_file, current_epoch):
+def get_ranked_competitors_list(trec_file, current_epoch):
     competitors_ranked_list = []
     with open(trec_file, 'r') as f:
         for line in f:
@@ -176,16 +176,15 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(advance_round(line) + '\n')
 
 
-def generate_document_tfidf_files(qid, epoch, trectext_file, competitor_list, workingset_file, output_dir, base_index,
-                                  new_index, swig_path, indri_path):
-    create_index(trectext_file, new_index, indri_path)
+def generate_document_tfidf_files(qid, epoch, competitor_list, workingset_file, output_dir, swig_path, new_index,
+                                  base_index=None):
     create_sentence_workingset(workingset_file, epoch, qid, competitor_list)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    # command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
-    #           + index_path + ' ' + workingset_file + ' ' + output_dir
-    command = f'java _djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
-              f'{base_index} {new_index} {workingset_file} {output_dir}'
+    command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
+              + new_index + ' ' + workingset_file + ' ' + output_dir
+    # command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
+    #           f'{base_index} {new_index} {workingset_file} {output_dir}'
     run_and_print(command)
 
 

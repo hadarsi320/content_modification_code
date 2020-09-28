@@ -466,14 +466,12 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
     if mode == 'single':
         epoch, qid = reverese_query(qrid)
 
-        # if not os.path.exists(raw_ds):
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, top_docs_index,
                            current_epoch=epoch, current_qid=qid)
         if is_file_empty(raw_ds_file):
             return True
-        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path,
-                                     swig_path)
 
+        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path, swig_path)
         query_text = get_query_text(queries_file, qid)
         feature_creation_single(raw_ds_file, ranked_lists, doc_texts, ref_index, top_docs_index,
                                 doc_tfidf_dir, sentences_tfidf_dir, qrid, query_text,  output_feature_files_dir,
@@ -482,8 +480,7 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
     elif mode == 'multiple':
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
                            int(top_docs_index))
-        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path,
-                                     swig_path)
+        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path, swig_path)
         queries = read_queries_file(queries_file)
         queries = transform_query_text(queries)
         feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),

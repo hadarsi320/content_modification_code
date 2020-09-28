@@ -48,8 +48,6 @@ if __name__ == '__main__':
     # tv = get_java_object(t)
     # print(dict_cosine_similarity(tv, sv))
     # print(document_tfidf_similarity(s, t))
-    try:
-        raise Exception('lol wut')
-    except Exception as e:
-        print(str(e))
+
+    t = read_raw_trec_file('trecs/trec_file_original_sorted.txt')
     pass
