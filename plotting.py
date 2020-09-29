@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    similarity_dir = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/run_28_9/similarity_results/'
+    similarity_dir = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/run_29_9/similarity_results'
     plots_dir = './plots/'
     similarity_files = sorted(os.listdir(similarity_dir))
 
@@ -13,7 +13,7 @@ if __name__ == '__main__':
     sim_lists = [], []
     for file in similarity_files:
         sim_list = [], []
-        with open(similarity_dir+file) as f:
+        with open(similarity_dir+'/'+file) as f:
             for num, line in enumerate(f):
                 if num == 0:
                     continue
@@ -26,9 +26,9 @@ if __name__ == '__main__':
     matrices = [np.array([list for list in sim_lists[i] if len(list) == rounds]) for i in range(2)]
 
 
-    averaged_mat = np.average(matrices[0], axis=0)
-    plt.plot(range(0, rounds), averaged_mat, 'o-')
-    plt.xticks(range(0, rounds+1))
+    averaged_mat = np.average(matrices[0], axis=0)[:-1]
+    plt.plot(range(0, rounds-1), averaged_mat, 'o-')
+    plt.xticks(range(0, rounds-1))
     plt.title(f'Lexical Similarity Measure Averaged Across {len(matrices[0])} competitions')
     plt.xlabel('Round')
     plt.ylabel('Cosine Similarity')

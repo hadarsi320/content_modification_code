@@ -27,23 +27,24 @@ def log_error(error_file, qid, comptitors):
 
 if __name__ == '__main__':
     trec = './trecs/trec_file_original_sorted.txt'
-    output_dir = './output/run_28_9/'
+    output_dir = './output/run_29_9/'
     error_file = output_dir + 'error_file.txt'
 
     competitors = get_competitors_dict(trec)
     competitors_combinations = {qid: list(combinations(competitors[qid], 2)) for qid in competitors}
+    iteration = 0
     for i in range(10):
         for qid in competitors_combinations:
+            iteration += 1
             curr_comp = sorted(competitors_combinations[qid][i])
             if exists(output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(curr_comp))):
                 print('Competition qid={} competitors={} has already been ran'.format(qid, ', '.join(curr_comp)))
                 continue
-            command = f'python 2of2_competition.py --qid={qid} --competitors={",".join(curr_comp)}' \
+            command = f'python main.py --mode=2of2 --qid={qid} --competitors={",".join(curr_comp)}' \
                       f' --output_dir={output_dir}'
-            print('Running command: ' + command)
+            print('{}. Running command: {}'.format(iteration, command))
             try:
-                out = run_bash_command(command)
-                print(out)
+                run_bash_command(command)
             except Exception as e:
                 print(f'#### Error occured in competition {qid} {", ".join(curr_comp)}: \n{str(e)}\n')
                 log_error(error_file, qid, curr_comp)

@@ -186,7 +186,7 @@ if __name__ == '__main__':
 
     # Variabless
     parser.add_option('--mode', choices=['2of2', '2of5'])
-    parser.add_option('--qid', type='int')
+    parser.add_option('--qid')
     parser.add_option('--competitors')
     parser.add_option('--dummy_bot_index', choices=['1', '2'])
     parser.add_option('--trectext_file')
@@ -226,7 +226,11 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    qid = str(options.qid).zfill(3)
+    try:
+        int(options.qid)
+    except:
+        raise ValueError('qid {} is not an integer'.format(options.qid))
+    qid = options.qid.zfill(3)
 
     output_dir = options.output_dir
     trec_dir = output_dir + 'trec_files/'
