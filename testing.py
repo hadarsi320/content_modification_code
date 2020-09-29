@@ -49,5 +49,13 @@ if __name__ == '__main__':
     # print(dict_cosine_similarity(tv, sv))
     # print(document_tfidf_similarity(s, t))
 
-    t = read_raw_trec_file('trecs/trec_file_original_sorted.txt')
-    pass
+    sim_dir = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/run_28_9/similarity_results'
+    similarity_files = sorted(os.listdir(sim_dir))
+    for file in [f'{sim_dir}/{sim_file}' for sim_file in similarity_files]:
+        with open(file, 'r') as f:
+            text = f.read()
+            lines = len(text.split('\n'))
+        if lines < 11:
+            os.remove(file)
+
+

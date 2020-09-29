@@ -7,14 +7,14 @@ from os.path import exists
 
 import gensim
 
-from bot_competition import generate_learning_dataset, create_model, create_initial_trec_file, \
+from bot_competition import create_initial_trec_file, \
     create_initial_trectext_file, generate_predictions, get_highest_ranked_pair, \
     get_ranked_competitors_list, generate_updated_document, append_to_trec_file, generate_document_tfidf_files, \
-    record_doc_similarity, record_replacement
+    record_doc_similarity, record_replacement, create_pair_ranker
 from create_bot_features import run_reranking, create_bot_features
-from utils import get_learning_data_path, get_model_name, get_qrid, load_trectext_file, generate_doc_id, \
+from utils import get_qrid, load_trectext_file, generate_doc_id, \
     append_to_trectext_file, read_raw_trec_file, read_trec_file, \
-    complete_sim_file, create_index
+    complete_sim_file, create_index, get_model_name
 
 if __name__ == '__main__':
     program = os.path.basename(sys.argv[0])
@@ -38,10 +38,10 @@ if __name__ == '__main__':
     parser.add_option('--label_aggregation_method', '--agg', choices=['harmonic', 'demotion', 'weighted'],
                       default='harmonic')
     # this variable is not used if the agg method is 'demotion'
-    parser.add_option('--label_aggregation_b', '-b', default='1')
     parser.add_option('--mode', choices=['single', 'multiple'], default='single')
 
     # variables which are unlikely to be changed
+    parser.add_option('--label_aggregation_b', '-b', default='1')
     parser.add_option('--svm_rank_c', '-c', default='0.01')
     parser.add_option('--svm_models_dir', default='./rank_svm_models/')
     parser.add_option('--aggregated_data_dir', default='./data/learning_dataset/')
@@ -63,37 +63,31 @@ if __name__ == '__main__':
     parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
 
     (options, args) = parser.parse_args()
-    label_aggregation_method = options.label_aggregation_method
-    label_aggregation_b = options.label_aggregation_b
-    svm_rank_c = options.svm_rank_c
 
     # setting variables
     qid = options.qid.zfill(3)
     competitor_list = sorted(options.competitors.split(','))
+    label_aggregation_method = options.label_aggregation_method
+    label_aggregation_b = options.label_aggregation_b
+    svm_rank_c = options.svm_rank_c
     output_dir = options.output_dir
     total_rounds = options.total_rounds
-    doc_tfidf_dir = output_dir + 'document_tfidf/'
-    reranking_dir = output_dir + 'reranking/'
-    sentence_workingset_file = output_dir + 'document_ws.txt'
-    # comp_index = output_dir + 'index_dir/index_{}_{}'.format(qid, ','.join(competitor_list))
-    comp_index = output_dir + 'index'  # change to the one above if using a single index causes any trouble
     base_index = options.base_index
     merged_index = options.merged_index
     indri_path = options.indri_path
+    doc_tfidf_dir = output_dir + 'document_tfidf/'
+    reranking_dir = output_dir + 'reranking/'
+    sentence_workingset_file = output_dir + 'document_ws.txt'
+    comp_index = output_dir + 'index'  # change to the one above if using a single index causes any trouble
     replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(competitor_list))
     similarity_file = output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(competitor_list))
 
     # creating the sentence-pair ranker
     model_path = options.svm_models_dir + get_model_name(label_aggregation_method, label_aggregation_b, svm_rank_c)
-    if not exists(model_path):
-        learning_data_dir = options.aggregated_data_dir + 'feature_sets/'
-        learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b)
-
-        if not exists(learning_data_path):
-            generate_learning_dataset(logger, options.aggregated_data_dir, label_aggregation_method,
-                                      options.seo_qrels_file, options.coherency_qrels_file,
-                                      options.unranked_features_file)
-        create_model(logger, options.svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
+    create_pair_ranker(logger, model_path, options.label_aggregation_method,
+                       options.label_aggregation_b, options.svm_rank_c, options.aggregated_data_dir,
+                       options.seo_qrels_file, options.coherency_qrels_file, options.unranked_features_file,
+                       options.svm_rank_scripts_dir)
 
     # initializing files
     for file in [replacements_file, similarity_file]:
@@ -112,6 +106,7 @@ if __name__ == '__main__':
                                   swig_path=options.swig_path, new_index=comp_index, base_index=merged_index)
     record_doc_similarity(logger, doc_texts, 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
+    # consider setting the epoch to be 0 -> total_rounds
     for epoch in range(1, total_rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
 

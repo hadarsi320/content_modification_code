@@ -9,7 +9,7 @@ from nltk import sent_tokenize
 from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    generate_doc_id, ensure_dir, create_sentence_workingset
+    generate_doc_id, ensure_dir, create_sentence_workingset, get_model_name, get_learning_data_path
 from vector_functionality import centroid_similarity, document_tfidf_similarity
 
 
@@ -185,6 +185,7 @@ def generate_document_tfidf_files(logger, qid, epoch, competitor_list, workingse
         os.makedirs(output_dir)
     command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
               + new_index + ' ' + workingset_file + ' ' + output_dir
+    # TODO use new script after Greg fixes it
     # command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
     #           f'{base_index} {new_index} {workingset_file} {output_dir}'
     run_and_print(logger, command, command_name='PrepareTFIDFVectorsWS')
@@ -214,3 +215,17 @@ def record_replacement(replacements_file, epoch, max_pair):
     ensure_dir(replacements_file)
     with open(replacements_file, 'a') as f:
         f.write(f'{epoch}. {max_pair}\n')
+
+
+def create_pair_ranker(logger, model_path, label_aggregation_method, label_aggregation_b, svm_rank_c,
+                       aggregated_data_dir, seo_qrels_file, coherency_qrels_file, unranked_features_file,
+                       svm_rank_scripts_dir):
+    if not exists(model_path):
+        learning_data_dir = aggregated_data_dir + 'feature_sets/'
+        learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b)
+
+        if not exists(learning_data_path):
+            generate_learning_dataset(logger, aggregated_data_dir, label_aggregation_method,
+                                      seo_qrels_file, coherency_qrels_file,
+                                      unranked_features_file)
+        create_model(logger, svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)

@@ -35,7 +35,7 @@ if __name__ == '__main__':
     for i in range(10):
         for qid in competitors_combinations:
             curr_comp = sorted(competitors_combinations[qid][i])
-            if exists(output_dir + 'trec_files/trec_file_{}_{}'.format(qid, ','.join(curr_comp))):
+            if exists(output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(curr_comp))):
                 print('Competition qid={} competitors={} has already been ran'.format(qid, ', '.join(curr_comp)))
                 continue
             command = f'python 2of2_competition.py --qid={qid} --competitors={",".join(curr_comp)}' \
@@ -45,7 +45,7 @@ if __name__ == '__main__':
                 out = run_bash_command(command)
                 print(out)
             except Exception as e:
-                print(f'#### Error occured in competition {qid} {", ".join(curr_comp)}: \nstr(e)\n')
+                print(f'#### Error occured in competition {qid} {", ".join(curr_comp)}: \n{str(e)}\n')
                 log_error(error_file, qid, curr_comp)
 
     # for qid in competitors_combinations:

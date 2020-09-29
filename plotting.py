@@ -23,31 +23,39 @@ if __name__ == '__main__':
             sim_lists[i].append(sim_list[i])
 
     rounds = max(len(list) for list in sim_lists[0])
-    lex_sim_matrix = np.array([list for list in sim_lists[0] if len(list) == rounds])
-    embed_sim_matrix = np.array([list for list in sim_lists[1] if len(list) == rounds])
+    matrices = [np.array([list for list in sim_lists[i] if len(list) == rounds]) for i in range(2)]
 
 
-    averaged_mat = np.average(sim_matrix, axis=0)
+    averaged_mat = np.average(matrices[0], axis=0)
     plt.plot(range(0, rounds), averaged_mat, 'o-')
     plt.xticks(range(0, rounds+1))
-    plt.title(f'Similarity Measure Averaged Across {len(sim_matrix)} Competitions')
+    plt.title(f'Lexical Similarity Measure Averaged Across {len(matrices[0])} competitions')
+    plt.xlabel('Round')
+    plt.ylabel('Cosine Similarity')
+    # plt.savefig(plots_dir + 'similarity_plots.png')
+    plt.show()
+
+    averaged_mat = np.average(matrices[1], axis=0)
+    plt.plot(range(0, rounds), averaged_mat, 'o-')
+    plt.xticks(range(0, rounds+1))
+    plt.title(f'Embedding Similarity Measure Averaged Across {len(matrices[1])} competitions')
     plt.xlabel('Round')
     plt.ylabel('Cosine Similarity')
     # plt.savefig(plots_dir + 'similarity_plots.png')
     plt.show()
 
     # histogram
-    alpha = 0.5
-    bins = 12
-    plt.hist(sim_matrix[:, 0], bins=bins, label='First Round', alpha=alpha)
-    for i in range(0, sim_matrix.shape[1], 4):
-        if i == 0 or i == sim_matrix.shape[1] - 1:
-            continue
-        plt.hist(sim_matrix[:, i], bins=bins, alpha=alpha, label='Round {}'.format(i))
-    plt.hist(sim_matrix[:, -1], bins=bins, label='Last Round', alpha=alpha)
-    plt.legend()
-    plt.title('Similarity Histogram')
-    plt.xlabel('Cosine Similarity')
-    plt.ylabel('Counts')
-    # plt.savefig(plots_dir + 'similarity_histogram.png')
-    plt.show()
+    # alpha = 0.5
+    # bins = 12
+    # plt.hist(sim_matrix[:, 0], bins=bins, label='First Round', alpha=alpha)
+    # for i in range(0, sim_matrix.shape[1], 4):
+    #     if i == 0 or i == sim_matrix.shape[1] - 1:
+    #         continue
+    #     plt.hist(sim_matrix[:, i], bins=bins, alpha=alpha, label='Round {}'.format(i))
+    # plt.hist(sim_matrix[:, -1], bins=bins, label='Last Round', alpha=alpha)
+    # plt.legend()
+    # plt.title('Similarity Histogram')
+    # plt.xlabel('Cosine Similarity')
+    # plt.ylabel('Counts')
+    # # plt.savefig(plots_dir + 'similarity_histogram.png')
+    # plt.show()
