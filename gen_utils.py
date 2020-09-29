@@ -30,10 +30,11 @@ def run_bash_command(command):
 
 
 def run_and_print(logger, command, command_name=None):
-    print_string = f'Running {command_name if command_name else ""} command: {command}'
+    name = command_name.rstrip() if command_name else 'Command'
+    print_string = f'Running {name} command: {command}'
     logger.info(print_string)
     out = run_bash_command(command)
-    output_string = (command_name.rstrip() if command_name else 'Command') + ' output:\n'
+    output_string = name + ' output:'
     print(output_string, out, sep='\n', flush=True)
 
 

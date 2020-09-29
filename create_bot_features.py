@@ -274,12 +274,11 @@ def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc
 
 def feature_creation_single(logger, raw_dataset_file, ranked_lists, doc_texts, ref_doc_index, top_doc_index,
                             doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir, qrid, query_text,
-                            output_feature_files_dir, output_final_features_dir, workingset_file, word_embed_model):
+                            output_feature_files_dir, output_final_features_file, workingset_file, word_embed_model):
     # TODO find a way to reuse the word_embedding model
     if not os.path.exists(output_feature_files_dir):
         os.makedirs(output_feature_files_dir)
-    if not os.path.exists(output_final_features_dir):
-        os.makedirs(output_final_features_dir)
+    ensure_dir(output_final_features_file)
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
     create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
@@ -287,7 +286,7 @@ def feature_creation_single(logger, raw_dataset_file, ranked_lists, doc_texts, r
     command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
     logger.info(command)
     run_bash_command(command)
-    command = "mv features " + output_final_features_dir + 'features_' + qrid + '.dat'
+    command = "mv features " + output_final_features_file
     logger.info(command)
     run_bash_command(command)
     print()
@@ -315,6 +314,8 @@ def create_index_to_doc_name_dict(features):
 
 
 def create_sentence_vector_files(logger, output_dir, raw_ds_file, index_path, swig_path):
+    if not os.path.exists(index_path):
+        raise ValueError('The index {} does not exist'.format(index_path))
     command = "java -Djava.library.path=" + swig_path + " -cp seo_indri_utils.jar PrepareTFIDFVectorsSentences " \
               + index_path + " " + raw_ds_file + " " + output_dir
     run_and_print(logger, command, command_name='PrepareTFIDFVectorsSentences')
@@ -447,16 +448,13 @@ def create_qrels(raw_ds, base_trec, out_file, ref, new_indices_dir, texts):
                 qrels.write(query_write + " 0 " + name + " " + label + "\n")
 
 
+# TODO reconsider the use of index here
 def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, doc_texts, output_dir, word_embed_model,
-                        mode, sentences_tfidf_dir='sentences_tfidf_dir/',
-                        raw_ds_file='raw_ds_out.txt', output_feature_files_dir='feature_files/',
-                        output_final_feature_file_dir='final_features/', workingset_file='workingset.txt',
-                        index_path='~/work_files/merged_index/', queries_file='data/queries_seo_exp.xml',
-                        swig_path='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/',
-                        doc_tfidf_dir='./asr_tfidf_vectors/'):
+                        mode, index_path, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
+                        final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
+                        output_feature_files_dir='feature_files/', workingset_file='workingset.txt'):
     sentences_tfidf_dir = output_dir + sentences_tfidf_dir
     output_feature_files_dir = output_dir + output_feature_files_dir
-    output_final_feature_file_dir = output_dir + output_final_feature_file_dir
     workingset_file = output_dir + workingset_file
 
     if mode == 'single':
@@ -470,8 +468,8 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
         create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path, swig_path)
         query_text = get_query_text(queries_file, qid)
         feature_creation_single(logger, raw_ds_file, ranked_lists, doc_texts, ref_index, top_docs_index,
-                                doc_tfidf_dir, sentences_tfidf_dir, qrid, query_text,  output_feature_files_dir,
-                                output_final_feature_file_dir, workingset_file, word_embed_model)
+                                doc_tfidf_dir, sentences_tfidf_dir, qrid, query_text, output_feature_files_dir,
+                                final_features_file, workingset_file, word_embed_model)
 
     elif mode == 'multiple':
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
@@ -479,6 +477,7 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
         create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path, swig_path)
         queries = read_queries_file(queries_file)
         queries = transform_query_text(queries)
+        # TODO update this function
         feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),
                                   int(ref_index), doc_tfidf_dir,
                                   sentences_tfidf_dir, queries, output_feature_files_dir,

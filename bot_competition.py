@@ -47,7 +47,7 @@ def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_
                 if epoch != '01' or last_qid != qid or (pid_list and pid not in pid_list):
                     continue
                 position = int(line.split()[3])
-                ranked_list.append([get_qrid(qid, 1), get_doc_id(1, qid, pid), 3-position])
+                ranked_list.append([get_qrid(qid, 1), get_doc_id(1, qid, pid), 3 - position])
         ranked_list.sort(key=lambda x: x[2], reverse=True)
         with open(new_trec_file, 'w') as new_file:
             for file in ranked_list:
@@ -109,14 +109,12 @@ def create_model(logger, svm_rank_scripts_dir, model_path, learning_data, svm_ra
     run_and_print(logger, command)
 
 
-def generate_predictions(logger, model_path, svm_rank_scripts_dir, output_dir, feature_file):
-    rankings_dir = output_dir + 'predictions/'
-    if not exists(rankings_dir):
-        os.makedirs(rankings_dir)
-    rankings_file = rankings_dir + '_predictions'.join(splitext(basename(feature_file)))
-    command = svm_rank_scripts_dir + 'svm_rank_classify ' + feature_file + ' ' + model_path + ' ' + rankings_file
+def generate_predictions(logger, model_path, svm_rank_scripts_dir, predictions_dir, feature_file):
+    predictions_file = predictions_dir + '_predictions'.join(splitext(basename(feature_file)))
+    ensure_dir(predictions_file)
+    command = svm_rank_scripts_dir + 'svm_rank_classify ' + feature_file + ' ' + model_path + ' ' + predictions_file
     run_and_print(logger, command)
-    return rankings_file
+    return predictions_file
 
 
 def get_highest_ranked_pair(features_file, predictions_file):
@@ -204,16 +202,17 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(advance_round(line) + '\n')
 
 
-def generate_document_tfidf_files(logger, qid, epoch, competitor_list, workingset_file, output_dir, swig_path,
-                                  base_index, new_index):
+def generate_document_tfidf_files(logger, qid, epoch, competitor_list, workingset_file, document_tfidf_dir, swig_path,
+                                  new_index, base_index=None):
     create_sentence_workingset(workingset_file, epoch, qid, competitor_list)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    # command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
-    #           + new_index + ' ' + workingset_file + ' ' + output_dir
-    command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
-              f'{base_index} {new_index} {workingset_file} {output_dir}'
-    run_and_print(logger, command, command_name='PrepareTFIDFVectorsWS')
+    ensure_dir(document_tfidf_dir)
+    if base_index:
+        command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
+                  f'{base_index} {new_index} {workingset_file} {document_tfidf_dir}'
+    else:
+        command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWS {new_index} ' \
+                f'{workingset_file} {document_tfidf_dir}'
+    run_and_print(logger, command, command_name='Document tfidf Creation')
 
 
 def record_doc_similarity(logger, doc_texts, current_epoch, similarity_file, word_embedding_model, document_tfidf_dir):
@@ -232,7 +231,7 @@ def record_doc_similarity(logger, doc_texts, current_epoch, similarity_file, wor
     with open(similarity_file, 'a') as f:
         if current_epoch == 1:
             f.write('Round\ttfidf\tembedding\n')
-        f.write(f'{current_epoch-1}\t{round(tfidf_similarity, 3)}\t{round(embedding_similarity, 3)}\n')
+        f.write(f'{current_epoch - 1}\t{round(tfidf_similarity, 3)}\t{round(embedding_similarity, 3)}\n')
     logger.info('Recorded document similarity')
 
 
@@ -260,7 +259,8 @@ def get_competitors(trec_file, dummy_bot_index, qid, epoch):
     assert dummy_bot_index in [1, 2]
     bots = {}
     students = {}
-    position = 1
+    position = 0
+    epoch = str(epoch).zfill(2)
     with open(trec_file, 'r') as f:
         for line in f:
             doc_id = line.split()[2]

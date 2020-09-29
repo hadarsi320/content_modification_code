@@ -117,23 +117,21 @@ def append_to_trectext_file(trectext_file, old_documents, new_documents):
     #     f.write('</DATA>\n')
 
 
-def create_index(logger, trec_text_file, index_path, indri_path):
+def create_index(logger, trec_text_file, index_name, indri_path):
     """
     Parse the trectext file given, and create an index.
     """
-    if os.path.exists(index_path):
-        shutil.rmtree(index_path)
+    if os.path.exists(index_name):
+        shutil.rmtree(index_name)
 
     corpus_class = 'trectext'
     memory = '1G'
     stemmer = 'krovetz'
-    ensure_dir(index_path)
-    # command = indri_path + 'bin/IndriBuildIndex -corpus.path=' + trec_text_file + ' -corpus.class=' + corpus_class + \
-    #           ' -index=' + index_path + ' -memory=' + memory + ' -stemmer.name=' + stemmer
+    ensure_dir(index_name)
     command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trec_text_file} -corpus.class={corpus_class} ' \
-              f'-index={index_path} -memory={memory} -stemmer.name={stemmer}'
+              f'-index={index_name} -memory={memory} -stemmer.name={stemmer}'
     run_and_print(logger, command, command_name='IndriBuildIndex')
-    return index_path
+    return index_name
 
 
 def merge_indices(merged_index, new_index_name, base_index, home_path, indri_path):
@@ -231,18 +229,26 @@ def reverese_query(qrid):
     return epoch, query
 
 
-def load_trectext_file(filename):
+def fix_format(doc_id):
+    epoch, qid, pid = parse_doc_id(doc_id)
+    return get_doc_id(epoch, qid, pid)
+
+
+def load_trectext_file(filename, qid=None):
     parser = etree.XMLParser(recover=True)
     tree = ET.parse(filename, parser=parser)
     root = tree.getroot()
     docs = {}
     for doc in root:
-        name = ""
+        doc_id = ""
         for att in doc:
             if att.tag == "DOCNO":
-                name = att.text
+                doc_id = fix_format(att.text)
+                _, last_qid, _ = parse_doc_id(doc_id)
+                if qid and last_qid != qid:
+                    break
             else:
-                docs[name] = att.text
+                docs[doc_id] = att.text
     return docs
 
 
@@ -329,12 +335,12 @@ def get_query_text(queries_file, current_qid):
             if "<number>" in line:
                 qrid = line.replace('<number>', '').replace('</number>', "").split("_")[0].rstrip() \
                     .replace("\t", "").replace(" ", "")
-                qid = reverese_query(qrid)[1]
+                _, qid = reverese_query(qrid)
             if '<text>' in line and qid == current_qid:
                 query_text = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "") \
                     .replace("#combine( ", "").replace(" )", "")
                 return query_text
-    raise Exception('No query with such qid: {}'.format(current_qid))
+    raise Exception('No query with qid={} in file {}'.format(current_qid, queries_file))
 
 
 def get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b):
@@ -367,8 +373,8 @@ def parse_doc_id(doc_id: str):
     return epoch, qid, pid
 
 
-def get_doc_id(epoch, qid, player_id):
-    return f'ROUND-{epoch:02d}-{qid}-{player_id}'
+def get_doc_id(epoch: int, qid, player_id):
+    return f'ROUND-{int(epoch):02d}-{qid}-{player_id}'
 
 
 def generate_pair_name(pair):
@@ -381,14 +387,19 @@ def create_sentence_workingset(output_file, epoch, qid, competitor_list):
     ensure_dir(output_file)
     with open(output_file, 'w') as f:
         for competitor in competitor_list:
-            line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri'
-            f.write(line + '\n')
+            line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
+            f.write(line)
 
 
-def ensure_dir(file_name):
-    dir_name = os.path.dirname(file_name)
+def ensure_dir(file_name: str):
+    if file_name.endswith('/'):
+        dir_name = file_name
+    else:
+        dir_name = os.path.dirname(file_name)
+
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
+        print('{} Creating directory: {}'.format('#'*20, dir_name))
 
 
 def tokenize_document(document):
