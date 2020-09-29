@@ -362,10 +362,12 @@ def get_qrid(qid: str, epoch: int):
 
 
 def parse_doc_id(doc_id: str):
-    return doc_id.strip(' ').split('-')[1:]
+    epoch, qid, pid = doc_id.strip(' ').split('-')[1:]
+    epoch = epoch.zfill(2)
+    return epoch, qid, pid
 
 
-def generate_doc_id(epoch, qid, player_id):
+def get_doc_id(epoch, qid, player_id):
     return f'ROUND-{epoch:02d}-{qid}-{player_id}'
 
 
@@ -379,7 +381,7 @@ def create_sentence_workingset(output_file, epoch, qid, competitor_list):
     ensure_dir(output_file)
     with open(output_file, 'w') as f:
         for competitor in competitor_list:
-            line = get_qrid(qid, epoch) + ' Q0 ' + generate_doc_id(epoch, qid, competitor) + ' 0 0 indri'
+            line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri'
             f.write(line + '\n')
 
 

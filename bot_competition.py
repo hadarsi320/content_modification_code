@@ -9,51 +9,77 @@ from nltk import sent_tokenize
 from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    generate_doc_id, ensure_dir, create_sentence_workingset, get_model_name, get_learning_data_path
+    ensure_dir, create_sentence_workingset, get_learning_data_path, get_doc_id
 from vector_functionality import centroid_similarity, document_tfidf_similarity
 
 
-def create_initial_trec_file(logger, original_trec_file: str, output_dir: str, qid: str, competitors: list):
-    new_trec_file = output_dir + 'trec_file_' + qid + '_' + ','.join(competitors)
+def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_file=None, pid_list=None):
+    assert bool(positions_file) != bool(trec_file)  # only one of the following files should be given
+
+    if pid_list:
+        new_trec_file = output_dir + 'trec_file_' + qid + '_' + ','.join(pid_list)
+    else:
+        new_trec_file = output_dir + 'trec_file_' + qid
+
     ensure_dir(new_trec_file)
     qrid = get_qrid(qid, 1)
-    lines_written = 0
-    with open(original_trec_file, 'r') as trec_file:
-        with open(new_trec_file, 'w') as f:
-            for line in trec_file:
-                line_qrid = line.split()[0]
-                if int(line_qrid) > int(qrid):
-                    break
-                competitor = line.split()[2].split('-')[-1]
-                if qrid == line_qrid and competitor in competitors:
-                    f.write(line)
-                    lines_written += 1
-    if lines_written != len(competitors):
-        raise ValueError('Competitors/Qid not in dataset')
+    if trec_file:
+        lines_written = 0
+        with open(trec_file, 'r') as trec_file:
+            with open(new_trec_file, 'w') as new_file:
+                for line in trec_file:
+                    line_qrid = line.split()[0]
+                    if int(line_qrid) > int(qrid):
+                        break
+                    competitor = line.split()[2].split('-')[-1]
+                    if qrid == line_qrid and (not pid_list or competitor in pid_list):
+                        new_file.write(line)
+                        lines_written += 1
+        if pid_list and lines_written != len(pid_list):
+            raise ValueError('Competitors/Qid not in dataset')
+
+    else:
+        ranked_list = []
+        with open(positions_file, 'r') as pos_file:
+            for line in pos_file:
+                doc_id = line.split()[2]
+                epoch, last_qid, pid = parse_doc_id(doc_id)
+                if epoch != '01' or last_qid != qid or (pid_list and pid not in pid_list):
+                    continue
+                position = int(line.split()[3])
+                ranked_list.append([get_qrid(qid, 1), get_doc_id(1, qid, pid), 3-position])
+        ranked_list.sort(key=lambda x: x[2], reverse=True)
+        with open(new_trec_file, 'w') as new_file:
+            for file in ranked_list:
+                new_file.write(f'{file[0]} Q0 {file[1]} 0 {file[2]} positions\n')
+
     logger.info('Competition trec file created')
     return new_trec_file
 
 
-def create_initial_trectext_file(logger, original_trectext_file, output_dir, qid, competitors):
+def create_initial_trectext_file(logger, full_trectext_file, output_dir, qid, pid_list=None):
     # TODO trim and preprocess the documents
-    if not exists(output_dir):
-        os.makedirs(output_dir)
-    doc_id_list = [generate_doc_id(1, qid, competitor) for competitor in competitors]
-    new_trectext_file = output_dir + f'documents_{qid}_{",".join(competitors)}.trectext'
+    if pid_list:
+        new_trectext_file = output_dir + f'documents_{qid}_{",".join(pid_list)}.trectext'
+    else:
+        new_trectext_file = output_dir + f'documents_{qid}.trectext'
+
+    ensure_dir(new_trectext_file)
 
     parser = etree.XMLParser(recover=True)
-    tree = ET.parse(original_trectext_file, parser=parser)
+    tree = ET.parse(full_trectext_file, parser=parser)
     root = tree.getroot()
     docs = {}
     for doc in root:
-        name = ""
+        doc_id = ""
         for att in doc:
             if att.tag == 'DOCNO':
-                name = att.text
-                if name not in doc_id_list:
+                doc_id = att.text
+                epoch, last_qid, pid = parse_doc_id(doc_id)
+                if epoch != '01' or last_qid != qid or (pid_list and pid not in pid_list):
                     break
             elif att.tag == 'TEXT':
-                docs[name] = '\n'.join(sent_tokenize(att.text))
+                docs[doc_id] = '\n'.join(sent_tokenize(att.text))
 
     create_trectext_file(docs, new_trectext_file)
     logger.info('Competition trectext file created')
@@ -179,15 +205,14 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
 
 
 def generate_document_tfidf_files(logger, qid, epoch, competitor_list, workingset_file, output_dir, swig_path,
-                                  new_index, base_index=None):
+                                  base_index, new_index):
     create_sentence_workingset(workingset_file, epoch, qid, competitor_list)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
-              + new_index + ' ' + workingset_file + ' ' + output_dir
-    # TODO use new script after Greg fixes it
-    # command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
-    #           f'{base_index} {new_index} {workingset_file} {output_dir}'
+    # command = 'java -Djava.library.path=' + swig_path + ' -cp seo_indri_utils.jar PrepareTFIDFVectorsWS ' \
+    #           + new_index + ' ' + workingset_file + ' ' + output_dir
+    command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
+              f'{base_index} {new_index} {workingset_file} {output_dir}'
     run_and_print(logger, command, command_name='PrepareTFIDFVectorsWS')
 
 
@@ -229,3 +254,22 @@ def create_pair_ranker(logger, model_path, label_aggregation_method, label_aggre
                                       seo_qrels_file, coherency_qrels_file,
                                       unranked_features_file)
         create_model(logger, svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
+
+
+def get_competitors(trec_file, dummy_bot_index, qid, epoch):
+    assert dummy_bot_index in [1, 2]
+    bots = {}
+    students = {}
+    position = 1
+    with open(trec_file, 'r') as f:
+        for line in f:
+            doc_id = line.split()[2]
+            last_epoch, last_qid, pid = parse_doc_id(doc_id)
+            if last_epoch != epoch or last_qid != qid:
+                continue
+            if pid in ['BOT', 'DUMMY_{}'.format(dummy_bot_index)]:
+                bots[pid] = position
+            else:
+                students[pid] = position
+            position += 1
+    return bots, students

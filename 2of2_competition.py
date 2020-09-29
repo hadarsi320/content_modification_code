@@ -12,7 +12,7 @@ from bot_competition import create_initial_trec_file, \
     get_ranked_competitors_list, generate_updated_document, append_to_trec_file, generate_document_tfidf_files, \
     record_doc_similarity, record_replacement, create_pair_ranker
 from create_bot_features import run_reranking, create_bot_features
-from utils import get_qrid, load_trectext_file, generate_doc_id, \
+from utils import get_qrid, load_trectext_file, get_doc_id, \
     append_to_trectext_file, read_raw_trec_file, read_trec_file, \
     complete_sim_file, create_index, get_model_name
 
@@ -75,10 +75,14 @@ if __name__ == '__main__':
     base_index = options.base_index
     merged_index = options.merged_index
     indri_path = options.indri_path
+
     doc_tfidf_dir = output_dir + 'document_tfidf/'
     reranking_dir = output_dir + 'reranking/'
+    trec_dir = output_dir + 'trec_files/'
+    trectext_dir = output_dir + 'trectext_files/'
+    raw_ds_dir = output_dir + 'raw_datasets/'
     sentence_workingset_file = output_dir + 'document_ws.txt'
-    comp_index = output_dir + 'index'  # change to the one above if using a single index causes any trouble
+    comp_index = output_dir + 'index'
     replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(competitor_list))
     similarity_file = output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(competitor_list))
 
@@ -93,9 +97,9 @@ if __name__ == '__main__':
     for file in [replacements_file, similarity_file]:
         if exists(file):
             os.remove(file)
-    comp_trec_file = create_initial_trec_file(logger, options.trec_file, output_dir + 'trec_files/', qid,
-                                              competitor_list)
-    comp_trectext_file = create_initial_trectext_file(logger, options.trectext_file, output_dir + 'trectext_files/',
+    comp_trec_file = create_initial_trec_file(logger, trec_file=options.trec_file, output_dir=trec_dir,
+                                              qid=qid, pid_list=competitor_list)
+    comp_trectext_file = create_initial_trectext_file(logger, options.trectext_file, trectext_dir,
                                                       qid, competitor_list)
     word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file, binary=True,
                                                                            limit=700000)
@@ -103,7 +107,7 @@ if __name__ == '__main__':
     doc_texts = load_trectext_file(comp_trectext_file)
     create_index(logger, comp_trectext_file, comp_index, indri_path)
     generate_document_tfidf_files(logger, qid, 1, competitor_list, sentence_workingset_file, output_dir=doc_tfidf_dir,
-                                  swig_path=options.swig_path, new_index=comp_index, base_index=merged_index)
+                                  swig_path=options.swig_path, base_index=merged_index, new_index=comp_index)
     record_doc_similarity(logger, doc_texts, 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
     # consider setting the epoch to be 0 -> total_rounds
@@ -111,7 +115,7 @@ if __name__ == '__main__':
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
 
         qrid = get_qrid(qid, epoch)
-        raw_ds_file = output_dir + 'raw_datasets/raw_ds_out_' + qrid + '_' + ','.join(competitor_list) + '.txt'
+        raw_ds_file = raw_ds_dir + 'raw_ds_out_' + qrid + '_' + ','.join(competitor_list) + '.txt'
         features_file = output_dir + 'final_features/features_{}.dat'.format(qrid)
         winner_id, loser_id = get_ranked_competitors_list(comp_trec_file, epoch)
 
@@ -128,18 +132,18 @@ if __name__ == '__main__':
         record_replacement(replacements_file, epoch, max_pair)
 
         updated_document = generate_updated_document(doc_texts, max_pair,
-                                                     ref_doc_id=generate_doc_id(epoch, qid, loser_id),
-                                                     rep_doc_id=generate_doc_id(epoch, qid, winner_id))
-        winner_doc = doc_texts[generate_doc_id(epoch, qid, winner_id)]
-        trectext_dict = {generate_doc_id(epoch + 1, qid, winner_id): winner_doc,
-                         generate_doc_id(epoch + 1, qid, loser_id): updated_document}
+                                                     ref_doc_id=get_doc_id(epoch, qid, loser_id),
+                                                     rep_doc_id=get_doc_id(epoch, qid, winner_id))
+        winner_doc = doc_texts[get_doc_id(epoch, qid, winner_id)]
+        trectext_dict = {get_doc_id(epoch + 1, qid, winner_id): winner_doc,
+                         get_doc_id(epoch + 1, qid, loser_id): updated_document}
         append_to_trectext_file(comp_trectext_file, doc_texts, trectext_dict)
 
         # consider creating a trec file which only contains the files from the current round
         # otherwise there might be some issues in later rounds
         # TODO use multiprocessing
         ranked_list = read_raw_trec_file(comp_trec_file)
-        reranked_trec_file = run_reranking(logger, updated_document, qrid, generate_doc_id(epoch, qid, loser_id),
+        reranked_trec_file = run_reranking(logger, updated_document, qrid, get_doc_id(epoch, qid, loser_id),
                                            doc_texts, ranked_list, indri_path, merged_index,
                                            options.swig_path, options.scripts_dir, options.stopwords_file,
                                            options.queries_text_file, options.ranklib_jar, options.rank_model,
@@ -150,8 +154,8 @@ if __name__ == '__main__':
         doc_texts = load_trectext_file(comp_trectext_file)
         create_index(logger, comp_trectext_file, comp_index, indri_path)
         generate_document_tfidf_files(logger, qid, epoch + 1, competitor_list, sentence_workingset_file,
-                                      output_dir=doc_tfidf_dir, swig_path=options.swig_path, new_index=comp_index,
-                                      base_index=merged_index)
+                                      output_dir=doc_tfidf_dir, swig_path=options.swig_path,
+                                      base_index=merged_index, new_index=comp_index)
         record_doc_similarity(logger, doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
     # if premature_end:
     #         complete_sim_file(similarity_file, total_rounds)
