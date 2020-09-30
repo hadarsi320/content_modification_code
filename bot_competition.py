@@ -18,10 +18,11 @@ def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_
     assert bool(positions_file) != bool(trec_file) and bool(pid_list) != bool(dummy_bot_index) and \
            bool(trec_file) == bool(pid_list)
 
+    new_trec_file = output_dir + f'trec_file_{qid}_'
     if pid_list:
-        new_trec_file = output_dir + f'trec_file_{qid}_' + ','.join(pid_list)
+        new_trec_file += ','.join(pid_list)
     else:
-        new_trec_file = output_dir + f'trec_file_{qid}_{dummy_bot_index}'
+        new_trec_file += str(dummy_bot_index)
 
     ensure_dir(new_trec_file)
     qrid = get_qrid(qid, 1)
@@ -30,11 +31,11 @@ def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_
         with open(trec_file, 'r') as trec_file:
             with open(new_trec_file, 'w') as new_file:
                 for line in trec_file:
-                    line_qrid = line.split()[0]
-                    if int(line_qrid) > int(qrid):
-                        break
-                    competitor = line.split()[2].split('-')[-1]
-                    if qrid == line_qrid and (not pid_list or competitor in pid_list):
+                    last_qrid = line.split()[0]
+                    if last_qrid != qrid:
+                        continue
+                    pid = line.split()[2].split('-')[-1]
+                    if pid_list is not None or pid in pid_list:
                         new_file.write(line)
                         lines_written += 1
         if pid_list and lines_written != len(pid_list):
@@ -48,6 +49,8 @@ def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_
                 epoch, last_qid, pid = parse_doc_id(doc_id)
                 if epoch != '01' or last_qid != qid or (pid_list and pid not in pid_list):
                     continue
+                if '_' in pid:
+                    pid = pid.replace('_', '')
                 position = int(line.split()[3])
                 ranked_list.append([get_qrid(qid, 1), get_doc_id(1, qid, pid), 3 - position])
         ranked_list.sort(key=lambda x: x[2], reverse=True)
@@ -60,7 +63,6 @@ def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_
 
 
 def create_initial_trectext_file(logger, full_trectext_file, output_dir, qid, pid_list=None, dummy_bot_index=None):
-    # TODO trim and preprocess the documents
     assert bool(pid_list) != bool(dummy_bot_index)
     if pid_list:
         new_trectext_file = output_dir + f'documents_{qid}_{",".join(pid_list)}.trectext'
@@ -74,15 +76,17 @@ def create_initial_trectext_file(logger, full_trectext_file, output_dir, qid, pi
     root = tree.getroot()
     docs = {}
     for doc in root:
-        doc_id = ""
+        pid = None
         for att in doc:
             if att.tag == 'DOCNO':
                 doc_id = att.text
                 epoch, last_qid, pid = parse_doc_id(doc_id)
                 if epoch != '01' or last_qid != qid or (pid_list and pid not in pid_list):
                     break
+                if '_' in pid:
+                    pid = pid.replace('_', '')
             elif att.tag == 'TEXT':
-                docs[doc_id] = '\n'.join(sent_tokenize(att.text))
+                docs[get_doc_id(1, qid, pid)] = '\n'.join(sent_tokenize(att.text))
 
     create_trectext_file(docs, new_trectext_file)
     logger.info('Competition trectext file created')
@@ -204,10 +208,10 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(advance_round(line) + '\n')
 
 
-def generate_document_tfidf_files(logger, workingset_file, document_tfidf_dir, swig_path, base_index, new_index):
-    ensure_dir(document_tfidf_dir)
+def generate_document_tfidf_files(logger, workingset_file, output_dir, swig_path, base_index, new_index):
+    ensure_dir(output_dir)
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
-              f'{base_index} {new_index} {workingset_file} {document_tfidf_dir}'
+              f'{base_index} {new_index} {workingset_file} {output_dir}'
     run_and_print(logger, command, command_name='Document tfidf Creation')
 
 
@@ -231,10 +235,10 @@ def record_doc_similarity(logger, doc_texts, current_epoch, similarity_file, wor
     logger.info('Recorded document similarity')
 
 
-def record_replacement(replacements_file, epoch, max_pair):
+def record_replacement(replacements_file, epoch, replaced_doc_id, max_pair):
     ensure_dir(replacements_file)
     with open(replacements_file, 'a') as f:
-        f.write(f'{epoch}. {max_pair}\n')
+        f.write(f'{epoch}. {replaced_doc_id}${max_pair}')
 
 
 def create_pair_ranker(logger, model_path, label_aggregation_method, label_aggregation_b, svm_rank_c,
@@ -259,7 +263,7 @@ def get_rankings(trec_file, dummy_bot_index, qid, epoch):
     :param epoch: current round
     :return: two dictionaries of the form {pid: location}, one for the bots and the other for the students
     """
-    assert dummy_bot_index in [1, 2]
+    assert int(dummy_bot_index) in [1, 2]
     bots = {}
     students = {}
     position = 0
@@ -270,7 +274,7 @@ def get_rankings(trec_file, dummy_bot_index, qid, epoch):
             last_epoch, last_qid, pid = parse_doc_id(doc_id)
             if last_epoch != epoch or last_qid != qid:
                 continue
-            if pid in ['BOT', 'DUMMY_{}'.format(dummy_bot_index)]:
+            if pid in ['BOT', f'DUMMY{dummy_bot_index}']:
                 bots[pid] = position
             else:
                 students[pid] = position
@@ -284,6 +288,7 @@ def get_competitors(positions_file, qid):
         for line in f:
             doc_id = line.split()[2]
             _, last_qid, pid = parse_doc_id(doc_id)
+            pid = pid.replace('_', '')
             if last_qid == qid and pid not in competitors_list:
                 competitors_list.append(pid)
     return competitors_list

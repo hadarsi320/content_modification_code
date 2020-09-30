@@ -239,15 +239,15 @@ def load_trectext_file(filename, qid=None):
     root = tree.getroot()
     docs = {}
     for doc in root:
-        doc_id = ""
+        epoch = last_qid = pid = None
         for att in doc:
             if att.tag == "DOCNO":
                 doc_id = fix_format(att.text)
-                _, last_qid, _ = parse_doc_id(doc_id)
+                epoch, last_qid, pid = parse_doc_id(doc_id)
                 if qid and last_qid != qid:
                     break
             else:
-                docs[doc_id] = att.text
+                docs[get_doc_id(epoch, last_qid, pid.replace('_', ''))] = att.text
     return docs
 
 
@@ -402,7 +402,7 @@ def ensure_dir(file_name: str):
 
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-        print('{} Creating directory: {}'.format('$'*20, dir_name))
+        print('{} Creating directory: {}'.format('#'*20, dir_name))
 
 
 def tokenize_document(document):

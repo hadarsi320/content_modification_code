@@ -38,7 +38,7 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
         doc_texts = load_trectext_file(comp_trectext_file)
         create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
         create_documents_workingset(document_workingset_file, epoch, qid, competitor_list)
-        generate_document_tfidf_files(logger, document_workingset_file, document_tfidf_dir=doc_tfidf_dir,
+        generate_document_tfidf_files(logger, document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
         record_doc_similarity(logger, doc_texts, epoch, similarity_file, word_embedding_model, doc_tfidf_dir)
 
@@ -46,6 +46,8 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
         raw_ds_file = raw_ds_dir + 'raw_ds_out_{}_{}.txt'.format(qrid, ','.join(competitor_list))
         features_file = final_features_dir + 'features_{}_{}.dat'.format(qrid, ','.join(competitor_list))
         winner_id, loser_id = get_ranked_competitors_list(comp_trec_file, epoch)
+        winner_doc_id = get_doc_id(epoch, qid, winner_id)
+        loser_doc_id = get_doc_id(epoch, qid, loser_id)
 
         ranked_list = read_trec_file(comp_trec_file)
         cant_append = create_bot_features(logger, qrid, 1, 1, ranked_list, doc_texts, output_dir,
@@ -59,12 +61,11 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
         ranking_file = generate_predictions(logger, svm_rank_model, svm_rank_scripts_dir, predictions_dir,
                                             features_file)
         max_pair = get_highest_ranked_pair(features_file, ranking_file)
-        record_replacement(replacements_file, epoch, max_pair)
+        record_replacement(replacements_file, epoch, loser_doc_id, max_pair)
 
         updated_document = generate_updated_document(doc_texts, max_pair,
-                                                     ref_doc_id=get_doc_id(epoch, qid, loser_id),
-                                                     rep_doc_id=get_doc_id(epoch, qid, winner_id))
-        winner_doc = doc_texts[get_doc_id(epoch, qid, winner_id)]
+                                                     ref_doc_id=loser_doc_id, rep_doc_id=winner_doc_id)
+        winner_doc = doc_texts[winner_doc_id]
         trectext_dict = {get_doc_id(epoch + 1, qid, winner_id): winner_doc,
                          get_doc_id(epoch + 1, qid, loser_id): updated_document}
         append_to_trectext_file(comp_trectext_file, doc_texts, trectext_dict)
@@ -85,7 +86,7 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
         doc_texts = load_trectext_file(comp_trectext_file)
         create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
         create_documents_workingset(document_workingset_file, total_rounds + 1, qid, competitor_list)
-        generate_document_tfidf_files(logger, document_workingset_file, document_tfidf_dir=doc_tfidf_dir,
+        generate_document_tfidf_files(logger, document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
         record_doc_similarity(logger, doc_texts, total_rounds + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
@@ -116,7 +117,7 @@ def run_2of5_competition(logger, qid, competitor_list, positions_file, dummy_bot
 
         create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
         create_documents_workingset(document_workingset_file, epoch, qid, competitor_list)
-        generate_document_tfidf_files(logger, document_workingset_file, document_tfidf_dir=doc_tfidf_dir,
+        generate_document_tfidf_files(logger, document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
         input('epoch specific files created')
 
@@ -125,9 +126,10 @@ def run_2of5_competition(logger, qid, competitor_list, positions_file, dummy_bot
             new_docs[student] = original_texts[get_doc_id(epoch + 1, qid, student)]
 
         for bot in bots:
+            bot_doc_id = get_doc_id(epoch, qid, bot)
             ref_index = bots[bot]
             if ref_index == 0:
-                new_docs[bot] = doc_texts[get_doc_id(epoch, qid, bot)]
+                new_docs[bot] = doc_texts[bot_doc_id]
                 print('{} is on top'.format(bot))
                 continue
 
@@ -141,7 +143,7 @@ def run_2of5_competition(logger, qid, competitor_list, positions_file, dummy_bot
             input('{} features created'.format(bot))
 
             if cant_replace:
-                new_docs[bot] = doc_texts[get_doc_id(epoch, qid, bot)]
+                new_docs[bot] = doc_texts[bot_doc_id]
                 continue
 
             ranking_file = generate_predictions(logger, svm_rank_model, svm_rank_scripts_dir, predictions_dir,
@@ -149,7 +151,8 @@ def run_2of5_competition(logger, qid, competitor_list, positions_file, dummy_bot
             input('ranking file created')
 
             max_pair = get_highest_ranked_pair(features_file, ranking_file)
-            record_replacement(replacements_file, epoch, max_pair)
+            record_replacement(replacements_file, epoch, bot_doc_id, max_pair)
+            input('replacement file updated')
 
             updated_document = generate_updated_document(doc_texts, max_pair,
                                                          ref_doc_id=get_doc_id(epoch, qid, loser_id),
@@ -273,7 +276,7 @@ def main():
         if exists(replacements_file):
             os.remove(replacements_file)
         competitor_list = get_competitors(options.positions_file, qid)
-        run_2of5_competition(logger, qid, competitor_list, options.positions_file, int(options.dummy_bot_index),
+        run_2of5_competition(logger, qid, competitor_list, options.positions_file, options.dummy_bot_index,
                              trectext_file, output_dir, document_workingset_file, options.indri_path, options.swig_path,
                              doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                              final_features_dir, options.clueweb_index, temp_index, replacements_file,
