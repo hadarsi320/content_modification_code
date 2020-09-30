@@ -1,3 +1,5 @@
+import sys
+
 from utils import reverese_query, ensure_dir
 from collections import defaultdict
 from itertools import combinations
@@ -22,12 +24,12 @@ def get_competitors_dict(trec_file):
 def log_error(error_file, qid, comptitors):
     ensure_dir(error_file)
     with open(error_file, 'a') as f:
-        f.write(f'Error in {qid} with competitors {", ".join(comptitors)}\n')
+        f.write(f'Error in {qid} with competitors {",".join(comptitors)}\n')
 
 
 if __name__ == '__main__':
     trec = './trecs/trec_file_original_sorted.txt'
-    output_dir = './output/run_29_9/'
+    output_dir = './output/{}/'.format(sys.argv[1])
     error_file = output_dir + 'error_file.txt'
 
     competitors = get_competitors_dict(trec)

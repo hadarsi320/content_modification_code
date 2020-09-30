@@ -336,7 +336,7 @@ def get_query_text(queries_file, current_qid):
                     .replace("\t", "").replace(" ", "")
                 _, qid = reverese_query(qrid)
             if '<text>' in line and qid == current_qid:
-                query_text = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "") \
+                query_text = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "")\
                     .replace("#combine( ", "").replace(" )", "")
                 return query_text
     raise Exception('No query with qid={} in file {}'.format(current_qid, queries_file))

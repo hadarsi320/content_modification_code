@@ -315,8 +315,9 @@ def create_index_to_doc_name_dict(features):
 
 def create_sentence_vector_files(logger, output_dir, raw_ds_file, base_index, new_index, swig_path, documents_ws):
     for index in [base_index, new_index]:
-        if not os.path.exists(base_index):
-            raise ValueError('The index {} does not exist'.format(base_index))
+        if not os.path.exists(index):
+            raise ValueError('The index {} does not exist'.format(index))
+
     # command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsSentences ' \
     #           f'{index_path} {raw_ds_file} {output_dir}'
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsSentences ' \
@@ -368,19 +369,21 @@ def create_specific_ws(qrid, ranked_lists, fname):
             out.write(qrid + " Q0 " + doc + " 0 " + str(i + 1) + " pairs_seo\n")
 
 
-def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri_path, base_index_path, swig_path, scripts_dir,
-                  stopwords_file, queries_text_file, jar_path, rank_model, output_dir, new_index='new_index',
-                  specific_ws='specific_ws', new_trectext_name='new_trectext_file', new_feature_file='new_feature_file',
-                  feature_dir='feature_dir/', trec_file='trec_file', score_file='score_file'):
+def run_reranking(logger, new_text, qrid, ref_doc_id, texts, trec_file, indri_path, base_index_path, swig_path, scripts_dir,
+                  stopwords_file, queries_text_file, jar_path, rank_model, output_dir, new_index_name='new_index',
+                  specific_ws_name='specific_ws', new_trectext_name='new_trectext_file',
+                  new_feature_file_name='new_feature_file', feature_dir_name='feature_dir/',
+                  new_trec_file_name='trec_file', score_file_name='score_file'):
     new_trectext_path = output_dir + new_trectext_name
-    specific_ws_path = output_dir + specific_ws
-    new_index_path = output_dir + new_index
-    feature_file_path = output_dir + new_feature_file
-    score_file_path = output_dir + score_file
-    trec_file_path = output_dir + trec_file
-    full_feature_dir = output_dir + feature_dir
+    specific_ws_path = output_dir + specific_ws_name
+    new_index_path = output_dir + new_index_name
+    feature_file_path = output_dir + new_feature_file_name
+    score_file_path = output_dir + score_file_name
+    trec_file_path = output_dir + new_trec_file_name
+    full_feature_dir = output_dir + feature_dir_name
 
     create_new_trectext(ref_doc_id, texts, new_text, new_trectext_path)
+    ranked_lists = read_raw_trec_file(trec_file)
     create_specific_ws(qrid, ranked_lists, specific_ws_path)
     logger.info("creating features")
     create_index(logger, new_trectext_path, new_index_path, indri_path)
