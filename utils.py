@@ -367,6 +367,10 @@ def get_qrid(qid: str, epoch: int):
 
 
 def parse_doc_id(doc_id: str):
+    """
+    :param doc_id: an id of the form ROUND-[epoch]-[qid]-[pid]
+    :return: (epoch, qid, pid)
+    """
     epoch, qid, pid = doc_id.strip(' ').split('-')[1:]
     epoch = epoch.zfill(2)
     return epoch, qid, pid
@@ -398,7 +402,7 @@ def ensure_dir(file_name: str):
 
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-        print('{} Creating directory: {}'.format('#'*20, dir_name))
+        print('{} Creating directory: {}'.format('$'*20, dir_name))
 
 
 def tokenize_document(document):

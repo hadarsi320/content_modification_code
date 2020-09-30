@@ -8,7 +8,7 @@ from os.path import exists
 import gensim
 
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
-    get_competitors
+    get_rankings, get_competitors
 from bot_competition import generate_predictions, get_highest_ranked_pair, \
     get_ranked_competitors_list, generate_updated_document, append_to_trec_file, generate_document_tfidf_files, \
     record_doc_similarity, record_replacement
@@ -20,10 +20,10 @@ from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 
 def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_rounds, output_dir, base_index, comp_index,
-                         documents_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
+                         document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
                          predictions_dir, final_features_dir, swig_path, indri_path, replacements_file, similarity_file,
                          svm_rank_scripts_dir, trec_file, embedding_model_file, run_mode, scripts_dir, stopwords_file,
-                         queries_text_file, queries_xml_file, ranklib_jar, lambda_rank_model):
+                         queries_text_file, queries_xml_file, ranklib_jar, lambda_rank_model, svm_rank_model):
     comp_trec_file = create_initial_trec_file(logger, trec_file=trec_file, output_dir=trec_dir,
                                               qid=qid, pid_list=competitor_list)
     comp_trectext_file = create_initial_trectext_file(logger, trectext_file, trectext_dir, qid, competitor_list)
@@ -37,8 +37,8 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
 
         doc_texts = load_trectext_file(comp_trectext_file)
         create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
-        create_documents_workingset(documents_workingset_file, epoch, qid, competitor_list)
-        generate_document_tfidf_files(logger, documents_workingset_file, document_tfidf_dir=doc_tfidf_dir,
+        create_documents_workingset(document_workingset_file, epoch, qid, competitor_list)
+        generate_document_tfidf_files(logger, document_workingset_file, document_tfidf_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
         record_doc_similarity(logger, doc_texts, epoch, similarity_file, word_embedding_model, doc_tfidf_dir)
 
@@ -51,7 +51,7 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
         cant_append = create_bot_features(logger, qrid, 1, 1, ranked_list, doc_texts, output_dir,
                                           word_embedding_model, mode=run_mode, raw_ds_file=raw_ds_file,
                                           doc_tfidf_dir=doc_tfidf_dir, base_index=base_index, new_index=comp_index,
-                                          documents_workingset_file=documents_workingset_file, swig_path=swig_path,
+                                          documents_workingset_file=document_workingset_file, swig_path=swig_path,
                                           queries_file=queries_xml_file, final_features_file=features_file)
         if cant_append:
             break
@@ -84,41 +84,40 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
     else:
         doc_texts = load_trectext_file(comp_trectext_file)
         create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
-        create_documents_workingset(documents_workingset_file, total_rounds + 1, qid, competitor_list)
-        generate_document_tfidf_files(logger, documents_workingset_file,
-                                      document_tfidf_dir=doc_tfidf_dir, swig_path=swig_path, base_index=base_index,
-                                      new_index=comp_index)
+        create_documents_workingset(document_workingset_file, total_rounds + 1, qid, competitor_list)
+        generate_document_tfidf_files(logger, document_workingset_file, document_tfidf_dir=doc_tfidf_dir,
+                                      swig_path=swig_path, base_index=base_index, new_index=comp_index)
         record_doc_similarity(logger, doc_texts, total_rounds + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
-def run_2of5_competition(logger, qid, positions_file, dummy_bot_index, trectext_file, output_dir,
-                         sentence_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
-                         trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, index, comp_index,
+# implement the option for a static bot
+def run_2of5_competition(logger, qid, competitor_list, positions_file, dummy_bot_index, trectext_file, output_dir,
+                         document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
+                         trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                          replacements_file, svm_rank_scripts_dir, embedding_model_file, run_mode, scripts_dir,
                          stopwords_file, queries_text_file, queries_xml_file, ranklib_jar, rank_model, svm_rank_model):
-    competitor_list = None
     original_texts = load_trectext_file(trectext_file, qid)
 
-    comp_trectext_file = create_initial_trectext_file(logger, trectext_file, trectext_dir, qid)
+    comp_trectext_file = create_initial_trectext_file(logger, trectext_file, trectext_dir, qid,
+                                                      dummy_bot_index=dummy_bot_index)
     comp_trec_file = create_initial_trec_file(logger, positions_file=positions_file, qid=qid,
-                                              output_dir=trec_dir)
+                                              output_dir=trec_dir, dummy_bot_index=dummy_bot_index)
     word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file, binary=True,
                                                                            limit=700000)
 
     for epoch in range(1, 4):  # there are only 4 rounds of competition in the data
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
         qrid = get_qrid(qid, epoch)
-        raw_ds_file = raw_ds_dir + 'raw_ds_out_' + qrid + '.txt'
-        features_file = final_features_dir + 'features_{}.dat'.format(qrid)
+        raw_ds_file = raw_ds_dir + f'raw_ds_out_{qrid}_{dummy_bot_index}.txt'
+        features_file = final_features_dir + f'features_{qrid}_{dummy_bot_index}.dat'
         ranked_list = read_trec_file(comp_trec_file)
         doc_texts = load_trectext_file(comp_trectext_file)
-        bots, students = get_competitors(comp_trec_file, dummy_bot_index, qid, epoch)
-        if not competitor_list:
-            competitor_list = list({**bots, **students})
+        bots, students = get_rankings(comp_trec_file, dummy_bot_index, qid, epoch)
 
         create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
-        generate_document_tfidf_files(logger, sentence_workingset_file,
-                                      document_tfidf_dir=doc_tfidf_dir, swig_path=swig_path, new_index=comp_index)
+        create_documents_workingset(document_workingset_file, epoch, qid, competitor_list)
+        generate_document_tfidf_files(logger, document_workingset_file, document_tfidf_dir=doc_tfidf_dir,
+                                      swig_path=swig_path, base_index=base_index, new_index=comp_index)
         input('epoch specific files created')
 
         new_docs = {}
@@ -128,6 +127,7 @@ def run_2of5_competition(logger, qid, positions_file, dummy_bot_index, trectext_
         for bot in bots:
             ref_index = bots[bot]
             if ref_index == 0:
+                new_docs[bot] = doc_texts[get_doc_id(epoch, qid, bot)]
                 print('{} is on top'.format(bot))
                 continue
 
@@ -135,12 +135,13 @@ def run_2of5_competition(logger, qid, positions_file, dummy_bot_index, trectext_
             cant_replace = create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_list, doc_texts,
                                                output_dir, word_embedding_model, mode=run_mode,
                                                raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir,
-                                               base_index=comp_index, swig_path=swig_path,
+                                               documents_workingset_file=document_workingset_file,
+                                               base_index=base_index, new_index=comp_index, swig_path=swig_path,
                                                queries_file=queries_xml_file, final_features_file=features_file)
             input('{} features created'.format(bot))
 
             if cant_replace:
-                print('cant replace')
+                new_docs[bot] = doc_texts[get_doc_id(epoch, qid, bot)]
                 continue
 
             ranking_file = generate_predictions(logger, svm_rank_model, svm_rank_scripts_dir, predictions_dir,
@@ -163,7 +164,7 @@ def run_2of5_competition(logger, qid, positions_file, dummy_bot_index, trectext_
             # TODO use multiprocessing
             ranked_list = read_raw_trec_file(comp_trec_file)
             reranked_trec_file = run_reranking(logger, updated_document, qrid, get_doc_id(epoch, qid, loser_id),
-                                               doc_texts, ranked_list, indri_path, index, swig_path, scripts_dir,
+                                               doc_texts, ranked_list, indri_path, base_index, swig_path, scripts_dir,
                                                stopwords_file, queries_text_file, ranklib_jar, rank_model,
                                                output_dir=reranking_dir)
             append_to_trec_file(comp_trec_file, reranked_trec_file)
@@ -172,7 +173,7 @@ def run_2of5_competition(logger, qid, positions_file, dummy_bot_index, trectext_
         # update trec and trectext files
 
 
-if __name__ == '__main__':
+def main():
     program = os.path.basename(sys.argv[0])
     logger = logging.getLogger(program)
 
@@ -239,7 +240,7 @@ if __name__ == '__main__':
     reranking_dir = output_dir + 'reranking/'
     predictions_dir = output_dir + 'predictions/'
     temp_index = output_dir + 'index'
-    sentence_workingset_file = output_dir + 'document_ws.txt'
+    document_workingset_file = output_dir + 'document_ws.txt'
     final_features_dir = output_dir + 'final_features/'
 
     svm_rank_model = options.svm_models_dir + get_model_name(options.label_aggregation_method,
@@ -260,19 +261,27 @@ if __name__ == '__main__':
                 os.remove(file)
 
         run_2of2_competition(logger, qid, competitor_list, trectext_file, options.total_rounds, options.output_dir,
-                             options.clueweb_index, temp_index, sentence_workingset_file, doc_tfidf_dir, reranking_dir,
+                             options.clueweb_index, temp_index, document_workingset_file, doc_tfidf_dir, reranking_dir,
                              trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, options.swig_path,
                              options.indri_path, replacements_file, similarity_file, options.svm_rank_scripts_dir,
                              options.trec_file, options.embedding_model_file, options.run_mode, options.scripts_dir,
                              options.stopwords_file, options.queries_text_file, options.queries_xml_file,
-                             options.ranklib_jar, options.rank_model)
+                             options.ranklib_jar, options.rank_model, svm_rank_model)
     else:
         trectext_file = options.trectext_file if options.trectext_file else options.trectext_file_2of5
-        replacements_file = output_dir + 'replacements/replacements_{}'.format(qid)
-        run_2of5_competition(logger, qid, options.positions_file, int(options.dummy_bot_index), trectext_file,
-                             output_dir, sentence_workingset_file, options.indri_path, options.swig_path, doc_tfidf_dir,
-                             reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
-                             options.merged_index, temp_index, replacements_file, options.svm_rank_scripts_dir,
-                             options.embedding_model_file, options.run_mode, options.scripts_dir,
-                             options.stopwords_file, options.queries_text_file, options.queries_xml_file,
-                             options.ranklib_jar, options.rank_model, svm_rank_model)
+        replacements_file = output_dir + f'replacements/replacements_{qid}_{options.dummy_bot_index}'
+        if exists(replacements_file):
+            os.remove(replacements_file)
+        competitor_list = get_competitors(options.positions_file, qid)
+        run_2of5_competition(logger, qid, competitor_list, options.positions_file, int(options.dummy_bot_index),
+                             trectext_file, output_dir, document_workingset_file, options.indri_path, options.swig_path,
+                             doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
+                             final_features_dir, options.clueweb_index, temp_index, replacements_file,
+                             options.svm_rank_scripts_dir, options.embedding_model_file, options.run_mode,
+                             options.scripts_dir, options.stopwords_file, options.queries_text_file,
+                             options.queries_xml_file, options.ranklib_jar, options.rank_model, svm_rank_model)
+
+
+if __name__ == '__main__':
+    main()
+

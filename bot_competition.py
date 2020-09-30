@@ -13,13 +13,15 @@ from utils import get_qrid, create_trectext_file, parse_doc_id, \
 from vector_functionality import centroid_similarity, document_tfidf_similarity
 
 
-def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_file=None, pid_list=None):
-    assert bool(positions_file) != bool(trec_file)  # only one of the following files should be given
+def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_file=None, pid_list=None,
+                             dummy_bot_index=None):
+    assert bool(positions_file) != bool(trec_file) and bool(pid_list) != bool(dummy_bot_index) and \
+           bool(trec_file) == bool(pid_list)
 
     if pid_list:
-        new_trec_file = output_dir + 'trec_file_' + qid + '_' + ','.join(pid_list)
+        new_trec_file = output_dir + f'trec_file_{qid}_' + ','.join(pid_list)
     else:
-        new_trec_file = output_dir + 'trec_file_' + qid
+        new_trec_file = output_dir + f'trec_file_{qid}_{dummy_bot_index}'
 
     ensure_dir(new_trec_file)
     qrid = get_qrid(qid, 1)
@@ -57,12 +59,13 @@ def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_
     return new_trec_file
 
 
-def create_initial_trectext_file(logger, full_trectext_file, output_dir, qid, pid_list=None):
+def create_initial_trectext_file(logger, full_trectext_file, output_dir, qid, pid_list=None, dummy_bot_index=None):
     # TODO trim and preprocess the documents
+    assert bool(pid_list) != bool(dummy_bot_index)
     if pid_list:
         new_trectext_file = output_dir + f'documents_{qid}_{",".join(pid_list)}.trectext'
     else:
-        new_trectext_file = output_dir + f'documents_{qid}.trectext'
+        new_trectext_file = output_dir + f'documents_{qid}_{dummy_bot_index}.trectext'
 
     ensure_dir(new_trectext_file)
 
@@ -89,7 +92,6 @@ def create_initial_trectext_file(logger, full_trectext_file, output_dir, qid, pi
 @deprecated(reason='The module create_bot_features no longer has a main')
 def create_features(logger, qrid, trec_file, trectext_file, raw_ds_file, doc_tdidf_dir, index, output_dir,
                     mode='single', ref_index=1, top_docs_index=1):
-    # TODO replace this with a function
     command = f'python create_bot_features.py --mode={mode} --qrid={qrid} --ref_index={ref_index} ' \
               f'--top_docs_index={top_docs_index} --trec_file={trec_file} --trectext_file={trectext_file} ' \
               f'--raw_ds_out={raw_ds_file} --doc_tfidf_dir={doc_tdidf_dir} --index_path={index} ' \
@@ -202,15 +204,10 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(advance_round(line) + '\n')
 
 
-def generate_document_tfidf_files(logger, workingset_file, document_tfidf_dir, swig_path,
-                                  new_index, base_index=None):
+def generate_document_tfidf_files(logger, workingset_file, document_tfidf_dir, swig_path, base_index, new_index):
     ensure_dir(document_tfidf_dir)
-    if base_index:
-        command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
-                  f'{base_index} {new_index} {workingset_file} {document_tfidf_dir}'
-    else:
-        command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWS {new_index} ' \
-                f'{workingset_file} {document_tfidf_dir}'
+    command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
+              f'{base_index} {new_index} {workingset_file} {document_tfidf_dir}'
     run_and_print(logger, command, command_name='Document tfidf Creation')
 
 
@@ -254,7 +251,14 @@ def create_pair_ranker(logger, model_path, label_aggregation_method, label_aggre
         create_model(logger, svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
 
 
-def get_competitors(trec_file, dummy_bot_index, qid, epoch):
+def get_rankings(trec_file, dummy_bot_index, qid, epoch):
+    """
+    :param trec_file: a trecfile
+    :param dummy_bot_index: the index of the dummy who's a bot
+    :param qid: query id
+    :param epoch: current round
+    :return: two dictionaries of the form {pid: location}, one for the bots and the other for the students
+    """
     assert dummy_bot_index in [1, 2]
     bots = {}
     students = {}
@@ -272,3 +276,14 @@ def get_competitors(trec_file, dummy_bot_index, qid, epoch):
                 students[pid] = position
             position += 1
     return bots, students
+
+
+def get_competitors(positions_file, qid):
+    competitors_list = []
+    with open(positions_file, 'r') as f:
+        for line in f:
+            doc_id = line.split()[2]
+            _, last_qid, pid = parse_doc_id(doc_id)
+            if last_qid == qid and pid not in competitors_list:
+                competitors_list.append(pid)
+    return competitors_list
