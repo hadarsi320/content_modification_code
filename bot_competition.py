@@ -9,7 +9,7 @@ from nltk import sent_tokenize
 from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    ensure_dir, create_sentence_workingset, get_learning_data_path, get_doc_id
+    ensure_dir, create_documents_workingset, get_learning_data_path, get_doc_id
 from vector_functionality import centroid_similarity, document_tfidf_similarity
 
 
@@ -202,9 +202,8 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(advance_round(line) + '\n')
 
 
-def generate_document_tfidf_files(logger, qid, epoch, competitor_list, workingset_file, document_tfidf_dir, swig_path,
+def generate_document_tfidf_files(logger, workingset_file, document_tfidf_dir, swig_path,
                                   new_index, base_index=None):
-    create_sentence_workingset(workingset_file, epoch, qid, competitor_list)
     ensure_dir(document_tfidf_dir)
     if base_index:
         command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \

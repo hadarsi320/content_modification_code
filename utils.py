@@ -20,9 +20,8 @@ def create_features_file_diff(logger, features_dir, base_index_path, new_index_p
     if not os.path.exists(features_dir):
         os.makedirs(features_dir)
     ensure_dir(new_features_file)
-    command = "java -Djava.library.path=" + swig_path + \
-              " -cp seo_indri_utils.jar LTRFeatures " + base_index_path + " " + new_index_path + " " \
-              + stopwords_file + " " + queries_text_file + " " + working_set_file + " " + features_dir
+    command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar LTRFeatures {base_index_path} ' \
+              f'{new_index_path} {stopwords_file} {queries_text_file} {working_set_file} {features_dir}'
     run_and_print(logger, command, command_name='LTRFeatures')
 
     command = "perl " + scripts_path + "generate.pl " + features_dir + " " + working_set_file
@@ -117,21 +116,21 @@ def append_to_trectext_file(trectext_file, old_documents, new_documents):
     #     f.write('</DATA>\n')
 
 
-def create_index(logger, trec_text_file, index_name, indri_path):
+def create_index(logger, trectext_file, new_index, indri_path):
     """
     Parse the trectext file given, and create an index.
     """
-    if os.path.exists(index_name):
-        shutil.rmtree(index_name)
+    if os.path.exists(new_index):
+        shutil.rmtree(new_index)
 
     corpus_class = 'trectext'
     memory = '1G'
     stemmer = 'krovetz'
-    ensure_dir(index_name)
-    command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trec_text_file} -corpus.class={corpus_class} ' \
-              f'-index={index_name} -memory={memory} -stemmer.name={stemmer}'
+    ensure_dir(new_index)
+    command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trectext_file} -corpus.class={corpus_class} ' \
+              f'-index={new_index} -memory={memory} -stemmer.name={stemmer}'
     run_and_print(logger, command, command_name='IndriBuildIndex')
-    return index_name
+    return new_index
 
 
 def merge_indices(merged_index, new_index_name, base_index, home_path, indri_path):
@@ -383,7 +382,7 @@ def generate_pair_name(pair):
     return pair.split("$")[1].split("_")[0] + "_" + out_ + "_" + in_
 
 
-def create_sentence_workingset(output_file, epoch, qid, competitor_list):
+def create_documents_workingset(output_file, epoch, qid, competitor_list):
     ensure_dir(output_file)
     with open(output_file, 'w') as f:
         for competitor in competitor_list:

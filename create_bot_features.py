@@ -313,11 +313,14 @@ def create_index_to_doc_name_dict(features):
     return doc_name_index
 
 
-def create_sentence_vector_files(logger, output_dir, raw_ds_file, index_path, swig_path):
-    if not os.path.exists(index_path):
-        raise ValueError('The index {} does not exist'.format(index_path))
-    command = "java -Djava.library.path=" + swig_path + " -cp seo_indri_utils.jar PrepareTFIDFVectorsSentences " \
-              + index_path + " " + raw_ds_file + " " + output_dir
+def create_sentence_vector_files(logger, output_dir, raw_ds_file, base_index, new_index, swig_path, documents_ws):
+    for index in [base_index, new_index]:
+        if not os.path.exists(base_index):
+            raise ValueError('The index {} does not exist'.format(base_index))
+    # command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsSentences ' \
+    #           f'{index_path} {raw_ds_file} {output_dir}'
+    command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsSentences ' \
+              f'{base_index} {new_index} {raw_ds_file} {output_dir} {documents_ws}'
     run_and_print(logger, command, command_name='PrepareTFIDFVectorsSentences')
 
 
@@ -365,7 +368,7 @@ def create_specific_ws(qrid, ranked_lists, fname):
             out.write(qrid + " Q0 " + doc + " 0 " + str(i + 1) + " pairs_seo\n")
 
 
-def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri_path, index_path, swig_path, scripts_dir,
+def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri_path, base_index_path, swig_path, scripts_dir,
                   stopwords_file, queries_text_file, jar_path, rank_model, output_dir, new_index='new_index',
                   specific_ws='specific_ws', new_trectext_name='new_trectext_file', new_feature_file='new_feature_file',
                   feature_dir='feature_dir/', trec_file='trec_file', score_file='score_file'):
@@ -381,7 +384,7 @@ def run_reranking(logger, new_text, qrid, ref_doc_id, texts, ranked_lists, indri
     create_specific_ws(qrid, ranked_lists, specific_ws_path)
     logger.info("creating features")
     create_index(logger, new_trectext_path, new_index_path, indri_path)
-    features_file = create_features_file_diff(logger, full_feature_dir, index_path, new_index_path,
+    features_file = create_features_file_diff(logger, full_feature_dir, base_index_path, new_index_path,
                                               feature_file_path, specific_ws_path, scripts_dir,
                                               swig_path, stopwords_file, queries_text_file)
     logger.info("creating docname index")
@@ -450,7 +453,7 @@ def create_qrels(raw_ds, base_trec, out_file, ref, new_indices_dir, texts):
 
 # TODO reconsider the use of index here
 def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, doc_texts, output_dir, word_embed_model,
-                        mode, index_path, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
+                        mode, base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file, documents_workingset_file,
                         final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
                         output_feature_files_dir='feature_files/', workingset_file='workingset.txt'):
     sentences_tfidf_dir = output_dir + sentences_tfidf_dir
@@ -465,7 +468,8 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
         if is_file_empty(raw_ds_file):
             return True
 
-        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path, swig_path)
+        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, base_index, new_index, swig_path,
+                                     documents_workingset_file)
         query_text = get_query_text(queries_file, qid)
         feature_creation_single(logger, raw_ds_file, ranked_lists, doc_texts, ref_index, top_docs_index,
                                 doc_tfidf_dir, sentences_tfidf_dir, qrid, query_text, output_feature_files_dir,
@@ -474,7 +478,7 @@ def create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_lists, d
     elif mode == 'multiple':
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
                            int(top_docs_index))
-        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, index_path, swig_path)
+        create_sentence_vector_files(logger, sentences_tfidf_dir, raw_ds_file, base_index, swig_path)
         queries = read_queries_file(queries_file)
         queries = transform_query_text(queries)
         # TODO update this function

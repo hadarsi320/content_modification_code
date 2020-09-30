@@ -15,12 +15,12 @@ from bot_competition import generate_predictions, get_highest_ranked_pair, \
 from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
 from utils import get_doc_id, \
-    append_to_trectext_file, read_raw_trec_file, complete_sim_file, create_index
+    append_to_trectext_file, read_raw_trec_file, complete_sim_file, create_index, create_documents_workingset
 from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 
-def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_rounds, output_dir, index, comp_index,
-                         sentence_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
+def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_rounds, output_dir, base_index, comp_index,
+                         documents_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
                          predictions_dir, final_features_dir, swig_path, indri_path, replacements_file, similarity_file,
                          svm_rank_scripts_dir, trec_file, embedding_model_file, run_mode, scripts_dir, stopwords_file,
                          queries_text_file, queries_xml_file, ranklib_jar, lambda_rank_model):
@@ -32,15 +32,24 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
     word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file, binary=True,
                                                                            limit=700000)
 
-    doc_texts = load_trectext_file(comp_trectext_file)
-    create_index(logger, comp_trectext_file, comp_index, indri_path)
-    generate_document_tfidf_files(logger, qid, 1, competitor_list, sentence_workingset_file, document_tfidf_dir=doc_tfidf_dir,
-                                  swig_path=swig_path, base_index=index, new_index=comp_index)
-    record_doc_similarity(logger, doc_texts, 1, similarity_file, word_embedding_model, doc_tfidf_dir)
+    # doc_texts = load_trectext_file(comp_trectext_file)
+    # create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
+    # create_documents_workingset(documents_workingset_file, 1, qid, competitor_list)
+    # generate_document_tfidf_files(logger, documents_workingset_file,
+    #                               document_tfidf_dir=doc_tfidf_dir, swig_path=swig_path, base_index=base_index,
+    #                               new_index=comp_index)
+    # record_doc_similarity(logger, doc_texts, 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
     # consider setting the epoch to be 0 -> total_rounds
     for epoch in range(1, total_rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
+        doc_texts = load_trectext_file(comp_trectext_file)
+        create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
+        create_documents_workingset(documents_workingset_file, epoch, qid, competitor_list)
+        generate_document_tfidf_files(logger, documents_workingset_file,
+                                      document_tfidf_dir=doc_tfidf_dir, swig_path=swig_path, base_index=base_index,
+                                      new_index=comp_index)
+        record_doc_similarity(logger, doc_texts, epoch, similarity_file, word_embedding_model, doc_tfidf_dir)
 
         qrid = get_qrid(qid, epoch)
         raw_ds_file = raw_ds_dir + 'raw_ds_out_{}_{}.txt'.format(qrid, ','.join(competitor_list))
@@ -50,10 +59,10 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
         ranked_list = read_trec_file(comp_trec_file)
         premature_end = create_bot_features(logger, qrid, 1, 1, ranked_list, doc_texts, output_dir,
                                             word_embedding_model, mode=run_mode, raw_ds_file=raw_ds_file,
-                                            doc_tfidf_dir=doc_tfidf_dir, index_path=comp_index, swig_path=swig_path,
+                                            doc_tfidf_dir=doc_tfidf_dir, base_index=base_index, new_index=comp_index,
+                                            documents_workingset_file=documents_workingset_file, swig_path=swig_path,
                                             queries_file=queries_xml_file, final_features_file=features_file)
         if premature_end:
-            complete_sim_file(similarity_file, total_rounds)
             break
 
         ranking_file = generate_predictions(logger, svm_rank_model, svm_rank_scripts_dir, predictions_dir,
@@ -74,25 +83,30 @@ def run_2of2_competition(logger, qid, competitor_list, trectext_file, total_roun
         # TODO use multiprocessing
         ranked_list = read_raw_trec_file(comp_trec_file)
         reranked_trec_file = run_reranking(logger, updated_document, qrid, get_doc_id(epoch, qid, loser_id),
-                                           doc_texts, ranked_list, indri_path, index, swig_path, scripts_dir,
+                                           doc_texts, ranked_list, indri_path, base_index, swig_path, scripts_dir,
                                            stopwords_file, queries_text_file, ranklib_jar, lambda_rank_model,
                                            output_dir=reranking_dir)
         append_to_trec_file(comp_trec_file, reranked_trec_file)
         shutil.rmtree(reranking_dir)
 
+        # doc_texts = load_trectext_file(comp_trectext_file)
+        # create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
+        # create_documents_workingset(documents_workingset_file, epoch+1, qid, competitor_list)
+        # generate_document_tfidf_files(logger, documents_workingset_file, document_tfidf_dir=doc_tfidf_dir,
+        #                               swig_path=swig_path, base_index=base_index, new_index=comp_index)
+        # record_doc_similarity(logger, doc_texts, epoch+1, similarity_file, word_embedding_model, doc_tfidf_dir)
+    if premature_end:
+        complete_sim_file(similarity_file, total_rounds)
+    else:
         doc_texts = load_trectext_file(comp_trectext_file)
-        create_index(logger, comp_trectext_file, comp_index, indri_path)
-        if epoch == total_rounds:
-            generate_document_tfidf_files(logger, qid, epoch + 1, competitor_list, sentence_workingset_file,
-                                          document_tfidf_dir=doc_tfidf_dir, swig_path=swig_path, new_index=comp_index)
-        else:
-            generate_document_tfidf_files(logger, qid, epoch + 1, competitor_list, sentence_workingset_file,
-                                          document_tfidf_dir=doc_tfidf_dir, swig_path=swig_path,
-                                          base_index=index, new_index=comp_index)
-        record_doc_similarity(logger, doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
+        create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
+        create_documents_workingset(documents_workingset_file, total_rounds+1, qid, competitor_list)
+        generate_document_tfidf_files(logger, documents_workingset_file,
+                                      document_tfidf_dir=doc_tfidf_dir, swig_path=swig_path, base_index=base_index,
+                                      new_index=comp_index)
+        record_doc_similarity(logger, doc_texts, total_rounds, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
-#
 def run_2of5_competition(logger, qid, positions_file, dummy_bot_index, trectext_file, output_dir,
                          sentence_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                          trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, index, comp_index,
@@ -118,8 +132,8 @@ def run_2of5_competition(logger, qid, positions_file, dummy_bot_index, trectext_
         if not competitor_list:
             competitor_list = list({**bots, **students})
 
-        create_index(logger, comp_trectext_file, index_name=comp_index, indri_path=indri_path)
-        generate_document_tfidf_files(logger, qid, epoch, competitor_list, sentence_workingset_file,
+        create_index(logger, comp_trectext_file, new_index=comp_index, indri_path=indri_path)
+        generate_document_tfidf_files(logger, sentence_workingset_file,
                                       document_tfidf_dir=doc_tfidf_dir, swig_path=swig_path, new_index=comp_index)
         input('epoch specific files created')
 
@@ -137,7 +151,7 @@ def run_2of5_competition(logger, qid, positions_file, dummy_bot_index, trectext_
             cant_replace = create_bot_features(logger, qrid, ref_index, top_docs_index, ranked_list, doc_texts,
                                                output_dir, word_embedding_model, mode=run_mode,
                                                raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir,
-                                               index_path=comp_index, swig_path=swig_path,
+                                               base_index=comp_index, swig_path=swig_path,
                                                queries_file=queries_xml_file, final_features_file=features_file)
             input('{} features created'.format(bot))
 
@@ -217,11 +231,11 @@ if __name__ == '__main__':
     parser.add_option('--queries_xml_file', default='./data/queries_seo_exp.xml')
     parser.add_option('--scripts_dir', default='./scripts/')
     parser.add_option('--stopwords_file', default='./data/stopwords_list')
-    parser.add_option('--indri_path', default='~/indri/')
-    parser.add_option('--merged_index', default='~/work_files/merged_index/')
-    parser.add_option('--base_index', default='~/work_files/clueweb_index/')
+    parser.add_option('--indri_path', default='/lv_local/home/hadarsi/indri/')
+    parser.add_option('--clueweb_index', default='/lv_local/home/hadarsi/work_files/clueweb_index/')
+    parser.add_option('--merged_index', default='/lv_local/home/hadarsi/work_files/merged_index/')
     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
-    parser.add_option("--embedding_model_file", default='~/work_files/word2vec_model/word2vec_model')
+    parser.add_option("--embedding_model_file", default='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model')
     parser.add_option('--positions_file', default='./data/2of5_competition/documents.positions')
 
     (options, args) = parser.parse_args()
@@ -239,7 +253,7 @@ if __name__ == '__main__':
     doc_tfidf_dir = output_dir + 'document_tfidf/'
     reranking_dir = output_dir + 'reranking/'
     predictions_dir = output_dir + 'predictions/'
-    comp_index = output_dir + 'index'
+    temp_index = output_dir + 'index'
     sentence_workingset_file = output_dir + 'document_ws.txt'
     final_features_dir = output_dir + 'final_features/'
 
@@ -261,7 +275,7 @@ if __name__ == '__main__':
                 os.remove(file)
 
         run_2of2_competition(logger, qid, competitor_list, trectext_file, options.total_rounds, options.output_dir,
-                             options.merged_index, comp_index, sentence_workingset_file, doc_tfidf_dir, reranking_dir,
+                             options.clueweb_index, temp_index, sentence_workingset_file, doc_tfidf_dir, reranking_dir,
                              trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, options.swig_path,
                              options.indri_path, replacements_file, similarity_file, options.svm_rank_scripts_dir,
                              options.trec_file, options.embedding_model_file, options.run_mode, options.scripts_dir,
@@ -273,7 +287,7 @@ if __name__ == '__main__':
         run_2of5_competition(logger, qid, options.positions_file, int(options.dummy_bot_index), trectext_file,
                              output_dir, sentence_workingset_file, options.indri_path, options.swig_path, doc_tfidf_dir,
                              reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
-                             options.merged_index, comp_index, replacements_file, options.svm_rank_scripts_dir,
+                             options.merged_index, temp_index, replacements_file, options.svm_rank_scripts_dir,
                              options.embedding_model_file, options.run_mode, options.scripts_dir,
                              options.stopwords_file, options.queries_text_file, options.queries_xml_file,
                              options.ranklib_jar, options.rank_model, svm_rank_model)
