@@ -1,6 +1,8 @@
+import logging
 import os
 import re
 import shutil
+import sys
 from collections import defaultdict
 import javaobj
 from deprecated import deprecated
@@ -11,24 +13,26 @@ from lxml import etree
 from nltk import sent_tokenize
 
 
-def create_features_file_diff(logger, features_dir, base_index_path, new_index_path, new_features_file,
+def create_features_file_diff(features_dir, base_index_path, new_index_path, new_features_file,
                               working_set_file, scripts_path, swig_path, stopwords_file, queries_text_file):
     """
     Creates a feature file via a given index and a given working set file
     """
+    logger = logging.getLogger(sys.argv[0])
     run_bash_command("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
     if not os.path.exists(features_dir):
         os.makedirs(features_dir)
     ensure_dir(new_features_file)
+
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar LTRFeatures {base_index_path} ' \
               f'{new_index_path} {stopwords_file} {queries_text_file} {working_set_file} {features_dir}'
-    run_and_print(logger, command, command_name='LTRFeatures')
+    run_and_print(command, command_name='LTRFeatures')
 
-    command = "perl " + scripts_path + "generate.pl " + features_dir + " " + working_set_file
+    command = f"perl {scripts_path}generate.pl {features_dir} {working_set_file}"
     logger.info(command)
     run_bash_command(command)
 
-    command = "mv features " + new_features_file
+    command = f"mv features {new_features_file}"
     logger.info(command)
     run_bash_command(command)
 
@@ -98,25 +102,12 @@ def create_trectext_file(document_texts, trectext_fname, working_set_fname=None)
 
 
 def append_to_trectext_file(trectext_file, old_documents, new_documents):
+    logger = logging.getLogger(sys.argv[0])
     create_trectext_file({**old_documents, **new_documents}, trectext_file)
-    # with open(trectext_file, 'r') as f:
-    #     trectext_lines = f.readlines()[:-1]
-    # with open(trectext_file, "w", encoding="utf-8") as f:
-    #     for line in trectext_lines:
-    #         f.write(line)
-    #     for document in document_texts:
-    #         text = document_texts[document]
-    #
-    #         f.write('<DOC>\n')
-    #         f.write('<DOCNO>' + document + '</DOCNO>\n')
-    #         f.write('<TEXT>\n')
-    #         f.write(text.rstrip())
-    #         f.write('\n</TEXT>\n')
-    #         f.write('</DOC>\n')
-    #     f.write('</DATA>\n')
+    logger.info('Trectext file updated')
 
 
-def create_index(logger, trectext_file, new_index, indri_path):
+def create_index(trectext_file, new_index, indri_path):
     """
     Parse the trectext file given, and create an index.
     """
@@ -129,7 +120,7 @@ def create_index(logger, trectext_file, new_index, indri_path):
     ensure_dir(new_index)
     command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trectext_file} -corpus.class={corpus_class} ' \
               f'-index={new_index} -memory={memory} -stemmer.name={stemmer}'
-    run_and_print(logger, command, command_name='IndriBuildIndex')
+    run_and_print(command, command_name='IndriBuildIndex')
     return new_index
 
 
@@ -205,12 +196,12 @@ def create_index_to_query_dict(data_set_file):
         return query_index
 
 
-def run_model(logger, features_file, jar_path, score_file, model_path):
+def run_model(features_file, jar_path, score_file, model_path):
     ensure_dir(score_file)
     run_bash_command('touch ' + score_file)
     command = "java -jar " + jar_path + " -load " + model_path + " -rank " + features_file + " -score " + \
               score_file
-    run_and_print(logger, command)
+    run_and_print(command)
     return score_file
 
 

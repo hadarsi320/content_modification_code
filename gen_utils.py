@@ -1,4 +1,6 @@
+import logging
 import subprocess
+import sys
 from multiprocessing import Pool
 from tqdm import tqdm
 
@@ -29,7 +31,8 @@ def run_bash_command(command):
     return out
 
 
-def run_and_print(logger, command, command_name=None):
+def run_and_print(command, command_name=None):
+    logger = logging.getLogger(sys.argv[0])
     name = command_name.rstrip() if command_name else 'Command'
     print_string = f'Running {name} command: {command}'
     logger.info(print_string)

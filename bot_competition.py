@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 import xml.etree.ElementTree as ET
 from os.path import exists, basename, splitext
 
@@ -13,10 +15,11 @@ from utils import get_qrid, create_trectext_file, parse_doc_id, \
 from vector_functionality import centroid_similarity, document_tfidf_similarity
 
 
-def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_file=None, pid_list=None,
+def create_initial_trec_file(output_dir, qid, trec_file=None, positions_file=None, pid_list=None,
                              dummy_bot_index=None):
     assert bool(positions_file) != bool(trec_file) and bool(pid_list) != bool(dummy_bot_index) and \
            bool(trec_file) == bool(pid_list)
+    logger = logging.getLogger(sys.argv[0])
 
     new_trec_file = output_dir + f'trec_file_{qid}_'
     if pid_list:
@@ -35,7 +38,7 @@ def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_
                     if last_qrid != qrid:
                         continue
                     pid = line.split()[2].split('-')[-1]
-                    if pid_list is not None or pid in pid_list:
+                    if pid_list is None or pid in pid_list:
                         new_file.write(line)
                         lines_written += 1
         if pid_list and lines_written != len(pid_list):
@@ -62,13 +65,14 @@ def create_initial_trec_file(logger, output_dir, qid, trec_file=None, positions_
     return new_trec_file
 
 
-def create_initial_trectext_file(logger, full_trectext_file, output_dir, qid, pid_list=None, dummy_bot_index=None):
+def create_initial_trectext_file(full_trectext_file, output_dir, qid, pid_list=None, dummy_bot_index=None):
     assert bool(pid_list) != bool(dummy_bot_index)
+    logger = logging.getLogger(sys.argv[0])
+
     if pid_list:
         new_trectext_file = output_dir + f'documents_{qid}_{",".join(pid_list)}.trectext'
     else:
         new_trectext_file = output_dir + f'documents_{qid}_{dummy_bot_index}.trectext'
-
     ensure_dir(new_trectext_file)
 
     parser = etree.XMLParser(recover=True)
@@ -94,36 +98,41 @@ def create_initial_trectext_file(logger, full_trectext_file, output_dir, qid, pi
 
 
 @deprecated(reason='The module create_bot_features no longer has a main')
-def create_features(logger, qrid, trec_file, trectext_file, raw_ds_file, doc_tdidf_dir, index, output_dir,
+def create_features(qrid, trec_file, trectext_file, raw_ds_file, doc_tdidf_dir, index, output_dir,
                     mode='single', ref_index=1, top_docs_index=1):
     command = f'python create_bot_features.py --mode={mode} --qrid={qrid} --ref_index={ref_index} ' \
               f'--top_docs_index={top_docs_index} --trec_file={trec_file} --trectext_file={trectext_file} ' \
               f'--raw_ds_out={raw_ds_file} --doc_tfidf_dir={doc_tdidf_dir} --index_path={index} ' \
               f'--output_dir={output_dir}'
-    run_and_print(logger, command)
+    run_and_print(command)
 
 
-def generate_learning_dataset(logger, output_dir, label_aggregation_method, seo_qrels, coherency_qrels, feature_fname):
+def generate_learning_dataset(output_dir, label_aggregation_method, seo_qrels, coherency_qrels, feature_fname):
     command = 'python dataset_creator.py ' + output_dir + ' ' + label_aggregation_method + ' ' + seo_qrels + ' ' + \
               coherency_qrels + ' ' + feature_fname
-    run_and_print(logger, command)
+    run_and_print(command)
 
 
-def create_model(logger, svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
+def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
     ensure_dir(model_path)
     command = svm_rank_scripts_dir + 'svm_rank_learn -c ' + svm_rank_c + ' ' + learning_data + ' ' + model_path
-    run_and_print(logger, command)
+    run_and_print(command)
 
 
-def generate_predictions(logger, model_path, svm_rank_scripts_dir, predictions_dir, feature_file):
+def generate_predictions(model_path, svm_rank_scripts_dir, predictions_dir, feature_file):
     predictions_file = predictions_dir + '_predictions'.join(splitext(basename(feature_file)))
     ensure_dir(predictions_file)
     command = svm_rank_scripts_dir + 'svm_rank_classify ' + feature_file + ' ' + model_path + ' ' + predictions_file
-    run_and_print(logger, command)
+    run_and_print(command)
     return predictions_file
 
 
 def get_highest_ranked_pair(features_file, predictions_file):
+    """
+    :param features_file: The features file, holds a line for every
+    :param predictions_file: A file that holds a score for every line in the features file
+    :return: (replacement_doc_id, out_index, in_index)
+    """
     with open(features_file, 'r') as f:
         pairs = [line.rstrip('\n').split('# ')[1] for line in f if len(line) > 0]
 
@@ -131,7 +140,8 @@ def get_highest_ranked_pair(features_file, predictions_file):
         scores = [float(line) for line in f if len(line) > 0]
 
     max_pair, _ = max(zip(pairs, scores), key=lambda x: x[1])
-    return max_pair
+    rep_doc_id, out_index, in_index = max_pair.split('_')
+    return rep_doc_id, int(out_index), int(in_index)
 
 
 @deprecated(reason='This version uses the sentences from the raw dataset file, which are cleaned and shouldnt be used')
@@ -150,9 +160,8 @@ def generate_updated_document_dep(max_pair, raw_ds_file, doc_texts):
     return update_text_doc(ref_doc, sentence_in, sentence_out_index)
 
 
-def generate_updated_document(doc_texts, max_pair, ref_doc_id, rep_doc_id):
+def generate_updated_document(doc_texts, ref_doc_id, rep_doc_id, out_index, in_index):
     # TODO use update texts for the multiple competitions version
-    out_index, in_index = [int(item) for item in max_pair.split('_')[1:]]
     ref_doc = sent_tokenize(doc_texts[ref_doc_id])
     rep_doc = sent_tokenize(doc_texts[rep_doc_id])
     ref_doc[out_index] = rep_doc[in_index]
@@ -208,15 +217,17 @@ def append_to_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(advance_round(line) + '\n')
 
 
-def generate_document_tfidf_files(logger, workingset_file, output_dir, swig_path, base_index, new_index):
+def generate_document_tfidf_files(workingset_file, output_dir, swig_path, base_index, new_index):
     ensure_dir(output_dir)
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
               f'{base_index} {new_index} {workingset_file} {output_dir}'
-    run_and_print(logger, command, command_name='Document tfidf Creation')
+    run_and_print(command, command_name='Document tfidf Creation')
 
 
-def record_doc_similarity(logger, doc_texts, current_epoch, similarity_file, word_embedding_model, document_tfidf_dir):
+def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedding_model, document_tfidf_dir):
+    logger = logging.getLogger(sys.argv[0])
     ensure_dir(similarity_file)
+
     recent_documents = []
     recent_texts = []
     for document in doc_texts:
@@ -235,13 +246,13 @@ def record_doc_similarity(logger, doc_texts, current_epoch, similarity_file, wor
     logger.info('Recorded document similarity')
 
 
-def record_replacement(replacements_file, epoch, replaced_doc_id, max_pair):
+def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_index, in_index):
     ensure_dir(replacements_file)
     with open(replacements_file, 'a') as f:
-        f.write(f'{epoch}. {replaced_doc_id}${max_pair}')
+        f.write(f'{epoch}. {in_doc_id}\t{out_doc_id}\t{out_index}\t{in_index}\n')
 
 
-def create_pair_ranker(logger, model_path, label_aggregation_method, label_aggregation_b, svm_rank_c,
+def create_pair_ranker(model_path, label_aggregation_method, label_aggregation_b, svm_rank_c,
                        aggregated_data_dir, seo_qrels_file, coherency_qrels_file, unranked_features_file,
                        svm_rank_scripts_dir):
     if not exists(model_path):
@@ -249,10 +260,10 @@ def create_pair_ranker(logger, model_path, label_aggregation_method, label_aggre
         learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b)
 
         if not exists(learning_data_path):
-            generate_learning_dataset(logger, aggregated_data_dir, label_aggregation_method,
+            generate_learning_dataset(aggregated_data_dir, label_aggregation_method,
                                       seo_qrels_file, coherency_qrels_file,
                                       unranked_features_file)
-        create_model(logger, svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
+        create_model(svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
 
 
 def get_rankings(trec_file, dummy_bot_index, qid, epoch):
