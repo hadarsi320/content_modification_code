@@ -417,5 +417,9 @@ def complete_sim_file(similarity_file, total_rounds):
             # replace this with actual similarity
             f.write('{}\t{}\t{}\n'.format(lines + i, 1, 1))
 
+
+def xor(a, b):
+    return bool(a) != bool(b)
+
 # def preprocess_document(document):
 #     return '\n'.join(sent_tokenize(document))

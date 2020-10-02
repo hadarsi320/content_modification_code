@@ -158,14 +158,15 @@ def create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_
     ref_sentences = sent_tokenize(doc_texts[ref_doc])  # doc_texts[ref_doc].split('\n')
     top_docs_tfidf_centroid = document_centroid([get_java_object(doc_tfidf_vectors_dir + doc) for doc in top_docs])
     for pair in relevant_pairs:
+        # Sentences have been cleaned
         sentence_in = relevant_pairs[pair]["in"]
         sentence_out = relevant_pairs[pair]["out"]
-        in_vec = get_text_centroid(clean_texts(sentence_in), word_embed_model, True)
-        out_vec = get_text_centroid(clean_texts(sentence_out), word_embed_model, True)
+        in_vec = get_text_centroid(sentence_in, word_embed_model, True)
+        out_vec = get_text_centroid(sentence_out, word_embed_model, True)
         replace_index = int(pair.split("_")[1])
 
-        feature_vals['FractionOfQueryWordsIn'][pair] = query_term_freq("avg", clean_texts(sentence_in), query_text)
-        feature_vals['FractionOfQueryWordsOut'][pair] = query_term_freq("avg", clean_texts(sentence_out), query_text)
+        feature_vals['FractionOfQueryWordsIn'][pair] = query_term_freq("avg", sentence_in, query_text)
+        feature_vals['FractionOfQueryWordsOut'][pair] = query_term_freq("avg", sentence_out, query_text)
         feature_vals['CosineToCentroidIn'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
             sentence_tfidf_vectors_dir + pair.split("$")[1].split("_")[0] + "_" +
             pair.split("_")[2], top_docs_tfidf_centroid)
@@ -223,8 +224,8 @@ def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_i
         out_vec = get_text_centroid(clean_texts(sentence_out), word_embd_model, True)
         replace_index = int(pair.split("_")[1])
 
-        feature_vals['FractionOfQueryWordsIn'][pair] = query_term_freq("avg", clean_texts(sentence_in), query_text)
-        feature_vals['FractionOfQueryWordsOut'][pair] = query_term_freq("avg", clean_texts(sentence_out), query_text)
+        feature_vals['FractionOfQueryWordsIn'][pair] = query_term_freq("avg", sentence_in, query_text)
+        feature_vals['FractionOfQueryWordsOut'][pair] = query_term_freq("avg", sentence_out, query_text)
         feature_vals['CosineToCentroidIn'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
             tfidf_sentence_dir + pair.split("$")[1].split("_")[0] + "_" + pair.split("_")[2], top_docs_tfidf_centroid)
         feature_vals['CosineToCentroidOut'][pair] = calculate_similarity_to_docs_centroid_tf_idf(

@@ -16,8 +16,8 @@ from vector_functionality import centroid_similarity, document_tfidf_similarity
 
 
 def create_initial_trec_file(output_dir, qid, trec_file=None, positions_file=None, pid_list=None,
-                             dummy_bot_index=None):
-    assert bool(positions_file) != bool(trec_file) and bool(pid_list) != bool(dummy_bot_index) and \
+                             dummy_bot=None):
+    assert bool(positions_file) != bool(trec_file) and bool(pid_list) != bool(dummy_bot) and \
            bool(trec_file) == bool(pid_list)
     logger = logging.getLogger(sys.argv[0])
 
@@ -25,12 +25,12 @@ def create_initial_trec_file(output_dir, qid, trec_file=None, positions_file=Non
     if pid_list:
         new_trec_file += ','.join(pid_list)
     else:
-        new_trec_file += str(dummy_bot_index)
+        new_trec_file += str(dummy_bot)
 
+    lines_written = 0
     ensure_dir(new_trec_file)
-    qrid = get_qrid(qid, 1)
     if trec_file:
-        lines_written = 0
+        qrid = get_qrid(qid, 1)
         with open(trec_file, 'r') as trec_file:
             with open(new_trec_file, 'w') as new_file:
                 for line in trec_file:
@@ -41,8 +41,6 @@ def create_initial_trec_file(output_dir, qid, trec_file=None, positions_file=Non
                     if pid_list is None or pid in pid_list:
                         new_file.write(line)
                         lines_written += 1
-        if pid_list and lines_written != len(pid_list):
-            raise ValueError('Competitors/Qid not in dataset')
 
     else:
         ranked_list = []
@@ -60,19 +58,25 @@ def create_initial_trec_file(output_dir, qid, trec_file=None, positions_file=Non
         with open(new_trec_file, 'w') as new_file:
             for file in ranked_list:
                 new_file.write(f'{file[0]} Q0 {file[1]} 0 {file[2]} positions\n')
+                lines_written += 1
+
+    if lines_written == 0 and pid_list is None:
+        raise ValueError(f'query {qid} not in dataset')
+    if pid_list and lines_written != len(pid_list):
+        raise ValueError('Competitors {} not in dataset'.format(', '.join(pid_list)))
 
     logger.info('Competition trec file created')
     return new_trec_file
 
 
-def create_initial_trectext_file(full_trectext_file, output_dir, qid, pid_list=None, dummy_bot_index=None):
-    assert bool(pid_list) != bool(dummy_bot_index)
+def create_initial_trectext_file(full_trectext_file, output_dir, qid, pid_list=None, dummy_bot=None):
+    assert bool(pid_list) != bool(dummy_bot)
     logger = logging.getLogger(sys.argv[0])
 
     if pid_list:
         new_trectext_file = output_dir + f'documents_{qid}_{",".join(pid_list)}.trectext'
     else:
-        new_trectext_file = output_dir + f'documents_{qid}_{dummy_bot_index}.trectext'
+        new_trectext_file = output_dir + f'documents_{qid}_{dummy_bot}.trectext'
     ensure_dir(new_trectext_file)
 
     parser = etree.XMLParser(recover=True)
@@ -266,15 +270,15 @@ def create_pair_ranker(model_path, label_aggregation_method, label_aggregation_b
         create_model(svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
 
 
-def get_rankings(trec_file, dummy_bot_index, qid, epoch):
+def get_rankings(trec_file, dummy_bot, qid, epoch):
     """
     :param trec_file: a trecfile
-    :param dummy_bot_index: the index of the dummy who's a bot
+    :param dummy_bot: the index of the dummy who's a bot
     :param qid: query id
     :param epoch: current round
     :return: two dictionaries of the form {pid: location}, one for the bots and the other for the students
     """
-    assert int(dummy_bot_index) in [1, 2]
+    assert int(dummy_bot) in [1, 2]
     bots = {}
     students = {}
     position = 0
@@ -285,7 +289,7 @@ def get_rankings(trec_file, dummy_bot_index, qid, epoch):
             last_epoch, last_qid, pid = parse_doc_id(doc_id)
             if last_epoch != epoch or last_qid != qid:
                 continue
-            if pid in ['BOT', f'DUMMY{dummy_bot_index}']:
+            if pid in ['BOT', f'DUMMY{dummy_bot}']:
                 bots[pid] = position
             else:
                 students[pid] = position

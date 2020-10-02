@@ -16,8 +16,8 @@ def get_term_frequency(text, term):
 
 
 def query_term_freq(mode, text, query):
-    if len(text.split()) == 0:
-        print("PROBLEMATIC TEXT=", text)
+    if len(text.replace(' ', '')) == 0:
+        # print("EMPTY TEXT")
         return 0
     if len(query.split("_")) > 1:
         freqs = [get_term_frequency(text, q) / len(text.split()) for q in query.split("_")]

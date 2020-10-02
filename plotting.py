@@ -20,7 +20,7 @@ def plot(data, start=0, stop=None, shape='o-', title=None, xlabel=None, ylabel=N
 
 
 if __name__ == '__main__':
-    similarity_dir = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/output/run_30_9/similarity_results'
+    similarity_dir = './output/run_10_1/similarity_results'
     plots_dir = './plots/'
     similarity_files = sorted(os.listdir(similarity_dir))
 

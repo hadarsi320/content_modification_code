@@ -90,7 +90,7 @@ def run_2of2_competition(qid, competitor_list, trectext_file, total_rounds, outp
 
 
 # implement the option for a static bot
-def run_2of5_competition(qid, competitor_list, positions_file, dummy_bot_index, trectext_file, output_dir,
+def run_2of5_competition(qid, competitor_list, positions_file, dummy_bot, trectext_file, output_dir,
                          document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                          trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                          replacements_file, svm_rank_scripts_dir, embedding_model_file, run_mode, scripts_dir,
@@ -99,9 +99,9 @@ def run_2of5_competition(qid, competitor_list, positions_file, dummy_bot_index, 
     logger = logging.getLogger(sys.argv[0])
     original_texts = load_trectext_file(trectext_file, qid)
 
-    comp_trectext_file = create_initial_trectext_file(trectext_file, trectext_dir, qid, dummy_bot_index=dummy_bot_index)
+    comp_trectext_file = create_initial_trectext_file(trectext_file, trectext_dir, qid, dummy_bot=dummy_bot)
     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, positions_file=positions_file,
-                                              dummy_bot_index=dummy_bot_index)
+                                              dummy_bot=dummy_bot)
     word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file, binary=True,
                                                                            limit=700000)
 
@@ -110,11 +110,11 @@ def run_2of5_competition(qid, competitor_list, positions_file, dummy_bot_index, 
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
     for epoch in range(1, 4):  # there are only 4 rounds of competition in the data
-        input('\n{} Starting round {}\n'.format('#' * 8, epoch))
+        print('\n{} Starting round {}\n'.format('#' * 8, epoch))
         qrid = get_qrid(qid, epoch)
         ranked_list = read_trec_file(comp_trec_file)
         doc_texts = load_trectext_file(comp_trectext_file)
-        bots, students = get_rankings(comp_trec_file, dummy_bot_index, qid, epoch)
+        bots, students = get_rankings(comp_trec_file, dummy_bot, qid, epoch)
 
         new_docs = {}
         for student_id in students:
@@ -153,22 +153,18 @@ def run_2of5_competition(qid, competitor_list, positions_file, dummy_bot_index, 
                                                               out_index=out_index, in_index=in_index)
 
         append_to_trectext_file(comp_trectext_file, doc_texts, new_docs)
-        input('STOP')
-        # consider creating a trec file which only contains the files from the current round
-        # otherwise there might be some issues in later rounds
-        # TODO use multiprocessing
+
         create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
-        create_documents_workingset(document_workingset_file, epoch, qid, competitor_list)
+        create_documents_workingset(document_workingset_file, epoch+1, qid, competitor_list)
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
 
-        reranked_trec_file = run_reranking(qrid, ranked_list, comp_index, base_index, swig_path, scripts_dir,
+        reranked_trec_file = run_reranking(qrid, comp_trec_file, base_index, comp_index, swig_path, scripts_dir,
                                            stopwords_file, queries_text_file, ranklib_jar, document_rank_model,
                                            output_dir=reranking_dir)
+
         append_to_trec_file(comp_trec_file, reranked_trec_file)
         shutil.rmtree(reranking_dir)
-
-        # update trec and trectext files
 
 
 def main():
@@ -185,7 +181,7 @@ def main():
     parser.add_option('--mode', choices=['2of2', '2of5'])
     parser.add_option('--qid')
     parser.add_option('--competitors')
-    parser.add_option('--dummy_bot_index', choices=['1', '2'])
+    parser.add_option('--dummy_bot', choices=['1', '2'])
     parser.add_option('--trectext_file')
     # TODO implement the use of competition file, in order to run multiple competitions simultaneously
     # parser.add_option('--competition_file')
@@ -267,11 +263,11 @@ def main():
                              options.ranklib_jar, options.rank_model, svm_rank_model)
     else:
         trectext_file = options.trectext_file if options.trectext_file else options.trectext_file_2of5
-        replacements_file = output_dir + f'replacements/replacements_{qid}_{options.dummy_bot_index}'
+        replacements_file = output_dir + f'replacements/replacements_{qid}_{options.dummy_bot}'
         if exists(replacements_file):
             os.remove(replacements_file)
         competitor_list = get_competitors(options.positions_file, qid)
-        run_2of5_competition(qid, competitor_list, options.positions_file, options.dummy_bot_index,
+        run_2of5_competition(qid, competitor_list, options.positions_file, options.dummy_bot,
                              trectext_file, output_dir, document_workingset_file, options.indri_path, options.swig_path,
                              doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                              final_features_dir, options.clueweb_index, temp_index, replacements_file,
