@@ -16,7 +16,7 @@ from utils import clean_texts, get_java_object, create_trectext_file, create_ind
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
     transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict, \
     generate_pair_name, ensure_dir, tokenize_document, is_file_empty
-from vector_functionality import query_term_freq, centroid_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
+from vector_functionality import query_term_freq, embedding_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
 
@@ -70,19 +70,19 @@ def read_raw_ds(raw_dataset):
 def context_similarity(replacement_index, ref_sentences, sentence_compared, mode, model, stemmer=None):
     if mode == "own":
         ref_sentence = ref_sentences[replacement_index]
-        return centroid_similarity(clean_texts(ref_sentence), clean_texts(sentence_compared), model, stemmer)
+        return embedding_similarity(clean_texts(ref_sentence), clean_texts(sentence_compared), model, stemmer)
     if mode == "pred":
         if replacement_index + 1 == len(ref_sentences):
             sentence = ref_sentences[replacement_index]
         else:
             sentence = ref_sentences[replacement_index + 1]
-        return centroid_similarity(clean_texts(sentence), clean_texts(sentence_compared), model, stemmer)
+        return embedding_similarity(clean_texts(sentence), clean_texts(sentence_compared), model, stemmer)
     if mode == "prev":
         if replacement_index == 0:
             sentence = ref_sentences[replacement_index]
         else:
             sentence = ref_sentences[replacement_index - 1]
-        return centroid_similarity(clean_texts(sentence), clean_texts(sentence_compared), model, stemmer)
+        return embedding_similarity(clean_texts(sentence), clean_texts(sentence_compared), model, stemmer)
 
 
 def get_past_winners(ranked_lists, epoch, query):
@@ -462,8 +462,8 @@ def create_qrels(raw_ds, base_trec, out_file, ref, new_indices_dir, texts):
 
 # TODO reconsider the use of index here
 def create_bot_features(qrid, ref_index, top_docs_index, ranked_lists, doc_texts, output_dir, word_embed_model,
-                        mode, base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file, documents_workingset_file,
-                        final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
+                        mode, base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
+                        documents_workingset_file, final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
                         output_feature_files_dir='feature_files/', workingset_file='workingset.txt'):
     sentences_tfidf_dir = output_dir + sentences_tfidf_dir
     output_feature_files_dir = output_dir + output_feature_files_dir
@@ -484,17 +484,17 @@ def create_bot_features(qrid, ref_index, top_docs_index, ranked_lists, doc_texts
                                 doc_tfidf_dir, sentences_tfidf_dir, qrid, query_text, output_feature_files_dir,
                                 final_features_file, workingset_file, word_embed_model)
 
-    elif mode == 'multiple':
-        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
-                           int(top_docs_index))
-        create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, swig_path)
-        queries = read_queries_file(queries_file)
-        queries = transform_query_text(queries)
-        # TODO update this function
-        feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),
-                                  int(ref_index), doc_tfidf_dir,
-                                  sentences_tfidf_dir, queries, output_feature_files_dir,
-                                  output_final_feature_file_dir, workingset_file)
+    # elif mode == 'multiple':
+    #     create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
+    #                        int(top_docs_index))
+    #     create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, swig_path)
+    #     queries = read_queries_file(queries_file)
+    #     queries = transform_query_text(queries)
+    #     # TODO update this function
+    #     feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),
+    #                               int(ref_index), doc_tfidf_dir,
+    #                               sentences_tfidf_dir, queries, output_feature_files_dir,
+    #                               output_final_feature_file_dir, workingset_file)
 
     else:
         raise ValueError('mode value must be given, and it must be either \'single\' or \'multiple\'')

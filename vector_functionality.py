@@ -98,7 +98,7 @@ def calculate_similarity_to_docs_centroid_tf_idf(text_tfidf_fname, top_docs_tfid
     return dict_cosine_similarity(summary_tfidf, top_docs_tfidf)
 
 
-def centroid_similarity(s1, s2, model, stemmer=None):
+def embedding_similarity(s1, s2, model, stemmer=None):
     centroid1 = get_text_centroid(s1, model, stemmer)
     centroid2 = get_text_centroid(s2, model, stemmer)
     if centroid1 is None or centroid2 is None:

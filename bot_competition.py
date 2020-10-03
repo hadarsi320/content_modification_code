@@ -12,7 +12,7 @@ from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
     ensure_dir, create_documents_workingset, get_learning_data_path, get_doc_id, xor
-from vector_functionality import centroid_similarity, document_tfidf_similarity
+from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
 def create_initial_trec_file(output_dir, qid, trec_file=None, positions_file=None, pid_list=None,
@@ -241,12 +241,12 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
             recent_texts.append(doc_texts[document])
     assert len(recent_documents) == 2
 
-    tfidf_similarity = document_tfidf_similarity(*[document_tfidf_dir + doc for doc in recent_documents])
-    embedding_similarity = centroid_similarity(*recent_texts, word_embedding_model)
+    tfidf_sim = document_tfidf_similarity(*[document_tfidf_dir + doc for doc in recent_documents])
+    embedding_sim = embedding_similarity(*recent_texts, word_embedding_model)
     with open(similarity_file, 'a') as f:
         if current_epoch == 1:
             f.write('Round\ttfidf\tembedding\n')
-        f.write(f'{current_epoch - 1}\t{round(tfidf_similarity, 3)}\t{round(embedding_similarity, 3)}\n')
+        f.write(f'{current_epoch - 1}\t{round(tfidf_sim, 3)}\t{round(embedding_sim, 3)}\n')
     logger.info('Recorded document similarity')
 
 
