@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from bot_competition import get_competitors
-from plotting import plot
 from utils import read_competition_trec_file, normalize_dict_len
 
 
@@ -45,8 +44,8 @@ def compute_average_rank(ranked_lists, competitors_lists, group):
                     epoch_ranks.append(rank)
             ranks.append(epoch_ranks)
 
-    average_rank_promotion = np.average(ranks, axis=0)
-    return average_rank_promotion
+    average_rank = np.average(ranks, axis=0)
+    return average_rank
 
 
 def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=False):
