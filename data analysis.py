@@ -40,8 +40,8 @@ def compute_average_rank(ranked_lists, competitors_lists, group):
 
             epoch_ranks = []
             for epoch in sorted(competition):
-                    rank = competition[epoch].index(competitor)
-                    epoch_ranks.append(rank)
+                rank = competition[epoch].index(competitor)
+                epoch_ranks.append(rank)
             ranks.append(epoch_ranks)
 
     average_rank = np.average(ranks, axis=0)
@@ -65,16 +65,13 @@ def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=Fal
             if not in_group(competitor, group, dummy_bot):
                 continue
 
-            last_epoch = None
-            for epoch in sorted(competition):
-                if last_epoch is not None:
-                    last_rank = competition[last_epoch].index(competitor)
-                    rank = competition[epoch].index(competitor)
-                    rank_promotion[epoch].append(get_scaled_promotion(last_rank, rank) if scaled else last_rank - rank)
-                    # if last_rank > 0 or (last_rank == 0 and rank > 0):
-                    #     rank_promotion[last_epoch].append((last_rank - rank) / last_rank
-                    #                                       if scaled else last_rank - rank)
-                last_epoch = epoch
+            for last_epoch, epoch in zip(sorted(competition), sorted(competition)[1:]):
+                last_rank = competition[last_epoch].index(competitor)
+                rank = competition[epoch].index(competitor)
+                rank_promotion[epoch].append(get_scaled_promotion(last_rank, rank) if scaled else last_rank - rank)
+                # if last_rank > 0 or (last_rank == 0 and rank > 0):
+                #     rank_promotion[last_epoch].append((last_rank - rank) / last_rank
+                #                                       if scaled else last_rank - rank)
 
     average_rank_promotion = [np.average(rank_promotion[epoch]) for epoch in sorted(rank_promotion)]
     return average_rank_promotion
@@ -107,7 +104,6 @@ def main():
         ax.set_xticks(x_ticks)
         ax.set_xlabel('Round')
     plt.show()
-
 
     # Raw Rank Promotion
     x_ticks = [2, 3, 4]
