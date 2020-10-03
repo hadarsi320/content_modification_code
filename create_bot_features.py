@@ -15,7 +15,7 @@ from gen_utils import run_bash_command, list_multiprocessing, run_and_print
 from utils import clean_texts, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
     transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict, \
-    generate_pair_name, ensure_dir, tokenize_document, is_file_empty
+    generate_pair_name, ensure_dir, tokenize_document, is_file_empty, get_next_doc_id
 from vector_functionality import query_term_freq, embedding_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
@@ -368,13 +368,14 @@ def create_new_trectext(doc, texts, new_text, new_trectext_name):
     create_trectext_file(text_copy, new_trectext_name, "ws_debug")
 
 
-def create_specific_ws(qrid, ranked_lists, fname):
-    with open(fname, 'w') as out:
-        for i, doc in enumerate(ranked_lists[qrid]):
-            out.write(qrid + " Q0 " + doc + " 0 " + str(i + 1) + " pairs_seo\n")
+def create_reranking_ws(qrid, ranked_list, file_name):
+    with open(file_name, 'w') as out:
+        for i, doc_id in enumerate(ranked_list):
+            next_doc_id = get_next_doc_id(doc_id)
+            out.write(qrid + " Q0 " + next_doc_id + " 0 " + str(i + 1) + " pairs_seo\n")
 
 
-def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir, stopwords_file, queries_text_file,
+def run_reranking(qrid, ranked_list, base_index, new_index, swig_path, scripts_dir, stopwords_file, queries_text_file,
                   jar_path, rank_model, output_dir, specific_ws_name='specific_ws',
                   new_feature_file_name='new_feature_file', feature_dir_name='feature_dir/',
                   new_trec_file_name='trec_file', score_file_name='score_file'):
@@ -385,14 +386,9 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
     score_file_path = output_dir + score_file_name
     trec_file_path = output_dir + new_trec_file_name
     full_feature_dir = output_dir + feature_dir_name
-    # new_trectext_path = output_dir + new_trectext_name
-    # new_index_path = output_dir + new_index_name
 
-    # create_new_trectext(ref_doc_id, texts, new_text, new_trectext_path)
-    ranked_lists = read_raw_trec_file(trec_file)
-    create_specific_ws(qrid, ranked_lists, specific_ws_path)
+    create_reranking_ws(qrid, ranked_list, specific_ws_path)
     logger.info("creating features")
-    # create_index(new_trectext_file, new_index_path, indri_path)
     features_file = create_features_file_diff(full_feature_dir, base_index, new_index, feature_file_path,
                                               specific_ws_path, scripts_dir, swig_path, stopwords_file,
                                               queries_text_file)

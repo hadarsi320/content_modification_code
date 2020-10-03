@@ -44,15 +44,15 @@ def read_trec_file(trec_file, current_round=None, current_qid=None, competitor_l
     stats = defaultdict(dict)
     with open(trec_file) as file:
         for line in file:
-            doc = line.split()[2]
-            epoch, query, competitor = doc.split('-')[1:]
+            doc_id = line.split()[2]
+            epoch, qid, pid = parse_doc_id(doc_id)
             if (current_round and int(epoch) > int(current_round)) or \
-                    (current_qid and current_qid != query) or \
-                    (competitor_list and competitor not in competitor_list):
+                    (current_qid and current_qid != qid) or \
+                    (competitor_list and pid not in competitor_list):
                 continue
-            if query not in stats[epoch]:
-                stats[epoch][query] = []
-            stats[epoch][query].append(doc)
+            if qid not in stats[epoch]:
+                stats[epoch][qid] = []
+            stats[epoch][qid].append(doc_id)
     return dict(stats)
 
 
@@ -60,9 +60,9 @@ def read_raw_trec_file(trec_file):
     stats = defaultdict(list)
     with open(trec_file) as file:
         for line in file:
-            query = line.split()[0]
+            last_qrid = line.split()[0]
             doc_id = line.split()[2]
-            stats[query].append(doc_id)
+            stats[last_qrid].append(doc_id)
     return dict(stats)
 
 
@@ -111,7 +111,7 @@ def create_trectext_file(document_texts, trectext_fname, working_set_fname=None)
     return trectext_fname
 
 
-def append_to_trectext_file(trectext_file, old_documents, new_documents):
+def update_trectext_file(trectext_file, old_documents, new_documents):
     logger = logging.getLogger(sys.argv[0])
     create_trectext_file({**old_documents, **new_documents}, trectext_file)
     logger.info('Trectext file updated')
@@ -337,7 +337,7 @@ def get_query_text(queries_file, current_qid):
                     .replace("\t", "").replace(" ", "")
                 _, qid = reverese_query(qrid)
             if '<text>' in line and qid == current_qid:
-                query_text = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "")\
+                query_text = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "") \
                     .replace("#combine( ", "").replace(" )", "")
                 return query_text
     raise Exception('No query with qid={} in file {}'.format(current_qid, queries_file))
@@ -403,7 +403,7 @@ def ensure_dir(file_name: str):
 
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-        print('{} Creating directory: {}'.format('#'*20, dir_name))
+        print('{} Creating directory: {}'.format('#' * 20, dir_name))
 
 
 def tokenize_document(document):
@@ -431,6 +431,7 @@ def complete_sim_file(similarity_file, total_rounds):
 def xor(a, b):
     return bool(a) != bool(b)
 
+
 # def preprocess_document(document):
 #     return '\n'.join(sent_tokenize(document))
 def normalize_dict_len(dictionary):
@@ -438,3 +439,9 @@ def normalize_dict_len(dictionary):
     foobar = [key for key in dictionary if len(dictionary[key]) < max_len]
     for key in foobar:
         dictionary.pop(key)
+
+
+def get_next_doc_id(doc_id):
+    epoch, qid, pid = parse_doc_id(doc_id)
+    epoch = str(int(epoch)+1).zfill(2)
+    return get_doc_id(epoch, qid, pid)

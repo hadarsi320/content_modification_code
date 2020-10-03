@@ -214,11 +214,11 @@ def advance_round(line):
     return ' '.join(split_line)
 
 
-def append_to_trec_file(comp_trec_file, reranked_trec_file):
+def update_trec_file(comp_trec_file, reranked_trec_file):
     with open(comp_trec_file, 'a') as trec:
         with open(reranked_trec_file, 'r') as reranked_trec:
             for line in reranked_trec:
-                trec.write(advance_round(line) + '\n')
+                trec.write(line)
 
 
 def generate_document_tfidf_files(workingset_file, output_dir, swig_path, base_index, new_index):

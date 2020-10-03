@@ -11,12 +11,12 @@ import gensim
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_competitors
 from bot_competition import generate_predictions, get_highest_ranked_pair, \
-    get_ranked_competitors_list, generate_updated_document, append_to_trec_file, generate_document_tfidf_files, \
+    get_ranked_competitors_list, generate_updated_document, update_trec_file, generate_document_tfidf_files, \
     record_doc_similarity, record_replacement
 from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
 from utils import get_doc_id, \
-    append_to_trectext_file, complete_sim_file, create_index, create_documents_workingset, parse_doc_id
+    update_trectext_file, complete_sim_file, create_index, create_documents_workingset, parse_doc_id, read_raw_trec_file
 from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 
@@ -41,7 +41,6 @@ def run_2of2_competition(qid, competitor_list, trectext_file, total_rounds, outp
     # TODO set the epoch to be 0 -> total_rounds
     for epoch in range(1, total_rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
-
         qrid = get_qrid(qid, epoch)
         raw_ds_file = raw_ds_dir + 'raw_ds_out_{}_{}.txt'.format(qrid, ','.join(competitor_list))
         features_file = final_features_dir + 'features_{}_{}.dat'.format(qrid, ','.join(competitor_list))
@@ -75,21 +74,26 @@ def run_2of2_competition(qid, competitor_list, trectext_file, total_rounds, outp
         # updating the trectext file
         trectext_dict = {get_doc_id(epoch + 1, qid, winner_id): winner_doc,
                          get_doc_id(epoch + 1, qid, loser_id): updated_document}
-        append_to_trectext_file(comp_trectext_file, doc_texts, trectext_dict)
+        update_trectext_file(comp_trectext_file, doc_texts, trectext_dict)
+
+        # updating the index
+        create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
 
         # TODO use multiprocessing
+        # updating the trec file
+        ranked_list = read_raw_trec_file(comp_trec_file)[qrid]
+        reranked_trec_file = run_reranking(get_qrid(qid, epoch+1), ranked_list, base_index, comp_index, swig_path,
+                                           scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
+                                           document_rank_model, output_dir=reranking_dir)
+        update_trec_file(comp_trec_file, reranked_trec_file)
+        shutil.rmtree(reranking_dir)
+
+        # creating document tfidf vectors (+ recording doc similarity)
         doc_texts = load_trectext_file(comp_trectext_file)
-        create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
         create_documents_workingset(document_workingset_file, epoch+1, qid, competitor_list)
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
         record_doc_similarity(doc_texts, epoch+1, similarity_file, word_embedding_model, doc_tfidf_dir)
-
-        reranked_trec_file = run_reranking(get_qrid(qid, epoch+1), comp_trec_file, base_index, comp_index, swig_path,
-                                           scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
-                                           document_rank_model, output_dir=reranking_dir)
-        append_to_trec_file(comp_trec_file, reranked_trec_file)
-        shutil.rmtree(reranking_dir)
 
 
 # implement the option for a static bot
@@ -156,7 +160,7 @@ def run_2of5_competition(qid, competitor_list, positions_file, dummy_bot, trecte
                                                               out_index=out_index, in_index=in_index)
 
         # update trectext file
-        append_to_trectext_file(comp_trectext_file, doc_texts, new_docs)
+        update_trectext_file(comp_trectext_file, doc_texts, new_docs)
 
         # create updated index, workingset file and tfidf files
         create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
@@ -168,7 +172,7 @@ def run_2of5_competition(qid, competitor_list, positions_file, dummy_bot, trecte
         reranked_trec_file = run_reranking(get_qrid(qid, epoch+1), comp_trec_file, base_index, comp_index, swig_path,
                                            scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
                                            document_rank_model, output_dir=reranking_dir)
-        append_to_trec_file(comp_trec_file, reranked_trec_file)
+        update_trec_file(comp_trec_file, reranked_trec_file)
         shutil.rmtree(reranking_dir)
 
 
@@ -222,7 +226,8 @@ def main():
     # parser.add_option("--embedding_model_file",
     #                   default='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model')
     parser.add_option('--word2vec_model_pickle', default='./word2vec_model.pkl')
-    parser.add_option('--positions_file', default='./data/2of5_competition/documents.positions')
+    parser.add_option('--positions_file',
+                      default='/lv_local/home/hadarsi/pycharm_projects/content_modification_code/word2vec_model.pkl')
 
     (options, args) = parser.parse_args()
 
@@ -250,7 +255,7 @@ def main():
                        options.seo_qrels_file, options.coherency_qrels_file, options.unranked_features_file,
                        options.svm_rank_scripts_dir)
 
-    with open(options.word2vec_model_pkl, 'wb') as f:
+    with open(options.word2vec_model_pickle, 'rb') as f:
         embedding_model = pickle.load(f)
 
     if options.mode == '2of2':
