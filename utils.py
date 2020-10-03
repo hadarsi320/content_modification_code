@@ -223,10 +223,13 @@ def get_past_winners(ranked_lists, epoch, query):
     return past_winners
 
 
-def reverese_query(qrid):
+def parse_qrid(qrid):
+    """
+    :return: epoch, qrid
+    """
     epoch = str(qrid)[-2:]
-    query = str(qrid)[:-2].zfill(3)
-    return epoch, query
+    qrid = str(qrid)[:-2].zfill(3)
+    return epoch, qrid
 
 
 def fix_format(doc_id):
@@ -335,7 +338,7 @@ def get_query_text(queries_file, current_qid):
             if "<number>" in line:
                 qrid = line.replace('<number>', '').replace('</number>', "").split("_")[0].rstrip() \
                     .replace("\t", "").replace(" ", "")
-                _, qid = reverese_query(qrid)
+                _, qid = parse_qrid(qrid)
             if '<text>' in line and qid == current_qid:
                 query_text = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "") \
                     .replace("#combine( ", "").replace(" )", "")
@@ -443,5 +446,10 @@ def normalize_dict_len(dictionary):
 
 def get_next_doc_id(doc_id):
     epoch, qid, pid = parse_doc_id(doc_id)
-    epoch = str(int(epoch)+1).zfill(2)
+    epoch = int(epoch)+1
     return get_doc_id(epoch, qid, pid)
+
+
+def get_next_qrid(qrid):
+    epoch, qid = parse_qrid(qrid)
+    return get_qrid(qid, int(epoch)+1)

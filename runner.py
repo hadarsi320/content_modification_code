@@ -1,7 +1,7 @@
 import os
 import sys
 
-from utils import reverese_query, ensure_dir, xor
+from utils import parse_qrid, ensure_dir, xor
 from collections import defaultdict
 from itertools import combinations
 from os.path import exists
@@ -14,7 +14,7 @@ def get_competitors_dict(trec_file: str):
     with open(trec_file) as f:
         for line in f:
             qrid = line.split()[0]
-            epoch, qid = reverese_query(qrid)
+            epoch, qid = parse_qrid(qrid)
             if epoch != '01':
                 continue
             competitor = line.split()[2].split('-')[-1]

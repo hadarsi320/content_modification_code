@@ -14,8 +14,8 @@ from nltk import sent_tokenize
 from gen_utils import run_bash_command, list_multiprocessing, run_and_print
 from utils import clean_texts, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
-    transform_query_text, read_queries_file, get_query_text, reverese_query, create_index_to_query_dict, \
-    generate_pair_name, ensure_dir, tokenize_document, is_file_empty, get_next_doc_id
+    transform_query_text, read_queries_file, get_query_text, parse_qrid, create_index_to_query_dict, \
+    generate_pair_name, ensure_dir, tokenize_document, is_file_empty, get_next_doc_id, get_next_qrid
 from vector_functionality import query_term_freq, embedding_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
@@ -126,7 +126,7 @@ def past_winners_centroid(past_winners, texts, model, stemmer=None):
 
 
 def write_files(feature_list, feature_vals, output_dir, qrid, ref):
-    epoch, qid = reverese_query(qrid)
+    epoch, qid = parse_qrid(qrid)
     # ind_name = {-1: "5", 1: "2"}
     # query_write = qid + epoch.lstrip('0') + ind_name[ref]
     query_write = f'{qid}{epoch.lstrip("0")}{ref+1}'
@@ -142,7 +142,7 @@ def create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_
                         sentence_tfidf_vectors_dir, query_text, output_dir, qrid, word_embed_model):
     feature_vals = defaultdict(dict)
     relevant_pairs = raw_ds[qrid]
-    epoch, qid = reverese_query(qrid)
+    epoch, qid = parse_qrid(qrid)
     query_text = clean_texts(query_text)
     feature_list = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
                     "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
@@ -202,7 +202,7 @@ def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_i
     global word_embd_model
     feature_vals = defaultdict(dict)
     relevant_pairs = raw_ds[qrid]
-    epoch, qid = reverese_query(qrid)
+    epoch, qid = parse_qrid(qrid)
     query_text = clean_texts(queries[qrid])
     feature_list = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
                     "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
@@ -354,7 +354,7 @@ def create_ws(raw_ds, ws_fname, ref):
     ensure_dir(ws_fname)
     with open(ws_fname, 'w') as ws:
         for qrid in raw_ds:
-            epoch, qid = reverese_query(qrid)
+            epoch, qid = parse_qrid(qrid)
             # query_write = qid + str(int(epoch)) + ind_name[ref]
             query_write = f'{qid}{epoch.lstrip("0")}{ref+1}'
             for i, pair in enumerate(raw_ds[qrid]):
@@ -369,28 +369,31 @@ def create_new_trectext(doc, texts, new_text, new_trectext_name):
 
 
 def create_reranking_ws(qrid, ranked_list, file_name):
+    next_qrid = get_next_qrid(qrid)
     with open(file_name, 'w') as out:
-        for i, doc_id in enumerate(ranked_list):
+        for i, doc_id in enumerate(ranked_list[qrid]):
             next_doc_id = get_next_doc_id(doc_id)
-            out.write(qrid + " Q0 " + next_doc_id + " 0 " + str(i + 1) + " pairs_seo\n")
+            out.write(next_qrid + " Q0 " + next_doc_id + " 0 " + str(i + 1) + " pairs_seo\n")
 
 
-def run_reranking(qrid, ranked_list, base_index, new_index, swig_path, scripts_dir, stopwords_file, queries_text_file,
+def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir, stopwords_file, queries_text_file,
                   jar_path, rank_model, output_dir, specific_ws_name='specific_ws',
                   new_feature_file_name='new_feature_file', feature_dir_name='feature_dir/',
                   new_trec_file_name='trec_file', score_file_name='score_file'):
     logger = logging.getLogger(sys.argv[0])
     ensure_dir(output_dir)
-    specific_ws_path = output_dir + specific_ws_name
-    feature_file_path = output_dir + new_feature_file_name
-    score_file_path = output_dir + score_file_name
-    trec_file_path = output_dir + new_trec_file_name
+
+    specific_ws = output_dir + specific_ws_name
+    feature_file = output_dir + new_feature_file_name
+    score_file = output_dir + score_file_name
+    reranked_trec_file = output_dir + new_trec_file_name
     full_feature_dir = output_dir + feature_dir_name
 
-    create_reranking_ws(qrid, ranked_list, specific_ws_path)
+    ranked_list = read_raw_trec_file(trec_file)
+    create_reranking_ws(qrid, ranked_list, specific_ws)
     logger.info("creating features")
-    features_file = create_features_file_diff(full_feature_dir, base_index, new_index, feature_file_path,
-                                              specific_ws_path, scripts_dir, swig_path, stopwords_file,
+    features_file = create_features_file_diff(full_feature_dir, base_index, new_index, feature_file,
+                                              specific_ws, scripts_dir, swig_path, stopwords_file,
                                               queries_text_file)
     logger.info("creating docname index")
     docname_index = create_index_to_doc_name_dict(features_file)
@@ -398,16 +401,16 @@ def run_reranking(qrid, ranked_list, base_index, new_index, swig_path, scripts_d
     query_index = create_index_to_query_dict(features_file)
     logger.info("features creation completed")
     logger.info("running ranking model on features file")
-    run_model(features_file, jar_path, score_file_path, rank_model)
+    run_model(features_file, jar_path, score_file, rank_model)
     logger.info("ranking completed")
     logger.info("retrieving scores")
-    scores = retrieve_scores(docname_index, query_index, score_file_path)
+    scores = retrieve_scores(docname_index, query_index, score_file)
     logger.info("scores retrieval completed")
     logger.info("creating trec_eval file")
-    create_trec_eval_file(scores, trec_file_path)
+    create_trec_eval_file(scores, reranked_trec_file)
     logger.info("trec file creation is completed")
     logger.info("ordering trec file")
-    final = order_trec_file(trec_file_path)
+    final = order_trec_file(reranked_trec_file)
     logger.info("ranking procedure completed")
     return final
 
@@ -466,7 +469,7 @@ def create_bot_features(qrid, ref_index, top_docs_index, ranked_lists, doc_texts
     workingset_file = output_dir + workingset_file
 
     if mode == 'single':
-        epoch, qid = reverese_query(qrid)
+        epoch, qid = parse_qrid(qrid)
 
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, top_docs_index,
                            current_epoch=epoch, current_qid=qid)
