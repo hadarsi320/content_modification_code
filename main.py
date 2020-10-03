@@ -266,7 +266,7 @@ def main():
         replacements_file = output_dir + f'replacements/replacements_{qid}_{options.dummy_bot}'
         if exists(replacements_file):
             os.remove(replacements_file)
-        competitor_list = get_competitors(options.positions_file, qid)
+        competitor_list = get_competitors(positions_file=options.positions_file, qid=qid)
         run_2of5_competition(qid, competitor_list, options.positions_file, options.dummy_bot,
                              trectext_file, output_dir, document_workingset_file, options.indri_path, options.swig_path,
                              doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,

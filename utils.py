@@ -66,6 +66,16 @@ def read_raw_trec_file(trec_file):
     return dict(stats)
 
 
+def read_competition_trec_file(trec_file):
+    stats = defaultdict(list)
+    with open(trec_file) as file:
+        for line in file:
+            doc_id = line.split()[2]
+            epoch, _, pid = parse_doc_id(doc_id)
+            stats[epoch].append(pid)
+    return dict(stats)
+
+
 def create_trectext_file(document_texts, trectext_fname, working_set_fname=None):
     """
     creates trectext document from a given text file
@@ -423,3 +433,8 @@ def xor(a, b):
 
 # def preprocess_document(document):
 #     return '\n'.join(sent_tokenize(document))
+def normalize_dict_len(dictionary):
+    max_len = max(len(dictionary[key]) for key in dictionary)
+    foobar = [key for key in dictionary if len(dictionary[key]) < max_len]
+    for key in foobar:
+        dictionary.pop(key)

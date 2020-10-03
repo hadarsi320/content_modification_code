@@ -11,7 +11,7 @@ from nltk import sent_tokenize
 from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    ensure_dir, create_documents_workingset, get_learning_data_path, get_doc_id
+    ensure_dir, create_documents_workingset, get_learning_data_path, get_doc_id, xor
 from vector_functionality import centroid_similarity, document_tfidf_similarity
 
 
@@ -297,13 +297,14 @@ def get_rankings(trec_file, dummy_bot, qid, epoch):
     return bots, students
 
 
-def get_competitors(positions_file, qid):
+# positions file can also be a trec_file
+def get_competitors(positions_file, qid=None):
     competitors_list = []
     with open(positions_file, 'r') as f:
         for line in f:
             doc_id = line.split()[2]
             _, last_qid, pid = parse_doc_id(doc_id)
             pid = pid.replace('_', '')
-            if last_qid == qid and pid not in competitors_list:
+            if (qid is None or last_qid == qid) and pid not in competitors_list:
                 competitors_list.append(pid)
     return competitors_list

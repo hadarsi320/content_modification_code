@@ -3,20 +3,21 @@ import os
 import matplotlib.pyplot as plt
 
 
-def plot(data, start=0, stop=None, shape='o-', title=None, xlabel=None, ylabel=None, save_file=None):
+def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label=None, save_file=None, show=False):
     if not stop:
         stop = len(data) + start
     plt.plot(range(start, stop), data, shape)
     plt.xticks(range(start, stop))
     if title:
         plt.title(title)
-    if xlabel:
-        plt.xlabel(xlabel)
-    if ylabel:
-        plt.ylabel(ylabel)
+    if x_label:
+        plt.xlabel(x_label)
+    if y_label:
+        plt.ylabel(y_label)
     if save_file:
         plt.savefig(save_file)
-    plt.show()
+    if show:
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -44,11 +45,11 @@ if __name__ == '__main__':
 
     averaged_mat = np.average(matrices[0], axis=0)
     plot(averaged_mat, title=f'Lexical Similarity Measure Averaged Across {len(matrices[0])} competitions',
-         xlabel='Round', ylabel='Cosine Similarity')
+         x_label='Round', y_label='Cosine Similarity')
 
     averaged_mat = np.average(matrices[1], axis=0)
     plot(averaged_mat, title=f'Embedding Similarity Measure Averaged Across {len(matrices[1])} competitions',
-         xlabel='Round', ylabel='Cosine Similarity')
+         x_label='Round', y_label='Cosine Similarity')
 
     # histogram
     # alpha = 0.5
