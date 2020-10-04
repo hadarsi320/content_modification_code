@@ -65,7 +65,21 @@ def runnner_2of2(output_dir, trec_file='./data/trec_file_original_sorted.txt'):
                 log_error(error_file, qid, comptitors=pid_list)
 
 
-def rerun_2of2(output_dir):
+def remove_from_error_file(error_file, qid, players):
+    lines = []
+    with open(error_file, 'r') as f:
+        for line in f:
+            last_qid = line.split()[2]
+            last_players = line.split()[5]
+            if last_qid != qid or last_players != players:
+                lines.append(line)
+
+    with open(error_file, 'w') as f:
+        for line in lines:
+            f.write(line)
+
+
+def rerun_errors_2of2(output_dir):
     error_file = output_dir + 'error_file.txt'
     args = []
     with open(error_file) as f:
@@ -74,17 +88,16 @@ def rerun_2of2(output_dir):
             competitors = line.split()[5]
             args.append((qid, competitors))
 
-    os.remove(error_file)
     iteration = 0
-    for qid, pids in args:
+    for qid, player_ids in args:
         iteration += 1
-        command = f'python main.py --mode=2of2 --qid={qid} --competitors={pids} --output_dir={output_dir}'
+        command = f'python main.py --mode=2of2 --qid={qid} --competitors={player_ids} --output_dir={output_dir}'
         print(f'{iteration}. Running command: {command}')
         try:
             run_bash_command(command)
+            remove_from_error_file(error_file, qid, player_ids)
         except Exception as e:
-            print(f'#### Error occured in competition {qid} {pids}: \n{str(e)}\n')
-            log_error(error_file, qid, comptitors=pids.split(','))
+            print(f'#### Error occured in competition {qid} {player_ids}: \n{str(e)}\n')
 
 
 def runner_2of5(output_dir, positions_file='./data/2of5_competition/documents.positions'):
@@ -116,7 +129,7 @@ def main():
     if mode == '2of2':
         runnner_2of2(output_dir)
     elif mode == 'rerun_2of2':
-        rerun_2of2(output_dir)
+        rerun_errors_2of2(output_dir)
     elif mode == '2of5':
         runner_2of5(output_dir)
     else:

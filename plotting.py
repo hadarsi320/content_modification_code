@@ -9,7 +9,10 @@ from data_analysis import compute_average_rank, compute_average_promotion
 from utils import read_competition_trec_file, normalize_dict_len, ensure_dir
 
 
-def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label=None, save_file=None, show=False):
+def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label=None, save_file=None, show=False,
+         fig_size=(6, 4)):
+    # plt.clf()
+    plt.figure(figsize=fig_size)
     if not stop:
         stop = len(data) + start
     plt.plot(range(start, stop), data, shape)
@@ -45,12 +48,12 @@ def word_similarity_analysis(sim_dir, show=False, plots_dir=None):
     matrices = [np.array([lst for lst in sim_lists[i] if len(lst) == rounds]) for i in range(2)]
 
     averaged_mat = np.average(matrices[0], axis=0)
-    plot(averaged_mat, title=f'Lexical Similarity Measure Averaged Across {len(matrices[0])} competitions',
+    plot(averaged_mat, title=f'Lexical Similarity Measure',
          x_label='Round', y_label='Cosine Similarity', show=show,
          save_file=plots_dir+'/Lexical Similarity' if plots_dir else None)
 
     averaged_mat = np.average(matrices[1], axis=0)
-    plot(averaged_mat, title=f'Embedding Similarity Measure Averaged Across {len(matrices[1])} competitions',
+    plot(averaged_mat, title=f'Embedding Similarity Measure',
          x_label='Round', y_label='Cosine Similarity', show=show,
          save_file=plots_dir+'/Embedding Similarity' if plots_dir else None)
 
