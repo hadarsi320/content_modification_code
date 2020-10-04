@@ -1,5 +1,8 @@
 import os
+import pickle
 import sys
+
+import gensim
 
 from utils import parse_qrid, ensure_dir, xor
 from collections import defaultdict
@@ -42,29 +45,6 @@ def get_queries(positions_file):
     return qid_list
 
 
-def runnner_2of2(output_dir, trec_file='./data/trec_file_original_sorted.txt'):
-    error_file = output_dir + 'error_file.txt'
-    competitors = get_competitors_dict(trec_file)
-    competitors_combinations = {qid: list(combinations(competitors[qid], 2)) for qid in competitors}
-    iteration = 0
-    for i in range(10):
-        for qid in competitors_combinations:
-            iteration += 1
-            pid_list = sorted(competitors_combinations[qid][i])
-            if exists(output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(pid_list))):
-                print('Competition qid={} competitors={} has already been ran'.format(qid, ', '.join(pid_list)))
-                continue
-
-            command = f'python main.py --mode=2of2 --qid={qid} --competitors={",".join(pid_list)}' \
-                      f' --output_dir={output_dir}'
-            print(f'{iteration}. Running command: {command}')
-            try:
-                run_bash_command(command)
-            except Exception as e:
-                print(f'#### Error occured in competition {qid} {", ".join(pid_list)}: \n{str(e)}\n')
-                log_error(error_file, qid, comptitors=pid_list)
-
-
 def remove_from_error_file(error_file, qid, players):
     lines = []
     with open(error_file, 'r') as f:
@@ -79,7 +59,30 @@ def remove_from_error_file(error_file, qid, players):
             f.write(line)
 
 
-def rerun_errors_2of2(output_dir):
+def runnner_2of2(output_dir, pickle_file, trec_file='./data/trec_file_original_sorted.txt'):
+    error_file = output_dir + 'error_file.txt'
+    competitors = get_competitors_dict(trec_file)
+    competitors_combinations = {qid: list(combinations(competitors[qid], 2)) for qid in competitors}
+    iteration = 0
+    for i in range(10):
+        for qid in competitors_combinations:
+            iteration += 1
+            pid_list = sorted(competitors_combinations[qid][i])
+            if exists(output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(pid_list))):
+                print('Competition qid={} competitors={} has already been ran'.format(qid, ', '.join(pid_list)))
+                continue
+
+            command = f'python main.py --mode=2of2 --qid={qid} --competitors={",".join(pid_list)}' \
+                      f' --output_dir={output_dir} --word2vec_dump={pickle_file}'
+            print(f'{iteration}. Running command: {command}')
+            try:
+                run_bash_command(command)
+            except Exception as e:
+                print(f'#### Error occured in competition {qid} {", ".join(pid_list)}: \n{str(e)}\n')
+                log_error(error_file, qid, comptitors=pid_list)
+
+
+def rerun_errors_2of2(output_dir, pickle_file):
     error_file = output_dir + 'error_file.txt'
     args = []
     with open(error_file) as f:
@@ -91,7 +94,8 @@ def rerun_errors_2of2(output_dir):
     iteration = 0
     for qid, player_ids in args:
         iteration += 1
-        command = f'python main.py --mode=2of2 --qid={qid} --competitors={player_ids} --output_dir={output_dir}'
+        command = f'python main.py --mode=2of2 --qid={qid} --competitors={player_ids} --output_dir={output_dir}' \
+                  f' --word2vec_dump={pickle_file}'
         print(f'{iteration}. Running command: {command}')
         try:
             run_bash_command(command)
@@ -100,7 +104,7 @@ def rerun_errors_2of2(output_dir):
             print(f'#### Error occured in competition {qid} {player_ids}: \n{str(e)}\n')
 
 
-def runner_2of5(output_dir, positions_file='./data/2of5_competition/documents.positions'):
+def runner_2of5(output_dir, pickle_file, positions_file='./data/2of5_competition/documents.positions'):
     error_file = output_dir + 'error_file.txt'
     qid_list = sorted(get_queries(positions_file))
     iteration = 0
@@ -113,7 +117,7 @@ def runner_2of5(output_dir, positions_file='./data/2of5_competition/documents.po
                 continue
 
             command = f'python main.py --mode=2of5 --qid={qid} --dummy_bot={dummy_bot}' \
-                      f' --output_dir={output_dir}'
+                      f' --output_dir={output_dir}  --word2vec_dump={pickle_file}'
             print(f'{iteration}. Running command: {command}')
             try:
                 run_bash_command(command)
@@ -126,12 +130,19 @@ def main():
     mode = sys.argv[1]
     output_dir = './output/{}/'.format(sys.argv[2])
 
+    embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
+    word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file,
+                                                                           binary=True, limit=700000)
+    word2vec_pkl = output_dir + 'word_embedding_model.pkl'
+    with open(word2vec_pkl, 'wb') as f:
+        pickle.dump(word_embedding_model, f)
+
     if mode == '2of2':
-        runnner_2of2(output_dir)
+        runnner_2of2(output_dir, word2vec_pkl)
     elif mode == 'rerun_2of2':
-        rerun_errors_2of2(output_dir)
+        rerun_errors_2of2(output_dir, word2vec_pkl)
     elif mode == '2of5':
-        runner_2of5(output_dir)
+        runner_2of5(output_dir, word2vec_pkl)
     else:
         print(f'Illegal mode {mode}')
 

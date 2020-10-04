@@ -26,13 +26,11 @@ def run_2of2_competition(qid, competitor_list, trectext_file, total_rounds, outp
                          predictions_dir, final_features_dir, swig_path, indri_path, replacements_file, similarity_file,
                          svm_rank_scripts_dir, full_trec_file, run_mode, scripts_dir, stopwords_file,
                          queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_rank_model,
-                         embedding_model_file):
+                         word_embedding_model):
     # initalizing the trec and trectext files specific to this competition
     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, trec_file=full_trec_file,
                                               pid_list=competitor_list)
     comp_trectext_file = create_initial_trectext_file(trectext_file, trectext_dir, qid, competitor_list)
-    word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file, binary=True,
-                                                                           limit=700000)
 
     doc_texts = load_trectext_file(comp_trectext_file)
     create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
@@ -102,15 +100,13 @@ def run_2of5_competition(qid, competitor_list, positions_file, dummy_bot, trecte
                          trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                          replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir,
                          stopwords_file, queries_text_file, queries_xml_file, ranklib_jar, document_rank_model,
-                         pair_rank_model, embedding_model_file):
+                         pair_rank_model, word_embedding_model):
     logger = logging.getLogger(sys.argv[0])
     original_texts = load_trectext_file(trectext_file, qid)
 
     comp_trectext_file = create_initial_trectext_file(trectext_file, trectext_dir, qid, dummy_bot=dummy_bot)
     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, positions_file=positions_file,
                                               dummy_bot=dummy_bot)
-    word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file, binary=True,
-                                                                           limit=700000)
 
     create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
     create_documents_workingset(document_workingset_file, 1, qid, competitor_list)
@@ -212,6 +208,7 @@ def main():
     parser.add_option('--trec_file', default='./data/trec_file_original_sorted.txt')
     parser.add_option('--trectext_file_2of2', default='./data/documents.trectext')
     parser.add_option('--trectext_file_2of5', default='./data/2of5_competition/documents.trectext')
+    parser.add_option('--positions_file', default='./data/2of5_competition/documents.positions')
     parser.add_option('--rank_model', default='./rank_models/model_lambdatamart')
     parser.add_option('--ranklib_jar', default='./scripts/RankLib.jar')
     parser.add_option('--queries_text_file', default='./data/working_comp_queries_expanded.txt')
@@ -224,8 +221,7 @@ def main():
     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
     parser.add_option("--embedding_model_file",
                       default='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model')
-    parser.add_option('--word2vec_model_pickle', default='./word2vec_model.pkl')
-    parser.add_option('--positions_file', default='./data/2of5_competition/documents.positions')
+    parser.add_option('--word2vec_dump', default='')
 
     (options, args) = parser.parse_args()
 
@@ -252,7 +248,13 @@ def main():
                        options.label_aggregation_b, options.svm_rank_c, options.aggregated_data_dir,
                        options.seo_qrels_file, options.coherency_qrels_file, options.unranked_features_file,
                        options.svm_rank_scripts_dir)
-
+    if options.word2vec_dump == '':
+        word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file,
+                                                                               binary=True, limit=700000)
+        logger.info('Word Embedding Model loaded from file')
+    else:
+        word_embedding_model = pickle.load(open(options.word2vec_dump, 'rb'))
+        logger.info('Word Embedding Model loaded from pickle')
 
     if options.mode == '2of2':
         trectext_file = options.trectext_file if options.trectext_file else options.trectext_file_2of2
@@ -270,7 +272,7 @@ def main():
                              options.indri_path, replacements_file, similarity_file, options.svm_rank_scripts_dir,
                              options.trec_file, options.run_mode, options.scripts_dir, options.stopwords_file,
                              options.queries_text_file, options.queries_xml_file, options.ranklib_jar,
-                             options.rank_model, svm_rank_model, options.embedding_model_file)
+                             options.rank_model, svm_rank_model, word_embedding_model)
     else:
         trectext_file = options.trectext_file if options.trectext_file else options.trectext_file_2of5
         replacements_file = output_dir + f'replacements/replacements_{qid}_{options.dummy_bot}'
@@ -283,7 +285,7 @@ def main():
                              final_features_dir, options.clueweb_index, temp_index, replacements_file,
                              options.svm_rank_scripts_dir, options.run_mode, options.scripts_dir,
                              options.stopwords_file, options.queries_text_file, options.queries_xml_file,
-                             options.ranklib_jar, options.rank_model, svm_rank_model, options.embedding_model_file)
+                             options.ranklib_jar, options.rank_model, svm_rank_model, word_embedding_model)
 
 
 if __name__ == '__main__':

@@ -122,10 +122,10 @@ def main():
     ensure_dir(plots_dir)
 
     trec_dir = 'output/2of5/run_10_3/trec_files/'
-    competition_2of5_analysis(trec_dir, show=False, plots_dir=plots_dir)
+    competition_2of5_analysis(trec_dir, show=True, plots_dir=plots_dir)
 
     sim_dir = 'output/2of2/run_10_3/similarity_results/'
-    word_similarity_analysis(sim_dir, show=False, plots_dir=plots_dir)
+    word_similarity_analysis(sim_dir, show=True, plots_dir=plots_dir)
 
 
 if __name__ == '__main__':
