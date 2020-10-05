@@ -47,31 +47,32 @@ def word_similarity_analysis(sim_dir, show=False, plots_dir=None):
     rounds = max(len(lst) for lst in sim_lists[0])
     matrices = [np.array([lst for lst in sim_lists[i] if len(lst) == rounds]) for i in range(2)]
 
-    averaged_mat = np.average(matrices[0], axis=0)
-    plot(averaged_mat, title=f'Lexical Similarity Measure',
-         x_label='Round', y_label='Cosine Similarity', show=show,
-         save_file=plots_dir+'/Lexical Similarity' if plots_dir else None)
+    # averaged_mat = np.average(matrices[0], axis=0)
+    # plot(averaged_mat, title=f'Lexical Similarity',
+    #      x_label='Round', y_label='Cosine Similarity', show=show,
+    #      save_file=plots_dir+'/Lexical Similarity' if plots_dir else None)
+    #
+    # averaged_mat = np.average(matrices[1], axis=0)
+    # plot(averaged_mat, title=f'Embedding Similarity',
+    #      x_label='Round', y_label='Cosine Similarity', show=show,
+    #      save_file=plots_dir+'/Embedding Similarity' if plots_dir else None)
 
-    averaged_mat = np.average(matrices[1], axis=0)
-    plot(averaged_mat, title=f'Embedding Similarity Measure',
-         x_label='Round', y_label='Cosine Similarity', show=show,
-         save_file=plots_dir+'/Embedding Similarity' if plots_dir else None)
+    titles = ['Lexical Similarity', 'Embedding Similarity']
+    plt.rcParams.update({'font.size': 14})
+    fig, axs = plt.subplots(ncols=2, figsize=(15, 5))
+    fig.suptitle('Similarity Analysis')
+    for i in range(2):
+        averaged_mat = np.average(matrices[i], axis=0)
+        axs[i].plot(range(rounds), averaged_mat, 'o-')
+        axs[i].set_xticks(range(rounds))
+        axs[i].set_title(titles[i])
+        axs[i].set_xlabel('Rounds')
+        axs[i].set_ylabel('Cosine Similarity')
 
-    # histogram
-    # alpha = 0.5
-    # bins = 12
-    # plt.hist(sim_matrix[:, 0], bins=bins, label='First Round', alpha=alpha)
-    # for i in range(0, sim_matrix.shape[1], 4):
-    #     if i == 0 or i == sim_matrix.shape[1] - 1:
-    #         continue
-    #     plt.hist(sim_matrix[:, i], bins=bins, alpha=alpha, label='Round {}'.format(i))
-    # plt.hist(sim_matrix[:, -1], bins=bins, label='Last Round', alpha=alpha)
-    # plt.legend()
-    # plt.title('Similarity Histogram')
-    # plt.xlabel('Cosine Similarity')
-    # plt.ylabel('Counts')
-    # # plt.savefig(plots_dir + 'similarity_histogram.png')
-    # plt.show()
+    if plot:
+        plt.savefig(plots_dir+'/Similarity Plot')
+    if show:
+        plt.show()
 
 
 def competition_2of5_analysis(trec_dir, show=True, plots_dir=None):
@@ -95,7 +96,8 @@ def competition_2of5_analysis(trec_dir, show=True, plots_dir=None):
         title = titles[i]
 
         results = {group: function(group) for group in groups}
-        fig, axs = plt.subplots(ncols=2, sharey='row', figsize=(10, 5))
+        fig, axs = plt.subplots(ncols=2, sharey='row', figsize=(13, 5))
+        plt.rcParams.update({'font.size': 14})
         for j, group in enumerate(groups):
             result = results[group]
             label = labels[group]
@@ -125,7 +127,7 @@ def main():
     competition_2of5_analysis(trec_dir, show=True, plots_dir=plots_dir)
 
     sim_dir = 'output/2of2/run_10_3/similarity_results/'
-    word_similarity_analysis(sim_dir, show=True, plots_dir=plots_dir)
+    # word_similarity_analysis(sim_dir, show=True, plots_dir=plots_dir)
 
 
 if __name__ == '__main__':

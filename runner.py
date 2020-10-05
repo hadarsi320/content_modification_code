@@ -130,9 +130,13 @@ def main():
     mode = sys.argv[1]
     output_dir = './output/{}/'.format(sys.argv[2])
 
+    if mode not in ['2of2', 'rerun_2of2', '2of5']:
+        raise ValueError(f'Illegal mode given {mode}')
+
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
     word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file,
                                                                            binary=True, limit=700000)
+
     word2vec_pkl = output_dir + 'word_embedding_model.pkl'
     with open(word2vec_pkl, 'wb') as f:
         pickle.dump(word_embedding_model, f)
@@ -143,8 +147,8 @@ def main():
         rerun_errors_2of2(output_dir, word2vec_pkl)
     elif mode == '2of5':
         runner_2of5(output_dir, word2vec_pkl)
-    else:
-        print(f'Illegal mode {mode}')
+
+    os.remove(word2vec_pkl)
 
 
 if __name__ == '__main__':
