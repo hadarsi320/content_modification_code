@@ -94,13 +94,12 @@ def run_2of2_competition(qid, competitor_list, trectext_file, total_rounds, outp
         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
-# implement the option for a static bot
-def run_2of5_competition(qid, competitor_list, positions_file, dummy_bot, trectext_file, output_dir,
-                         document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
-                         trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
-                         replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir,
-                         stopwords_file, queries_text_file, queries_xml_file, ranklib_jar, document_rank_model,
-                         pair_rank_model, word_embedding_model):
+def run_paper_competition(qid, competitor_list, positions_file, dummy_bot, trectext_file, output_dir,
+                          document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
+                          trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
+                          replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir,
+                          stopwords_file, queries_text_file, queries_xml_file, ranklib_jar, document_rank_model,
+                          pair_rank_model, word_embedding_model):
     logger = logging.getLogger(sys.argv[0])
     original_texts = load_trectext_file(trectext_file, qid)
 
@@ -183,7 +182,7 @@ def main():
     parser = OptionParser()
 
     # Variables
-    parser.add_option('--mode', choices=['2of2', '2of5'])
+    parser.add_option('--mode', choices=['2of2', '2of5', '3of5'])
     parser.add_option('--qid')
     parser.add_option('--competitors')
     parser.add_option('--dummy_bot', choices=['1', '2'])
@@ -275,17 +274,23 @@ def main():
                              options.rank_model, svm_rank_model, word_embedding_model)
     else:
         trectext_file = options.trectext_file if options.trectext_file else options.trectext_file_2of5
-        replacements_file = output_dir + f'replacements/replacements_{qid}_{options.dummy_bot}'
+        if options.mode == '2of5':
+            dummy_bot = options.dummy_bot
+        elif options.mode == '3of5':
+            dummy_bot = 'both'
+
+        replacements_file = output_dir + f'replacements/replacements_{qid}_{dummy_bot}'
         if exists(replacements_file):
             os.remove(replacements_file)
+
         competitor_list = get_competitors(positions_file=options.positions_file, qid=qid)
-        run_2of5_competition(qid, competitor_list, options.positions_file, options.dummy_bot,
-                             trectext_file, output_dir, document_workingset_file, options.indri_path, options.swig_path,
-                             doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
-                             final_features_dir, options.clueweb_index, temp_index, replacements_file,
-                             options.svm_rank_scripts_dir, options.run_mode, options.scripts_dir,
-                             options.stopwords_file, options.queries_text_file, options.queries_xml_file,
-                             options.ranklib_jar, options.rank_model, svm_rank_model, word_embedding_model)
+        run_paper_competition(qid, competitor_list, options.positions_file, dummy_bot, trectext_file, output_dir,
+                              document_workingset_file, options.indri_path, options.swig_path,
+                              doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
+                              final_features_dir, options.clueweb_index, temp_index, replacements_file,
+                              options.svm_rank_scripts_dir, options.run_mode, options.scripts_dir,
+                              options.stopwords_file, options.queries_text_file, options.queries_xml_file,
+                              options.ranklib_jar, options.rank_model, svm_rank_model, word_embedding_model)
 
 
 if __name__ == '__main__':

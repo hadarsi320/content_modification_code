@@ -130,7 +130,7 @@ def main():
     mode = sys.argv[1]
     output_dir = './output/{}/'.format(sys.argv[2])
 
-    if mode not in ['2of2', 'rerun_2of2', '2of5']:
+    if mode not in ['2of2', 'rerun_2of2', '2of5', '3of5']:
         raise ValueError(f'Illegal mode given {mode}')
 
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'

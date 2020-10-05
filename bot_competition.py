@@ -278,7 +278,8 @@ def get_rankings(trec_file, dummy_bot, qid, epoch):
     :param epoch: current round
     :return: two dictionaries of the form {pid: location}, one for the bots and the other for the students
     """
-    assert int(dummy_bot) in [1, 2]
+    assert dummy_bot in ['1', '2', 'both']
+    bot_documents = ['BOT', 'DUMMY1', 'DUMMY2'] if dummy_bot == 'both' else ['BOT', 'DUMMY'+dummy_bot]
     bots = {}
     students = {}
     position = 0
@@ -289,7 +290,7 @@ def get_rankings(trec_file, dummy_bot, qid, epoch):
             last_epoch, last_qid, pid = parse_doc_id(doc_id)
             if last_epoch != epoch or last_qid != qid:
                 continue
-            if pid in ['BOT', f'DUMMY{dummy_bot}']:
+            if pid in bot_documents:
                 bots[pid] = position
             else:
                 students[pid] = position
