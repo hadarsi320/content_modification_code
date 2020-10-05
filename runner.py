@@ -126,9 +126,31 @@ def runner_2of5(output_dir, pickle_file, positions_file='./data/2of5_competition
                 log_error(error_file, qid, dummy_bot=dummy_bot)
 
 
+def runner_3of5(output_dir, pickle_file, positions_file='./data/2of5_competition/documents.positions'):
+    error_file = output_dir + 'error_file.txt'
+    qid_list = sorted(get_queries(positions_file))
+    iteration = 0
+    for qid in qid_list:
+        iteration += 1
+
+        if exists(output_dir + 'trec_files/trec_file_{}_both'.format(qid)):
+            print('Competition qid={} has already been ran'.format(qid))
+            continue
+
+        command = f'python main.py --mode=3of5 --qid={qid} --output_dir={output_dir}  --word2vec_dump={pickle_file}'
+        print(f'{iteration}. Running command: {command}')
+        try:
+            run_bash_command(command)
+
+        except Exception as e:
+            print(f'#### Error occured in competition {qid}:\n{str(e)}\n')
+            log_error(error_file, qid, dummy_bot='both')
+
+
 def main():
     mode = sys.argv[1]
     output_dir = './output/{}/'.format(sys.argv[2])
+    ensure_dir(output_dir)
 
     if mode not in ['2of2', 'rerun_2of2', '2of5', '3of5']:
         raise ValueError(f'Illegal mode given {mode}')
@@ -147,6 +169,8 @@ def main():
         rerun_errors_2of2(output_dir, word2vec_pkl)
     elif mode == '2of5':
         runner_2of5(output_dir, word2vec_pkl)
+    elif mode == '3of5':
+        runner_3of5(output_dir, word2vec_pkl)
 
     os.remove(word2vec_pkl)
 
