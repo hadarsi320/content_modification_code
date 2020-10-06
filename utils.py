@@ -76,6 +76,19 @@ def read_competition_trec_file(trec_file):
     return dict(stats)
 
 
+def read_positions_file(positions_file):
+    qid_list = get_queries(positions_file)
+    stats = {qid: {epoch: [None]*5 for epoch in range(1, 5)} for qid in qid_list}
+    with open(positions_file, 'r') as f:
+        for line in f:
+            doc_id = line.split()[2]
+            epoch, qid, pid = parse_doc_id(doc_id)
+            epoch = int(epoch)
+            position = int(line.split()[3]) - 1
+            stats[qid][epoch][position] = pid
+    return stats
+
+
 def create_trectext_file(document_texts, trectext_fname, working_set_fname=None):
     """
     creates trectext document from a given text file
@@ -435,12 +448,10 @@ def xor(a, b):
     return bool(a) != bool(b)
 
 
-# def preprocess_document(document):
-#     return '\n'.join(sent_tokenize(document))
 def normalize_dict_len(dictionary):
     max_len = max(len(dictionary[key]) for key in dictionary)
-    foobar = [key for key in dictionary if len(dictionary[key]) < max_len]
-    for key in foobar:
+    irregular_keys = [key for key in dictionary if len(dictionary[key]) < max_len]
+    for key in irregular_keys:
         dictionary.pop(key)
 
 
@@ -453,3 +464,13 @@ def get_next_doc_id(doc_id):
 def get_next_qrid(qrid):
     epoch, qid = parse_qrid(qrid)
     return get_qrid(qid, int(epoch)+1)
+
+
+def get_queries(positions_file):
+    qid_list = []
+    with open(positions_file) as f:
+        for line in f:
+            qid = line.split()[0]
+            if qid not in qid_list:
+                qid_list.append(qid)
+    return sorted(qid_list)

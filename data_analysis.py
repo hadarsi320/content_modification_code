@@ -3,29 +3,33 @@ from collections import defaultdict
 import numpy as np
 
 
-def in_group(competitor, group, dummy_bot):
-    bots = ['BOT', 'DUMMY' + dummy_bot]
+def in_group(competitor, group, dummy_bots):
+    dummy_bots = ['DUMMY1' 'DUMMY2'] if dummy_bots == 'both' else \
+        (['DUMMY' + dummy_bots] if dummy_bots in ['1', '2'] else [])
+    bots = ['BOT'] + dummy_bots
     return (group == 'bots' and competitor in bots) or \
            (group == 'students' and competitor not in bots) or \
            (group == 'true_bots' and competitor == 'BOT') or \
-           (group == 'dummy_bots' and competitor == 'DUMMY' + dummy_bot)
+           (group == 'dummy_bots' and competitor in dummy_bots)
 
 
 def get_scaled_promotion(last_rank, current_rank):
     if last_rank == current_rank:
         return 0
-    return (last_rank - current_rank) / (last_rank if last_rank > current_rank else (4 - last_rank))
+    return (last_rank - current_rank) / (last_rank if last_rank > current_rank else (5 - last_rank))
 
 
-def compute_average_rank(ranked_lists, competitors_lists, group):
+def compute_average_rank(ranked_lists, competitors_lists, group, paper_data=False):
     """
-    :param trec_dir: the directory of trec files created in a competition
+    :param ranked_lists:
+    :param competitors_lists:
     :param group: who to compute for, the bots? the planted documents? the students?
+    :param paper_data:
     :return: an array with 4 cells where the i-th cell is the average rank in the i-th round
     """
     ranks = []
     for competition_id in ranked_lists:
-        dummy_bot = competition_id.split('_')[3]
+        dummy_bot = None if paper_data else competition_id.split('_')[3]
         competition = ranked_lists[competition_id]
         competitors_list = competitors_lists[competition_id]
 
@@ -35,7 +39,7 @@ def compute_average_rank(ranked_lists, competitors_lists, group):
 
             epoch_ranks = []
             for epoch in sorted(competition):
-                rank = competition[epoch].index(competitor)
+                rank = competition[epoch].index(competitor)+1
                 epoch_ranks.append(rank)
             ranks.append(epoch_ranks)
 
@@ -43,7 +47,7 @@ def compute_average_rank(ranked_lists, competitors_lists, group):
     return average_rank
 
 
-def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=False):
+def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=False, paper_data=False):
     """
     :param ranked_lists: di
     :param group: who to compute for, the bots? the planted documents? the students?
@@ -52,7 +56,7 @@ def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=Fal
     """
     rank_promotion = []
     for competition_id in ranked_lists:
-        dummy_bot = competition_id.split('_')[3]
+        dummy_bot = None if paper_data else competition_id.split('_')[3]
         competition = ranked_lists[competition_id]
         competitors_list = competitors_lists[competition_id]
         for competitor in competitors_list:
@@ -60,31 +64,9 @@ def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=Fal
                 continue
             lst = []
             for last_epoch, epoch in zip(sorted(competition), sorted(competition)[1:]):
-                last_rank = competition[last_epoch].index(competitor)
-                rank = competition[epoch].index(competitor)
+                last_rank = competition[last_epoch].index(competitor)+1
+                rank = competition[epoch].index(competitor)+1
                 lst.append(get_scaled_promotion(last_rank, rank) if scaled else (last_rank - rank))
             rank_promotion.append(lst)
     average_rank_promotion = np.average(rank_promotion, axis=0)
     return average_rank_promotion
-
-
-    # rank_promotion = defaultdict(list)
-    # for competition_id in ranked_lists:
-    #     dummy_bot = competition_id.split('_')[3]
-    #     competition = ranked_lists[competition_id]
-    #     competitors_list = competitors_lists[competition_id]
-    #
-    #     for competitor in competitors_list:
-    #         if not in_group(competitor, group, dummy_bot):
-    #             continue
-    #
-    #         for last_epoch, epoch in zip(sorted(competition), sorted(competition)[1:]):
-    #             last_rank = competition[last_epoch].index(competitor)
-    #             rank = competition[epoch].index(competitor)
-    #             rank_promotion[epoch].append(get_scaled_promotion(last_rank, rank) if scaled else last_rank - rank)
-                # if last_rank > 0 or (last_rank == 0 and rank > 0):
-                #     rank_promotion[last_epoch].append((last_rank - rank) / last_rank
-                #                                       if scaled else last_rank - rank)
-
-    # average_rank_promotion = [np.average(rank_promotion[epoch]) for epoch in sorted(rank_promotion)]
-    # return average_rank_promotion

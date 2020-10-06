@@ -4,12 +4,11 @@ import sys
 
 import gensim
 
-from utils import parse_qrid, ensure_dir, xor
+from utils import parse_qrid, ensure_dir, xor, get_queries
 from collections import defaultdict
 from itertools import combinations
 from os.path import exists
-from gen_utils import run_and_print, run_bash_command
-from random import sample
+from gen_utils import run_bash_command
 
 
 def get_competitors_dict(trec_file: str):
@@ -33,16 +32,6 @@ def log_error(error_file, qid, comptitors=None, dummy_bot=None):
             f.write(f'Error in {qid} with competitors {",".join(comptitors)}\n')
         else:
             f.write(f'Error in {qid} with dummy bot index {dummy_bot}\n')
-
-
-def get_queries(positions_file):
-    qid_list = []
-    with open(positions_file) as f:
-        for line in f:
-            qid = line.split()[0]
-            if qid not in qid_list:
-                qid_list.append(qid)
-    return qid_list
 
 
 def remove_from_error_file(error_file, qid, players):
@@ -104,7 +93,7 @@ def rerun_errors_2of2(output_dir, pickle_file):
             print(f'#### Error occured in competition {qid} {player_ids}: \n{str(e)}\n')
 
 
-def runner_2of5(output_dir, pickle_file, positions_file='./data/2of5_competition/documents.positions'):
+def runner_2of5(output_dir, pickle_file, positions_file='./data/paper_data/documents.positions'):
     error_file = output_dir + 'error_file.txt'
     qid_list = sorted(get_queries(positions_file))
     iteration = 0
@@ -126,7 +115,7 @@ def runner_2of5(output_dir, pickle_file, positions_file='./data/2of5_competition
                 log_error(error_file, qid, dummy_bot=dummy_bot)
 
 
-def runner_3of5(output_dir, pickle_file, positions_file='./data/2of5_competition/documents.positions'):
+def runner_3of5(output_dir, pickle_file, positions_file='./data/paper_data/documents.positions'):
     error_file = output_dir + 'error_file.txt'
     qid_list = sorted(get_queries(positions_file))
     iteration = 0
