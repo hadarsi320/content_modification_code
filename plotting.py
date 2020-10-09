@@ -47,16 +47,6 @@ def word_similarity_analysis(sim_dir, show=False, plots_dir=None):
     rounds = max(len(lst) for lst in sim_lists[0])
     matrices = [np.array([lst for lst in sim_lists[i] if len(lst) == rounds]) for i in range(2)]
 
-    # averaged_mat = np.average(matrices[0], axis=0)
-    # plot(averaged_mat, title=f'Lexical Similarity',
-    #      x_label='Round', y_label='Cosine Similarity', show=show,
-    #      save_file=plots_dir+'/Lexical Similarity' if plots_dir else None)
-    #
-    # averaged_mat = np.average(matrices[1], axis=0)
-    # plot(averaged_mat, title=f'Embedding Similarity',
-    #      x_label='Round', y_label='Cosine Similarity', show=show,
-    #      save_file=plots_dir+'/Embedding Similarity' if plots_dir else None)
-
     titles = ['Lexical Similarity', 'Embedding Similarity']
     plt.rcParams.update({'font.size': 14})
     fig, axs = plt.subplots(ncols=2, figsize=(15, 5))
@@ -70,12 +60,12 @@ def word_similarity_analysis(sim_dir, show=False, plots_dir=None):
         axs[i].set_ylabel('Cosine Similarity')
 
     if plot:
-        plt.savefig(plots_dir+'/Similarity Plot')
+        plt.savefig(plots_dir + '/Similarity Plot')
     if show:
         plt.show()
 
 
-def competition_2of5_analysis(trec_dir, show=True, plots_dir=None):
+def competition_5_analysis(trec_dir, show=True, plots_dir=None):
     trec_files = sorted(listdir(trec_dir))
     ranked_lists = {trec_file: read_competition_trec_file(trec_dir + trec_file) for trec_file in trec_files}
     normalize_dict_len(ranked_lists)
@@ -102,7 +92,7 @@ def competition_2of5_analysis(trec_dir, show=True, plots_dir=None):
             result = results[group]
             label = labels[group]
             color = colors[group]
-            fig_num = int(j/2)
+            fig_num = int(j / 2)
             axs[fig_num].plot(x_ticks, result, label=label, color=color)
 
         fig.suptitle(title)
@@ -119,18 +109,25 @@ def competition_2of5_analysis(trec_dir, show=True, plots_dir=None):
             plt.show()
 
 
-def analyze_paper_competition(positions_file, show=True, plots_dir=None):
+def recreate_paper_plots(positions_file, show=True, plots_dir=None):
+    """
+    This function recreates the plots from the paper, based on the positions file from the paper
+    :param positions_file:
+    :param show:
+    :param plots_dir:
+    :return:
+    """
     ranked_lists = read_positions_file(positions_file)
     normalize_dict_len(ranked_lists)
     competitors_lists = {qid: next(iter(ranked_lists[qid].values())) for qid in ranked_lists}
 
-    groups = ['bots', 'students']
-    colors = {'bots': 'b', 'students': 'g'}
-    labels = {'bots': 'All Bots', 'students': 'Student Documents'}
+    groups = ['actual_students', 'planted', 'bots']
+    colors = {'bots': 'b', 'actual_students': 'r', 'planted': 'g'}
+    labels = {'bots': 'All Bots', 'actual_students': 'Student Documents', 'planted': 'Planted Documents'}
     functions = [lambda x: compute_average_rank(ranked_lists, competitors_lists, x, paper_data=True),
                  lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, scaled=False, paper_data=True),
                  lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, scaled=True, paper_data=True)]
-    titles = ['Average Rank', 'Average Raw Rank Promotion', 'Average Scaled Rank Promotion']
+    titles = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
     x_ticks_list = [range(1, 5), range(2, 5), range(2, 5)]
 
     for i in range(3):
@@ -142,6 +139,11 @@ def analyze_paper_competition(positions_file, show=True, plots_dir=None):
         results = {}
         for group in groups:
             results[group] = function(group)
+
+        print(title)
+        for group in results:
+            print(f'{group}: {results[group]}')
+        print()
 
         plt.rcParams.update({'font.size': 14})
         for j, group in enumerate(groups):
@@ -161,17 +163,87 @@ def analyze_paper_competition(positions_file, show=True, plots_dir=None):
             plt.show()
 
 
+def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, show=True, plots_dir=None):
+    ranked_lists_1of5 = read_positions_file(postitions_file_1of5)
+    normalize_dict_len(ranked_lists_1of5)
+    competitors_lists_1of5 = {qid: next(iter(ranked_lists_1of5[qid].values())) for qid in ranked_lists_1of5}
+
+    trec_files = sorted(listdir(trec_dir_2of5))
+    ranked_lists_2of5 = {trec_file: read_competition_trec_file(trec_dir_2of5 + trec_file) for trec_file in trec_files}
+    normalize_dict_len(ranked_lists_2of5)
+    competitors_lists_2of5 = {trec_file: get_competitors(trec_dir_2of5 + trec_file) for trec_file in trec_files}
+
+    trec_files = sorted(listdir(trec_dir_3of5))
+    ranked_lists_3of5 = {trec_file: read_competition_trec_file(trec_dir_3of5 + trec_file) for trec_file in trec_files}
+    normalize_dict_len(ranked_lists_3of5)
+    competitors_lists_3of5 = {trec_file: get_competitors(trec_dir_3of5 + trec_file) for trec_file in trec_files}
+
+    ranked_lists_list = [ranked_lists_1of5, ranked_lists_2of5, ranked_lists_3of5]
+    competitors_lists_list = [competitors_lists_1of5, competitors_lists_2of5, competitors_lists_3of5]
+
+    groups = ['students', 'bots']
+    colors_list = [{'bots': 'blue', 'students': '#00a6ff'},
+                   {'bots': 'red', 'students': 'orange'},
+                   {'bots': 'green', 'students': '#00ff13'}]
+    labels_list = [{'bots': 'Bots 1/5', 'students': 'Students 1/5'},
+                   {'bots': 'Bots 2/5', 'students': 'Students 2/5'},
+                   {'bots': 'Bots 3/5', 'students': 'Students 3/5'}]
+    functions = [lambda x, y, z, w: compute_average_rank(x, y, z, paper_data=w),
+                 lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=False, paper_data=w),
+                 lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=True, paper_data=w)]
+    titles = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
+    x_ticks_list = [range(1, 5), range(2, 5), range(2, 5)]
+
+    fig, axs = plt.subplots(ncols=3, figsize=(18, 5))
+    plt.rcParams.update({'font.size': 14})
+
+    # for i in range(3):
+    for i in range(2):
+        ranked_lists = ranked_lists_list[i]
+        competitors_lists = competitors_lists_list[i]
+        labels = labels_list[i]
+        colors = colors_list[i]
+
+        for ii in range(3):
+            axis = axs[ii]
+            x_ticks = x_ticks_list[ii]
+            function = functions[ii]
+            title = titles[ii]
+
+            results = {group: function(ranked_lists, competitors_lists, group, i == 0) for group in groups}
+
+            for group in groups:
+                result = results[group]
+                label = labels[group]
+                color = colors[group]
+                axis.plot(x_ticks, result, label=label, color=color)
+
+            axis.set_title(title)
+            axis.set_ylabel(title)
+            axis.legend()
+            axis.set_xticks(x_ticks)
+            axis.set_xlabel('Round')
+
+    if plots_dir:
+        plt.savefig(plots_dir + '/competitions_comparison')
+    if show:
+        plt.show()
+
+
 def main():
-    trec_dir = 'output/2of5/run_10_3/trec_files/'
     sim_dir = 'output/2of2/run_10_3/similarity_results/'
+    trec_dir_2 = 'output/2of5/run_10_3/trec_files/'
+    trec_dir_3 = 'output/3of5/run_10_5/trec_files/'
     positions_file = 'data/paper_data/documents.positions'
 
     plots_dir = './plots'
     ensure_dir(plots_dir)
 
-    # competition_2of5_analysis(trec_dir, show=True, plots_dir=None)
+    # competition_2of5_analysis(trec_dir_2, show=True, plots_dir=None)
+    # competition_5_analysis(trec_dir_3, show=True, plots_dir=None)
     # word_similarity_analysis(sim_dir, show=True, plots_dir=plots_dir)
-    analyze_paper_competition(positions_file, show=True)
+    # recreate_paper_plots(positions_file, show=True)
+    compare_competitions(positions_file, trec_dir_2, trec_dir_3, show=True)
 
 
 if __name__ == '__main__':
