@@ -220,7 +220,7 @@ def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, sho
 
             axis.set_title(title)
             axis.set_ylabel(title)
-            axis.legend()
+            axis.legend(loc='upper right')
             axis.set_xticks(x_ticks)
             axis.set_xlabel('Round')
 

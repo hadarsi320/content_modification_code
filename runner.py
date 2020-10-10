@@ -138,11 +138,11 @@ def runner_3of5(output_dir, pickle_file, positions_file='./data/paper_data/docum
 
 def main():
     mode = sys.argv[1]
-    output_dir = './output/{}/'.format(sys.argv[2])
-    ensure_dir(output_dir)
-
     if mode not in ['2of2', 'rerun_2of2', '2of5', '3of5']:
         raise ValueError(f'Illegal mode given {mode}')
+
+    output_dir = './output/{}/{}/'.format(sys.argv[1], sys.argv[2])
+    ensure_dir(output_dir)
 
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
     word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file,

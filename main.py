@@ -278,6 +278,8 @@ def main():
             dummy_bot = options.dummy_bot
         elif options.mode == '3of5':
             dummy_bot = 'both'
+        else:
+            dummy_bot = 'none'
 
         replacements_file = output_dir + f'replacements/replacements_{qid}_{dummy_bot}'
         if exists(replacements_file):
