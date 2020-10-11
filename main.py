@@ -111,7 +111,8 @@ def run_paper_competition(qid, competitor_list, positions_file, dummy_bot, trect
     create_documents_workingset(document_workingset_file, 1, qid, competitor_list)
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
-    for epoch in range(1, 4):  # there are only 4 rounds of competition in the data
+
+    for epoch in range(1, 4):  # there are 4 rounds of competition in the data
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
         qrid = get_qrid(qid, epoch)
         ranked_list = read_trec_file(comp_trec_file)
@@ -250,10 +251,10 @@ def main():
     if options.word2vec_dump == '':
         word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file,
                                                                                binary=True, limit=700000)
-        logger.info('Word Embedding Model loaded from file')
+        logger.info('Loaded word Embedding Model from file')
     else:
         word_embedding_model = pickle.load(open(options.word2vec_dump, 'rb'))
-        logger.info('Word Embedding Model loaded from pickle')
+        logger.info('Loaded word Embedding Model from pickle')
 
     if options.mode == '2of2':
         trectext_file = options.trectext_file if options.trectext_file else options.trectext_file_2of2

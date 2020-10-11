@@ -165,21 +165,20 @@ def recreate_paper_plots(positions_file, show=True, plots_dir=None):
 
 def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, show=True, plots_dir=None):
     ranked_lists_1of5 = read_positions_file(postitions_file_1of5)
-    normalize_dict_len(ranked_lists_1of5)
     competitors_lists_1of5 = {qid: next(iter(ranked_lists_1of5[qid].values())) for qid in ranked_lists_1of5}
 
     trec_files = sorted(listdir(trec_dir_2of5))
     ranked_lists_2of5 = {trec_file: read_competition_trec_file(trec_dir_2of5 + trec_file) for trec_file in trec_files}
-    normalize_dict_len(ranked_lists_2of5)
     competitors_lists_2of5 = {trec_file: get_competitors(trec_dir_2of5 + trec_file) for trec_file in trec_files}
 
     trec_files = sorted(listdir(trec_dir_3of5))
     ranked_lists_3of5 = {trec_file: read_competition_trec_file(trec_dir_3of5 + trec_file) for trec_file in trec_files}
-    normalize_dict_len(ranked_lists_3of5)
     competitors_lists_3of5 = {trec_file: get_competitors(trec_dir_3of5 + trec_file) for trec_file in trec_files}
 
-    ranked_lists_list = [ranked_lists_1of5, ranked_lists_2of5, ranked_lists_3of5]
-    competitors_lists_list = [competitors_lists_1of5, competitors_lists_2of5, competitors_lists_3of5]
+    list_of_ranked_lists = [ranked_lists_1of5, ranked_lists_2of5, ranked_lists_3of5]
+    for ranked_lists in list_of_ranked_lists:
+        normalize_dict_len(ranked_lists)
+    list_of_competitors_lists = [competitors_lists_1of5, competitors_lists_2of5, competitors_lists_3of5]
 
     groups = ['students', 'bots']
     colors_list = [{'bots': 'blue', 'students': '#00a6ff'},
@@ -193,24 +192,26 @@ def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, sho
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=True, paper_data=w)]
     titles = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
     x_ticks_list = [range(1, 5), range(2, 5), range(2, 5)]
+    y_ticks_list = [np.arange(2.4, 4.01, 0.2), np.arange(-0.3, 0.41, 0.1), np.arange(-0.10, 0.31, 0.05)]
 
-    fig, axs = plt.subplots(ncols=3, figsize=(18, 5))
-    plt.rcParams.update({'font.size': 14})
+    fig, axs = plt.subplots(ncols=3, figsize=(22, 8))
+    plt.rcParams.update({'font.size': 12})
 
-    # for i in range(3):
-    for i in range(2):
-        ranked_lists = ranked_lists_list[i]
-        competitors_lists = competitors_lists_list[i]
+    for i in range(3):
+        ranked_lists = list_of_ranked_lists[i]
+        competitors_lists = list_of_competitors_lists[i]
         labels = labels_list[i]
         colors = colors_list[i]
 
         for ii in range(3):
             axis = axs[ii]
             x_ticks = x_ticks_list[ii]
+            y_ticks = y_ticks_list[ii]
             function = functions[ii]
             title = titles[ii]
 
-            results = {group: function(ranked_lists, competitors_lists, group, i == 0) for group in groups}
+            results = {group: function(ranked_lists, competitors_lists, group, i == 0)
+                       for group in groups}
 
             for group in groups:
                 result = results[group]
@@ -222,6 +223,7 @@ def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, sho
             axis.set_ylabel(title)
             axis.legend(loc='upper right')
             axis.set_xticks(x_ticks)
+            axis.set_yticks(y_ticks)
             axis.set_xlabel('Round')
 
     if plots_dir:
@@ -233,7 +235,7 @@ def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, sho
 def main():
     sim_dir = 'output/2of2/run_10_3/similarity_results/'
     trec_dir_2 = 'output/2of5/run_10_3/trec_files/'
-    trec_dir_3 = 'output/3of5/run_10_5/trec_files/'
+    trec_dir_3 = 'output/3of5/run_10_10/trec_files/'
     positions_file = 'data/paper_data/documents.positions'
 
     plots_dir = './plots'

@@ -91,8 +91,7 @@ def create_initial_trectext_file(full_trectext_file, output_dir, qid, pid_list=N
                 epoch, last_qid, pid = parse_doc_id(doc_id)
                 if epoch != '01' or last_qid != qid or (pid_list and pid not in pid_list):
                     break
-                if '_' in pid:
-                    pid = pid.replace('_', '')
+                pid = pid.replace('_', '')
             elif att.tag == 'TEXT':
                 docs[get_doc_id(1, qid, pid)] = '\n'.join(sent_tokenize(att.text))
 
