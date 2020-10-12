@@ -11,13 +11,12 @@ import gensim
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_competitors
 from bot_competition import generate_predictions, get_highest_ranked_pair, \
-    get_ranked_competitors_list, generate_updated_document, update_trec_file, generate_document_tfidf_files, \
+    generate_updated_document, update_trec_file, generate_document_tfidf_files, \
     record_doc_similarity, record_replacement
 from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
 from utils import get_doc_id, \
-    update_trectext_file, complete_sim_file, create_index, create_documents_workingset, parse_doc_id, \
-    read_raw_trec_file, get_next_doc_id, get_next_qrid
+    update_trectext_file, complete_sim_file, create_index, create_documents_workingset, get_next_doc_id
 from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 
@@ -33,7 +32,7 @@ def run_2of2_competition(qid, competitor_list, trectext_file, total_rounds, outp
     comp_trectext_file = create_initial_trectext_file(trectext_file, trectext_dir, qid, competitor_list)
 
     doc_texts = load_trectext_file(comp_trectext_file)
-    create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
+    create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
     create_documents_workingset(document_workingset_file, 1, qid, competitor_list)
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
@@ -76,7 +75,7 @@ def run_2of2_competition(qid, competitor_list, trectext_file, total_rounds, outp
         update_trectext_file(comp_trectext_file, doc_texts, new_trectext_dict)
 
         # updating the index
-        create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
+        create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
 
         # TODO use multiprocessing
         # updating the trec file
@@ -97,8 +96,8 @@ def run_2of2_competition(qid, competitor_list, trectext_file, total_rounds, outp
 def run_paper_competition(qid, competitor_list, positions_file, dummy_bot, trectext_file, output_dir,
                           document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                           trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
-                          replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir,
-                          stopwords_file, queries_text_file, queries_xml_file, ranklib_jar, document_rank_model,
+                          replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir, stopwords_file,
+                          queries_text_file, queries_xml_file, ranklib_jar, document_rank_model,
                           pair_rank_model, word_embedding_model):
     logger = logging.getLogger(sys.argv[0])
     original_texts = load_trectext_file(trectext_file, qid)
@@ -107,7 +106,7 @@ def run_paper_competition(qid, competitor_list, positions_file, dummy_bot, trect
     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, positions_file=positions_file,
                                               dummy_bot=dummy_bot)
 
-    create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
+    create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
     create_documents_workingset(document_workingset_file, 1, qid, competitor_list)
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
@@ -125,9 +124,10 @@ def run_paper_competition(qid, competitor_list, positions_file, dummy_bot, trect
             new_docs[next_doc_id] = original_texts[next_doc_id]
 
         for bot_id in bots:
+            logger.info(f'{bot_id} rank: {bots[bot_id]}')
+
             features_file = final_features_dir + f'features_{qrid}_{bot_id}.dat'
             raw_ds_file = raw_ds_dir + f'raw_ds_out_{qrid}_{bot_id}.txt'
-            logger.info(f'{bot_id} rank: {bots[bot_id]}')
             bot_doc_id = get_doc_id(epoch, qid, bot_id)
             next_doc_id = get_doc_id(epoch + 1, qid, bot_id)
             ref_index = bots[bot_id]
@@ -136,6 +136,7 @@ def run_paper_competition(qid, competitor_list, positions_file, dummy_bot, trect
                 print('{} is on top'.format(bot_id))
                 continue
 
+            # Creating features
             top_docs_index = min(3, ref_index)
             cant_replace = create_bot_features(qrid, ref_index, top_docs_index, ranked_list, doc_texts,
                                                output_dir, word_embedding_model, mode=run_mode,
@@ -146,11 +147,17 @@ def run_paper_competition(qid, competitor_list, positions_file, dummy_bot, trect
 
             if cant_replace:
                 new_docs[next_doc_id] = doc_texts[bot_doc_id]
+                print('Bot {} cant replace any sentence'.format(bot_id))
                 continue
 
+            # Rank pairs
             ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir,
                                                 features_file)
+
+            # Find highest ranked pair
             rep_doc_id, out_index, in_index = get_highest_ranked_pair(features_file, ranking_file)
+
+            # Replace sentence
             record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index)
             new_docs[next_doc_id] = generate_updated_document(doc_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
                                                               out_index=out_index, in_index=in_index)
@@ -159,7 +166,7 @@ def run_paper_competition(qid, competitor_list, positions_file, dummy_bot, trect
         update_trectext_file(comp_trectext_file, doc_texts, new_docs)
 
         # updating the index, workingset file and tfidf files
-        create_index(comp_trectext_file, new_index=comp_index, indri_path=indri_path)
+        create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
         create_documents_workingset(document_workingset_file, epoch + 1, qid, competitor_list)
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)

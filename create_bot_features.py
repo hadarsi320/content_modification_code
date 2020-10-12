@@ -322,8 +322,6 @@ def create_sentence_vector_files(output_dir, raw_ds_file, base_index, new_index,
         if not os.path.exists(index):
             raise ValueError('The index {} does not exist'.format(index))
 
-    # command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsSentences ' \
-    #           f'{index_path} {raw_ds_file} {output_dir}'
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsSentences ' \
               f'{base_index} {new_index} {raw_ds_file} {output_dir} {documents_ws}'
     run_and_print(command, command_name='PrepareTFIDFVectorsSentences')
