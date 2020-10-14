@@ -183,12 +183,11 @@ def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, sho
     list_of_competitors_lists = [competitors_lists_1of5, competitors_lists_2of5, competitors_lists_3of5]
 
     groups = ['students', 'bots']
-    colors_list = [{'bots': 'blue', 'students': '#00a6ff'},
-                   {'bots': 'red', 'students': 'orange'},
-                   {'bots': 'green', 'students': '#00ff13'}]
+    colors = ['blue', 'red', 'green']
     labels_list = [{'bots': 'Bots 1/5', 'students': 'Students 1/5'},
                    {'bots': 'Bots 2/5', 'students': 'Students 2/5'},
                    {'bots': 'Bots 3/5', 'students': 'Students 3/5'}]
+    shapes_list = {'bots': 'D', 'students': 'o'}
     functions = [lambda x, y, z, w: compute_average_rank(x, y, z, paper_data=w),
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=False, paper_data=w),
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=True, paper_data=w)]
@@ -203,7 +202,7 @@ def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, sho
         ranked_lists = list_of_ranked_lists[i]
         competitors_lists = list_of_competitors_lists[i]
         labels = labels_list[i]
-        colors = colors_list[i]
+        color = colors[i]
 
         for ii in range(3):
             axis = axs[ii]
@@ -218,8 +217,8 @@ def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, sho
             for group in groups:
                 result = results[group]
                 label = labels[group]
-                color = colors[group]
-                axis.plot(x_ticks, result, label=label, color=color)
+                shape = shapes_list[group]
+                axis.plot(x_ticks, result, label=label, color=color, marker=shape)
 
             axis.set_title(title)
             axis.set_ylabel(title)
