@@ -83,7 +83,7 @@ def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=Fal
     #         rank_promotion.append(lst)
     # average_rank_promotion = np.average(rank_promotion, axis=0)
     # return average_rank_promotion
-
+    epochs = sorted(ranked_lists[next(iter(ranked_lists))])
     rank_promotion = defaultdict(list)
     for competition_id in ranked_lists:
         dummy_bot = None if paper_data else competition_id.split('_')[3]
@@ -94,12 +94,12 @@ def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=Fal
             if not in_group(competitor, group, dummy_bot):
                 continue
 
-            for last_epoch, epoch in zip(sorted(competition), sorted(competition)[1:]):
+            for last_epoch, epoch in zip(epochs, epochs[1:]):
                 last_rank = competition[last_epoch].index(competitor) + 1
                 rank = competition[epoch].index(competitor) + 1
                 # if last_rank == 1 and group == 'bots':
                 #     continue
                 rank_promotion[epoch].append(get_scaled_promotion(last_rank, rank) if scaled else last_rank - rank)
 
-    average_rank_promotion = [np.average(rank_promotion[epoch]) for epoch in sorted(rank_promotion)]
+    average_rank_promotion = [np.average(rank_promotion[epoch]) for epoch in epochs[1:]]
     return average_rank_promotion

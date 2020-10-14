@@ -164,6 +164,8 @@ def recreate_paper_plots(positions_file, show=True, plots_dir=None):
 
 
 def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, show=True, plots_dir=None):
+    print(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, sep='\n')
+
     ranked_lists_1of5 = read_positions_file(postitions_file_1of5)
     competitors_lists_1of5 = {qid: next(iter(ranked_lists_1of5[qid].values())) for qid in ranked_lists_1of5}
 
@@ -234,18 +236,23 @@ def compare_competitions(postitions_file_1of5, trec_dir_2of5, trec_dir_3of5, sho
 
 def main():
     sim_dir = 'output/2of2/run_10_3/similarity_results/'
-    trec_dir_2 = 'output/2of5/run_10_3/trec_files/'
-    trec_dir_3 = 'output/3of5/run_10_10/trec_files/'
+    trec_dir_2 = 'output/2of5/run_10_12/trec_files/'
+    trec_dir_3 = 'output/3of5/run_10_12/trec_files/'
     positions_file = 'data/paper_data/documents.positions'
 
     plots_dir = './plots'
     ensure_dir(plots_dir)
 
-    # competition_2of5_analysis(trec_dir_2, show=True, plots_dir=None)
     # competition_5_analysis(trec_dir_3, show=True, plots_dir=None)
     # word_similarity_analysis(sim_dir, show=True, plots_dir=plots_dir)
     # recreate_paper_plots(positions_file, show=True)
+
     compare_competitions(positions_file, trec_dir_2, trec_dir_3, show=True)
+
+    # trec_dir_2_old = 'output/2of5/run_10_3/trec_files/'
+    # trec_dir_2_new = 'output/2of5/run_10_12/trec_files/'
+    # # compare_competitions(positions_file, trec_dir_2_old, trec_dir_3, show=True)
+    # compare_competitions(positions_file, trec_dir_2_new, trec_dir_3, show=True)
 
 
 if __name__ == '__main__':
