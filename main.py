@@ -190,11 +190,11 @@ def main():
     parser = OptionParser()
 
     # Variables
-    parser.add_option('--mode', choices=['2of2', '2of5', '3of5'])
+    parser.add_option('--mode', choices=['2of2', '1of5', '2of5', '3of5'])
     parser.add_option('--qid')
-    parser.add_option('--competitors')
-    parser.add_option('--dummy_bot', choices=['1', '2'])
-    parser.add_option('--trectext_file')
+    parser.add_option('--bots')
+    parser.add_option('--source_data', choices=['paper', 'raifer'])
+
     # TODO implement the use of competition file, in order to run multiple competitions simultaneously
     # parser.add_option('--competition_file')
     parser.add_option('--total_rounds', '-r', type='int', default=10)
@@ -213,8 +213,8 @@ def main():
     parser.add_option('--coherency_qrels_file', default='./data/coherency_aggregated_labels.txt')
     parser.add_option('--unranked_features_file', default='./data/features_bot_sorted.txt')
     parser.add_option('--trec_file', default='./data/trec_file_original_sorted.txt')
-    parser.add_option('--trectext_file_2of2', default='./data/documents.trectext')
-    parser.add_option('--trectext_file_2of5', default='./data/paper_data/documents.trectext')
+    parser.add_option('--trectext_file_raifer', default='./data/documents.trectext')
+    parser.add_option('--trectext_file_paper', default='./data/paper_data/documents.trectext')
     parser.add_option('--positions_file', default='./data/paper_data/documents.positions')
     parser.add_option('--rank_model', default='./rank_models/model_lambdatamart')
     parser.add_option('--ranklib_jar', default='./scripts/RankLib.jar')
@@ -228,7 +228,7 @@ def main():
     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
     parser.add_option("--embedding_model_file",
                       default='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model')
-    parser.add_option('--word2vec_dump', default='')
+    parser.add_option('--word2vec_dump')
 
     (options, args) = parser.parse_args()
 
@@ -249,13 +249,14 @@ def main():
     document_workingset_file = output_dir + 'document_ws.txt'
     final_features_dir = output_dir + 'final_features/'
 
+    bots = sorted(options.bots.split(','))
     svm_rank_model = options.svm_models_dir + get_model_name(options.label_aggregation_method,
                                                              options.label_aggregation_b, options.svm_rank_c)
     create_pair_ranker(svm_rank_model, options.label_aggregation_method,
                        options.label_aggregation_b, options.svm_rank_c, options.aggregated_data_dir,
                        options.seo_qrels_file, options.coherency_qrels_file, options.unranked_features_file,
                        options.svm_rank_scripts_dir)
-    if options.word2vec_dump == '':
+    if options.word2vec_dump is None:
         word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(options.embedding_model_file,
                                                                                binary=True, limit=700000)
         logger.info('Loaded word Embedding Model from file')
@@ -264,37 +265,48 @@ def main():
         logger.info('Loaded word Embedding Model from pickle')
 
     if options.mode == '2of2':
-        trectext_file = options.trectext_file if options.trectext_file else options.trectext_file_2of2
-        competitor_list = sorted(options.competitors.split(','))
-        assert len(competitor_list) == 2
-        replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(competitor_list))
-        similarity_file = output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(competitor_list))
+        trectext_file = options.trectext_file_raifer
+        assert len(bots) == 2
+        replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
+        similarity_file = output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(bots))
         for file in [replacements_file, similarity_file]:
             if exists(file):
                 os.remove(file)
 
-        run_2of2_competition(qid, competitor_list, trectext_file, options.total_rounds, options.output_dir,
+        run_2of2_competition(qid, bots, trectext_file, options.total_rounds, options.output_dir,
                              options.clueweb_index, temp_index, document_workingset_file, doc_tfidf_dir, reranking_dir,
                              trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, options.swig_path,
                              options.indri_path, replacements_file, similarity_file, options.svm_rank_scripts_dir,
                              options.trec_file, options.run_mode, options.scripts_dir, options.stopwords_file,
                              options.queries_text_file, options.queries_xml_file, options.ranklib_jar,
                              options.rank_model, svm_rank_model, word_embedding_model)
+    elif options.source_data == 'raifer':
+        trectext_file = options.trectext_file_raifer
+        replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
+        if exists(replacements_file):
+            os.remove(replacements_file)
+
     else:
-        trectext_file = options.trectext_file if options.trectext_file else options.trectext_file_2of5
-        if options.mode == '2of5':
-            dummy_bot = options.dummy_bot
-        elif options.mode == '3of5':
-            dummy_bot = 'both'
-        else:
+        trectext_file = options.trectext_file_paper
+
+        if options.mode == '1of5':
+            assert len(bots) == 1 and bots[0] == 'BOT'
             dummy_bot = 'none'
+
+        elif options.mode == '2of5':
+            assert len(bots) == 2
+            dummy_bot = [bot for bot in bots if bot.startwith('DUMMY')]
+
+        else:
+            assert len(bots) == 3
+            dummy_bot = 'both'
 
         replacements_file = output_dir + f'replacements/replacements_{qid}_{dummy_bot}'
         if exists(replacements_file):
             os.remove(replacements_file)
 
-        competitor_list = get_competitors(positions_file=options.positions_file, qid=qid)
-        run_paper_competition(qid, competitor_list, options.positions_file, dummy_bot, trectext_file, output_dir,
+        competitors = get_competitors(trec_file=options.positions_file, qid=qid)
+        run_paper_competition(qid, competitors, options.positions_file, dummy_bot, trectext_file, output_dir,
                               document_workingset_file, options.indri_path, options.swig_path,
                               doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                               final_features_dir, options.clueweb_index, temp_index, replacements_file,

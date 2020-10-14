@@ -277,8 +277,12 @@ def get_rankings(trec_file, dummy_bot, qid, epoch):
     :param epoch: current round
     :return: two dictionaries of the form {pid: location}, one for the bots and the other for the students
     """
-    assert dummy_bot in ['1', '2', 'both']
-    bot_documents = ['BOT', 'DUMMY1', 'DUMMY2'] if dummy_bot == 'both' else ['BOT', 'DUMMY'+dummy_bot]
+    assert dummy_bot in ['none', 'DUMMY1', 'DUMMY2', 'both']
+
+    bot_documents = ['BOT'] if dummy_bot == 'none' \
+        else ['BOT', 'DUMMY1', 'DUMMY2'] if dummy_bot == 'both' \
+        else ['BOT', dummy_bot]
+
     bots = {}
     students = {}
     position = 0
@@ -297,10 +301,14 @@ def get_rankings(trec_file, dummy_bot, qid, epoch):
     return bots, students
 
 
-# positions file can also be a trec_file
-def get_competitors(positions_file, qid=None):
+def get_competitors(trec_file, qid=None):
+    """
+    :param trec_file: a trec file, a positions file can also be given
+    :param qid: if we're only interested in one query, qid will be used to only return the competitors for that query
+    :return: the list of competitors
+    """
     competitors_list = []
-    with open(positions_file, 'r') as f:
+    with open(trec_file, 'r') as f:
         for line in f:
             doc_id = line.split()[2]
             _, last_qid, pid = parse_doc_id(doc_id)
