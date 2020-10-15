@@ -15,40 +15,33 @@ from utils import get_qrid, create_trectext_file, parse_doc_id, \
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
-def create_initial_trec_file(output_dir, qid, trec_file=None, positions_file=None, pid_list=None,
-                             dummy_bot=None):
-    assert bool(positions_file) != bool(trec_file) and bool(pid_list) != bool(dummy_bot) and \
-           bool(trec_file) == bool(pid_list)
+def create_initial_trec_file(output_dir, qid, bots, only_bots, **kwargs):
     logger = logging.getLogger(sys.argv[0])
 
-    new_trec_file = output_dir + f'trec_file_{qid}_'
-    if pid_list:
-        new_trec_file += ','.join(pid_list)
-    else:
-        new_trec_file += str(dummy_bot)
+    new_trec_file = output_dir + 'trec_file_{}_{}'.format(qid, ','.join(bots))
 
     lines_written = 0
     ensure_dir(new_trec_file)
-    if trec_file:
+    if 'trec_file' in kwargs:
         qrid = get_qrid(qid, 1)
-        with open(trec_file, 'r') as trec_file:
+        with open(kwargs['trec_file'], 'r') as trec_file:
             with open(new_trec_file, 'w') as new_file:
                 for line in trec_file:
                     last_qrid = line.split()[0]
                     if last_qrid != qrid:
                         continue
                     pid = line.split()[2].split('-')[-1]
-                    if pid_list is None or pid in pid_list:
+                    if not only_bots or pid in bots:
                         new_file.write(line)
                         lines_written += 1
 
     else:
         ranked_list = []
-        with open(positions_file, 'r') as pos_file:
+        with open(kwargs['positions_file'], 'r') as pos_file:
             for line in pos_file:
                 doc_id = line.split()[2]
                 epoch, last_qid, pid = parse_doc_id(doc_id)
-                if epoch != '01' or last_qid != qid or (pid_list and pid not in pid_list):
+                if epoch != '01' or last_qid != qid or (only_bots and pid not in bots):
                     continue
                 if '_' in pid:
                     pid = pid.replace('_', '')
@@ -60,27 +53,24 @@ def create_initial_trec_file(output_dir, qid, trec_file=None, positions_file=Non
                 new_file.write(f'{file[0]} Q0 {file[1]} 0 {file[2]} positions\n')
                 lines_written += 1
 
-    if lines_written == 0 and pid_list is None:
+    if lines_written == 0 and not only_bots:
         raise ValueError(f'query {qid} not in dataset')
-    if pid_list and lines_written != len(pid_list):
-        raise ValueError('Competitors {} not in dataset'.format(', '.join(pid_list)))
+
+    if only_bots and lines_written != len(bots):
+        raise ValueError('Competitors {} not in dataset'.format(', '.join(kwargs['pid_list'])))
 
     logger.info('Competition trec file created')
     return new_trec_file
 
 
-def create_initial_trectext_file(full_trectext_file, output_dir, qid, pid_list=None, dummy_bot=None):
-    assert bool(pid_list) != bool(dummy_bot)
+def create_initial_trectext_file(trectext_file, output_dir, qid, bots, only_bots):
     logger = logging.getLogger(sys.argv[0])
 
-    if pid_list:
-        new_trectext_file = output_dir + f'documents_{qid}_{",".join(pid_list)}.trectext'
-    else:
-        new_trectext_file = output_dir + f'documents_{qid}_{dummy_bot}.trectext'
+    new_trectext_file = output_dir + 'documents_{}_{}.trectext'.format(qid, ','.join(bots))
     ensure_dir(new_trectext_file)
 
     parser = etree.XMLParser(recover=True)
-    tree = ET.parse(full_trectext_file, parser=parser)
+    tree = ET.parse(trectext_file, parser=parser)
     root = tree.getroot()
     docs = {}
     for doc in root:
@@ -89,7 +79,7 @@ def create_initial_trectext_file(full_trectext_file, output_dir, qid, pid_list=N
             if att.tag == 'DOCNO':
                 doc_id = att.text
                 epoch, last_qid, pid = parse_doc_id(doc_id)
-                if epoch != '01' or last_qid != qid or (pid_list and pid not in pid_list):
+                if epoch != '01' or last_qid != qid or (only_bots and pid not in bots):
                     break
                 pid = pid.replace('_', '')
             elif att.tag == 'TEXT':
@@ -269,7 +259,7 @@ def create_pair_ranker(model_path, label_aggregation_method, label_aggregation_b
         create_model(svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
 
 
-def get_rankings(trec_file, dummy_bot, qid, epoch):
+def get_rankings(trec_file, bot_ids, qid, epoch):
     """
     :param trec_file: a trecfile
     :param dummy_bot: the index of the dummy who's a bot
@@ -277,11 +267,6 @@ def get_rankings(trec_file, dummy_bot, qid, epoch):
     :param epoch: current round
     :return: two dictionaries of the form {pid: location}, one for the bots and the other for the students
     """
-    assert dummy_bot in ['none', 'DUMMY1', 'DUMMY2', 'both']
-
-    bot_documents = ['BOT'] if dummy_bot == 'none' \
-        else ['BOT', 'DUMMY1', 'DUMMY2'] if dummy_bot == 'both' \
-        else ['BOT', dummy_bot]
 
     bots = {}
     students = {}
@@ -293,7 +278,7 @@ def get_rankings(trec_file, dummy_bot, qid, epoch):
             last_epoch, last_qid, pid = parse_doc_id(doc_id)
             if last_epoch != epoch or last_qid != qid:
                 continue
-            if pid in bot_documents:
+            if pid in bot_ids:
                 bots[pid] = position
             else:
                 students[pid] = position

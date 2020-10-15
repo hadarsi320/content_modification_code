@@ -4,6 +4,8 @@ import re
 import shutil
 import sys
 from collections import defaultdict
+
+import gensim
 import javaobj
 from deprecated import deprecated
 
@@ -474,3 +476,7 @@ def get_queries(positions_file):
             if qid not in qid_list:
                 qid_list.append(qid)
     return sorted(qid_list)
+
+
+def load_word_embedding_file(model_file):
+    return gensim.models.KeyedVectors.load_word2vec_format(model_file, binary=True, limit=700000)
