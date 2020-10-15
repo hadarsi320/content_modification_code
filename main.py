@@ -15,7 +15,7 @@ from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
 from utils import get_doc_id, \
     update_trectext_file, complete_sim_file, create_index, create_documents_workingset, get_next_doc_id, \
-    load_word_embedding_file
+    load_word_embedding_model
 from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 
@@ -259,7 +259,7 @@ def main():
                        options.svm_rank_scripts_dir)
 
     if options.word2vec_dump is None:
-        word_embedding_model = load_word_embedding_file(options.embedding_model_file)
+        word_embedding_model = load_word_embedding_model(options.embedding_model_file)
         logger.info('Loaded word Embedding Model from file')
     else:
         word_embedding_model = pickle.load(open(options.word2vec_dump, 'rb'))

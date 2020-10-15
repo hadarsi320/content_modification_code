@@ -79,7 +79,7 @@ def read_competition_trec_file(trec_file):
 
 
 def read_positions_file(positions_file):
-    qid_list = get_queries(positions_file)
+    qid_list = get_query_ids(positions_file)
     stats = {qid: {epoch: [None]*5 for epoch in range(1, 5)} for qid in qid_list}
     with open(positions_file, 'r') as f:
         for line in f:
@@ -468,15 +468,19 @@ def get_next_qrid(qrid):
     return get_qrid(qid, int(epoch)+1)
 
 
-def get_queries(positions_file):
+def get_query_ids(file):
+    """
+    :param file: a trec or positions file
+    :return: all qids in file
+    """
     qid_list = []
-    with open(positions_file) as f:
+    with open(file) as f:
         for line in f:
-            qid = line.split()[0]
+            qid = line.split()[2].split('-')[2]
             if qid not in qid_list:
                 qid_list.append(qid)
     return sorted(qid_list)
 
 
-def load_word_embedding_file(model_file):
+def load_word_embedding_model(model_file):
     return gensim.models.KeyedVectors.load_word2vec_format(model_file, binary=True, limit=700000)
