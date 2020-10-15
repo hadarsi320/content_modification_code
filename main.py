@@ -191,7 +191,7 @@ def main():
     parser = OptionParser()
 
     # Variables
-    parser.add_option('--mode', choices=['2of2', '5'], default='5')
+    parser.add_option('--mode', choices=['2of2', 'general'], default='general')
     parser.add_option('--qid')
     parser.add_option('--bots')
     parser.add_option('--source_data', choices=['paper', 'raifer'])

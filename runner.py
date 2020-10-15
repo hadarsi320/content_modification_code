@@ -1,14 +1,15 @@
 import os
 import pickle
 import sys
-
-import gensim
-
-from utils import parse_qrid, ensure_dir, xor, get_queries
 from collections import defaultdict
+from datetime import datetime
 from itertools import combinations
 from os.path import exists
+
+from deprecated import deprecated
+
 from gen_utils import run_bash_command
+from utils import parse_qrid, ensure_dir, get_query_ids, load_word_embedding_model
 
 
 def get_competitors_dict(trec_file: str):
@@ -21,17 +22,15 @@ def get_competitors_dict(trec_file: str):
                 continue
             competitor = line.split()[2].split('-')[-1]
             competitors_dict[qid].append(competitor)
+    for qid in competitors_dict:
+        competitors_dict[qid].sort()
     return dict(competitors_dict)
 
 
-def log_error(error_file, qid, comptitors=None, dummy_bot=None):
-    assert xor(comptitors, dummy_bot)
+def log_error(error_file, qid, bots):
     ensure_dir(error_file)
     with open(error_file, 'a') as f:
-        if comptitors:
-            f.write(f'Error in {qid} with competitors {",".join(comptitors)}\n')
-        else:
-            f.write(f'Error in {qid} with dummy bot index {dummy_bot}\n')
+        f.write(f'Error in {qid} with bots {",".join(bots)}\n')
 
 
 def remove_from_error_file(error_file, qid, players):
@@ -61,14 +60,14 @@ def runnner_2of2(output_dir, pickle_file, trec_file='./data/trec_file_original_s
                 print('Competition qid={} competitors={} has already been ran'.format(qid, ', '.join(pid_list)))
                 continue
 
-            command = f'python main.py --mode=2of2 --qid={qid} --competitors={",".join(pid_list)}' \
+            command = f'python main.py --mode=2of2 --qid={qid} --bots={",".join(pid_list)}' \
                       f' --output_dir={output_dir} --word2vec_dump={pickle_file}'
             print(f'{iteration}. Running command: {command}')
             try:
                 run_bash_command(command)
             except Exception as e:
                 print(f'#### Error occured in competition {qid} {", ".join(pid_list)}: \n{str(e)}\n')
-                log_error(error_file, qid, comptitors=pid_list)
+                log_error(error_file, qid, bots=pid_list)
 
 
 def rerun_errors_2of2(output_dir, pickle_file):
@@ -83,7 +82,7 @@ def rerun_errors_2of2(output_dir, pickle_file):
     iteration = 0
     for qid, player_ids in args:
         iteration += 1
-        command = f'python main.py --mode=2of2 --qid={qid} --competitors={player_ids} --output_dir={output_dir}' \
+        command = f'python main.py --mode=2of2 --qid={qid} --bots={player_ids} --output_dir={output_dir}' \
                   f' --word2vec_dump={pickle_file}'
         print(f'{iteration}. Running command: {command}')
         try:
@@ -93,9 +92,10 @@ def rerun_errors_2of2(output_dir, pickle_file):
             print(f'#### Error occured in competition {qid} {player_ids}: \n{str(e)}\n')
 
 
+@deprecated()
 def runner_2of5(output_dir, pickle_file, positions_file='./data/paper_data/documents.positions'):
     error_file = output_dir + 'error_file.txt'
-    qid_list = sorted(get_queries(positions_file))
+    qid_list = sorted(get_query_ids(positions_file))
     iteration = 0
     for dummy_bot in [1, 2]:
         for qid in qid_list:
@@ -115,9 +115,10 @@ def runner_2of5(output_dir, pickle_file, positions_file='./data/paper_data/docum
                 log_error(error_file, qid, dummy_bot=dummy_bot)
 
 
+@deprecated()
 def runner_3of5(output_dir, pickle_file, positions_file='./data/paper_data/documents.positions'):
     error_file = output_dir + 'error_file.txt'
-    qid_list = sorted(get_queries(positions_file))
+    qid_list = sorted(get_query_ids(positions_file))
     iteration = 0
     for qid in qid_list:
         iteration += 1
@@ -136,17 +137,68 @@ def runner_3of5(output_dir, pickle_file, positions_file='./data/paper_data/docum
             log_error(error_file, qid, dummy_bot='both')
 
 
+def runner_xof5(output_dir, pickle_file, num_of_bots, **kwargs):
+    error_file = output_dir + 'error_file.txt'
+    qid_list = sorted(get_query_ids(kwargs['positions_file'] if 'positions_file' in kwargs else kwargs['trec_file']))
+
+    bots_list = defaultdict(list)
+    if 'positions_file' in kwargs:
+        for qid in qid_list:
+            if num_of_bots == 1:
+                bots_list[qid] = ['BOT']
+            elif num_of_bots == 2:
+                bots_list[qid] = [['BOT', 'DUMMY1'], ['BOT', 'DUMMY2']]
+            elif num_of_bots == 3:
+                bots_list[qid] = ['BOT', 'DUMMY1', 'DUMMY2']
+
+    elif 'trec_file' in kwargs:
+        for qid in qid_list:
+            competitors = get_competitors_dict(kwargs['trec_file'])
+            bots_list[qid] = list(combinations(competitors[qid], num_of_bots))
+    else:
+        raise ValueError('No file given to get bots')
+
+    iteration = 0
+    while len(qid_list) > 0:
+        remove_list = []
+        for qid in qid_list:
+            iteration += 1
+            if len(bots_list[qid]) > 0:
+                bots = bots_list[qid].pop(0)
+                if exists(output_dir + f'trec_files/similarity_{qid}_{",".join(bots)}.txt'):
+                    print(f'{iteration}. Competition qid={qid} competitors={", ".join(bots)} has already been ran')
+                    continue
+
+                command = f'python main.py --output_dir={output_dir} --mode=general' \
+                          f' --source={"raifer" if "trec_file" in kwargs else "paper"} ' \
+                          f' --qid={qid} --bots={",".join(bots)}  --word2vec_dump={pickle_file}'
+                print(f'{iteration}. Running command: {command}')
+                try:
+                    run_bash_command(command)
+                except Exception as e:
+                    print(f'#### Error occured in competition {qid} {", ".join(bots)}: \n{str(e)}\n')
+                    log_error(error_file, qid, bots=bots)
+
+            else:
+                remove_list.append(qid)
+
+        for qid in remove_list:
+            qid_list.remove(qid)
+
+
 def main():
+    positions_file_paper = './data/paper_data/documents.positions'
+    trec_file_raifer = 'data/trec_file_original_sorted.txt'
+    embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
+
     mode = sys.argv[1]
-    if mode not in ['2of2', 'rerun_2of2', '2of5', '3of5']:
+    if mode not in ['2of2', 'rerun_2of2'] + [f'{x}of5' for x in range(1, 6)]:
         raise ValueError(f'Illegal mode given {mode}')
 
-    output_dir = './output/{}/{}/'.format(sys.argv[1], sys.argv[2])
+    output_dir = './output/{}/{}/'.format(mode, datetime.now().strftime('run_%m_%d_%H'))
     ensure_dir(output_dir)
 
-    embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
-    word_embedding_model = gensim.models.KeyedVectors.load_word2vec_format(embedding_model_file,
-                                                                           binary=True, limit=700000)
+    word_embedding_model = load_word_embedding_model(embedding_model_file)
 
     word2vec_pkl = output_dir + 'word_embedding_model.pkl'
     with open(word2vec_pkl, 'wb') as f:
@@ -154,12 +206,17 @@ def main():
 
     if mode == '2of2':
         runnner_2of2(output_dir, word2vec_pkl)
+
     elif mode == 'rerun_2of2':
         rerun_errors_2of2(output_dir, word2vec_pkl)
-    elif mode == '2of5':
-        runner_2of5(output_dir, word2vec_pkl)
-    elif mode == '3of5':
-        runner_3of5(output_dir, word2vec_pkl)
+
+    elif mode.endswith('of5'):
+        source = sys.argv[2]
+        num_of_bots = int(mode[0])
+        if source == 'paper':
+            runner_xof5(output_dir, word2vec_pkl, num_of_bots, positions_file=positions_file_paper)
+        elif source == 'raifer':
+            runner_xof5(output_dir, word2vec_pkl, num_of_bots, trec_file=trec_file_raifer)
 
     os.remove(word2vec_pkl)
 
