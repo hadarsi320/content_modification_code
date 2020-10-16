@@ -11,7 +11,7 @@ from nltk import sent_tokenize
 from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    ensure_dir, create_documents_workingset, get_learning_data_path, get_doc_id, xor
+    ensure_dirs, create_documents_workingset, get_learning_data_path, get_doc_id, xor
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
@@ -21,7 +21,7 @@ def create_initial_trec_file(output_dir, qid, bots, only_bots, **kwargs):
     new_trec_file = output_dir + 'trec_file_{}_{}'.format(qid, ','.join(bots))
 
     lines_written = 0
-    ensure_dir(new_trec_file)
+    ensure_dirs(new_trec_file)
     if 'trec_file' in kwargs:
         qrid = get_qrid(qid, 1)
         with open(kwargs['trec_file'], 'r') as trec_file:
@@ -67,7 +67,7 @@ def create_initial_trectext_file(trectext_file, output_dir, qid, bots, only_bots
     logger = logging.getLogger(sys.argv[0])
 
     new_trectext_file = output_dir + 'documents_{}_{}.trectext'.format(qid, ','.join(bots))
-    ensure_dir(new_trectext_file)
+    ensure_dirs(new_trectext_file)
 
     parser = etree.XMLParser(recover=True)
     tree = ET.parse(trectext_file, parser=parser)
@@ -107,14 +107,14 @@ def generate_learning_dataset(output_dir, label_aggregation_method, seo_qrels, c
 
 
 def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
-    ensure_dir(model_path)
+    ensure_dirs(model_path)
     command = svm_rank_scripts_dir + 'svm_rank_learn -c ' + svm_rank_c + ' ' + learning_data + ' ' + model_path
     run_and_print(command)
 
 
 def generate_predictions(model_path, svm_rank_scripts_dir, predictions_dir, feature_file):
     predictions_file = predictions_dir + '_predictions'.join(splitext(basename(feature_file)))
-    ensure_dir(predictions_file)
+    ensure_dirs(predictions_file)
     command = svm_rank_scripts_dir + 'svm_rank_classify ' + feature_file + ' ' + model_path + ' ' + predictions_file
     run_and_print(command)
     return predictions_file
@@ -211,7 +211,7 @@ def update_trec_file(comp_trec_file, reranked_trec_file):
 
 
 def generate_document_tfidf_files(workingset_file, output_dir, swig_path, base_index, new_index):
-    ensure_dir(output_dir)
+    ensure_dirs(output_dir)
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
               f'{base_index} {new_index} {workingset_file} {output_dir}'
     run_and_print(command, command_name='Document tfidf Creation')
@@ -219,7 +219,7 @@ def generate_document_tfidf_files(workingset_file, output_dir, swig_path, base_i
 
 def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedding_model, document_tfidf_dir):
     logger = logging.getLogger(sys.argv[0])
-    ensure_dir(similarity_file)
+    ensure_dirs(similarity_file)
 
     recent_documents = []
     recent_texts = []
@@ -240,7 +240,7 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
 
 
 def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_index, in_index):
-    ensure_dir(replacements_file)
+    ensure_dirs(replacements_file)
     with open(replacements_file, 'a') as f:
         f.write(f'{epoch}. {in_doc_id}\t{out_doc_id}\t{out_index}\t{in_index}\n')
 

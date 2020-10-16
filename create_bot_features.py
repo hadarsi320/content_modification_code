@@ -15,7 +15,7 @@ from gen_utils import run_bash_command, list_multiprocessing, run_and_print
 from utils import clean_texts, get_java_object, create_trectext_file, create_index, \
     run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
     transform_query_text, read_queries_file, get_query_text, parse_qrid, create_index_to_query_dict, \
-    generate_pair_name, ensure_dir, tokenize_document, is_file_empty, get_next_doc_id, get_next_qrid
+    generate_pair_name, ensure_dirs, tokenize_document, is_file_empty, get_next_doc_id, get_next_qrid
 from vector_functionality import query_term_freq, embedding_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
@@ -282,7 +282,7 @@ def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_i
     logger = logging.getLogger(sys.argv[0])
     if not os.path.exists(output_feature_files_dir):
         os.makedirs(output_feature_files_dir)
-    ensure_dir(output_final_features_file)
+    ensure_dirs(output_final_features_file)
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
     create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
@@ -349,7 +349,7 @@ def update_texts(doc_texts, pairs_ranked_lists, sentence_data):
 
 def create_ws(raw_ds, ws_fname, ref):
     # ind_name = {-1: "5", 1: "2"}
-    ensure_dir(ws_fname)
+    ensure_dirs(ws_fname)
     with open(ws_fname, 'w') as ws:
         for qrid in raw_ds:
             epoch, qid = parse_qrid(qrid)
@@ -379,7 +379,7 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
                   new_feature_file_name='new_feature_file', feature_dir_name='feature_dir/',
                   new_trec_file_name='trec_file', score_file_name='score_file'):
     logger = logging.getLogger(sys.argv[0])
-    ensure_dir(output_dir)
+    ensure_dirs(output_dir)
 
     specific_ws = output_dir + specific_ws_name
     feature_file = output_dir + new_feature_file_name

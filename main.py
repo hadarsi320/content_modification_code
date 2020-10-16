@@ -203,6 +203,7 @@ def main():
     parser.add_option('--label_aggregation_method', '--agg',
                       choices=['harmonic', 'demotion', 'weighted'], default='harmonic')
     parser.add_option('--run_mode', choices=['single', 'multiple'], default='single')
+    parser.add_option('--word2vec_dump')
 
     # Defaults
     parser.add_option('--label_aggregation_b', '-b', default='1')
@@ -229,7 +230,6 @@ def main():
     parser.add_option("--swig_path", default='/lv_local/home/hadarsi/indri-5.6/swig/obj/java/')
     parser.add_option("--embedding_model_file",
                       default='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model')
-    parser.add_option('--word2vec_dump')
 
     (options, args) = parser.parse_args()
 

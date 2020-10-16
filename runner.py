@@ -9,7 +9,7 @@ from os.path import exists
 from deprecated import deprecated
 
 from gen_utils import run_bash_command
-from utils import parse_qrid, ensure_dir, get_query_ids, load_word_embedding_model
+from utils import parse_qrid, ensure_dirs, get_query_ids, load_word_embedding_model
 
 
 def get_competitors_dict(trec_file: str):
@@ -27,10 +27,10 @@ def get_competitors_dict(trec_file: str):
     return dict(competitors_dict)
 
 
-def log_error(error_file, qid, bots):
-    ensure_dir(error_file)
+def log_error(error_file, command):
+    ensure_dirs(error_file)
     with open(error_file, 'a') as f:
-        f.write(f'Error in {qid} with bots {",".join(bots)}\n')
+        f.write(f'Error occurred when running: {command}\n')
 
 
 def remove_from_error_file(error_file, qid, players):
@@ -67,7 +67,7 @@ def runnner_2of2(output_dir, pickle_file, trec_file='./data/trec_file_original_s
                 run_bash_command(command)
             except Exception as e:
                 print(f'#### Error occured in competition {qid} {", ".join(pid_list)}: \n{str(e)}\n')
-                log_error(error_file, qid, bots=pid_list)
+                log_error(error_file, command)
 
 
 def rerun_errors_2of2(output_dir, pickle_file):
@@ -112,7 +112,7 @@ def runner_2of5(output_dir, pickle_file, positions_file='./data/paper_data/docum
                 run_bash_command(command)
             except Exception as e:
                 print(f'#### Error occured in competition {qid} {dummy_bot}:\n{str(e)}\n')
-                log_error(error_file, qid, dummy_bot=dummy_bot)
+                log_error(error_file, command)
 
 
 @deprecated()
@@ -134,7 +134,7 @@ def runner_3of5(output_dir, pickle_file, positions_file='./data/paper_data/docum
 
         except Exception as e:
             print(f'#### Error occured in competition {qid}:\n{str(e)}\n')
-            log_error(error_file, qid, dummy_bot='both')
+            log_error(error_file,  command)
 
 
 def runner_xof5(output_dir, pickle_file, num_of_bots, **kwargs):
@@ -177,7 +177,7 @@ def runner_xof5(output_dir, pickle_file, num_of_bots, **kwargs):
                     run_bash_command(command)
                 except Exception as e:
                     print(f'#### Error occured in competition {qid} {", ".join(bots)}: \n{str(e)}\n')
-                    log_error(error_file, qid, bots=bots)
+                    log_error(error_file, command)
 
             else:
                 remove_list.append(qid)
@@ -195,8 +195,12 @@ def main():
     if mode not in ['2of2', 'rerun_2of2'] + [f'{x}of5' for x in range(1, 6)]:
         raise ValueError(f'Illegal mode given {mode}')
 
-    output_dir = './output/{}/{}/'.format(mode, datetime.now().strftime('run_%m_%d_%H'))
-    ensure_dir(output_dir)
+    if mode.startswith('rerun'):
+        return
+
+    results_dir = 'results/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
+    output_dir = 'output/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
+    ensure_dirs(results_dir, output_dir)
 
     word_embedding_model = load_word_embedding_model(embedding_model_file)
 
@@ -207,8 +211,8 @@ def main():
     if mode == '2of2':
         runnner_2of2(output_dir, word2vec_pkl)
 
-    elif mode == 'rerun_2of2':
-        rerun_errors_2of2(output_dir, word2vec_pkl)
+    # elif mode == 'rerun_2of2':
+    #     rerun_errors_2of2(output_dir, word2vec_pkl)
 
     elif mode.endswith('of5'):
         source = sys.argv[2]
@@ -219,6 +223,9 @@ def main():
             runner_xof5(output_dir, word2vec_pkl, num_of_bots, trec_file=trec_file_raifer)
 
     os.remove(word2vec_pkl)
+
+    command = f'cp -r {output_dir}/trec_files {output_dir}/trectext_files {output_dir}/error_file {results_dir}'
+    run_bash_command(command)
 
 
 if __name__ == '__main__':

@@ -24,7 +24,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     run_bash_command("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
     if not os.path.exists(features_dir):
         os.makedirs(features_dir)
-    ensure_dir(new_features_file)
+    ensure_dirs(new_features_file)
 
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar LTRFeatures {base_index_path} ' \
               f'{new_index_path} {stopwords_file} {queries_text_file} {working_set_file} {features_dir}'
@@ -142,7 +142,7 @@ def create_index(trectext_file, new_index_name, indri_path):
     corpus_class = 'trectext'
     memory = '1G'
     stemmer = 'krovetz'
-    ensure_dir(new_index_name)
+    ensure_dirs(new_index_name)
     command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trectext_file} -corpus.class={corpus_class} ' \
               f'-index={new_index_name} -memory={memory} -stemmer.name={stemmer}'
     run_and_print(command, command_name='IndriBuildIndex')
@@ -156,7 +156,7 @@ def merge_indices(merged_index, new_index_name, base_index, home_path, indri_pat
     # new_index_name = home_path +'/' + index_path +'/' + new_index_name
     if os.path.exists(merged_index):
         os.remove(merged_index)
-    ensure_dir(merged_index)
+    ensure_dirs(merged_index)
     command = home_path + "/" + indri_path + '/bin/dumpindex ' + merged_index + ' merge ' + new_index_name + ' ' + \
               base_index
     print("##merging command:", command + "##", flush=True)
@@ -166,7 +166,7 @@ def merge_indices(merged_index, new_index_name, base_index, home_path, indri_pat
 
 
 def create_trec_eval_file(results, trec_file):
-    ensure_dir(trec_file)
+    ensure_dirs(trec_file)
     with open(trec_file, 'w') as f:
         for query in results:
             for doc in results[query]:
@@ -222,7 +222,7 @@ def create_index_to_query_dict(data_set_file):
 
 
 def run_model(features_file, jar_path, score_file, model_path):
-    ensure_dir(score_file)
+    ensure_dirs(score_file)
     run_bash_command('touch ' + score_file)
     command = "java -jar " + jar_path + " -load " + model_path + " -rank " + features_file + " -score " + \
               score_file
@@ -406,22 +406,20 @@ def generate_pair_name(pair):
 
 
 def create_documents_workingset(output_file, epoch, qid, competitor_list):
-    ensure_dir(output_file)
+    ensure_dirs(output_file)
     with open(output_file, 'w') as f:
         for competitor in competitor_list:
             line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
             f.write(line)
 
 
-def ensure_dir(file_name: str):
-    if file_name.endswith('/'):
-        dir_name = file_name
-    else:
-        dir_name = os.path.dirname(file_name)
+def ensure_dirs(*args):
+    for file in args:
+        dir_name = os.path.dirname(file)
 
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-        print('{} Creating directory: {}'.format('#' * 20, dir_name))
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+            print('{} Creating directory: {}'.format('#' * 20, dir_name))
 
 
 def tokenize_document(document):

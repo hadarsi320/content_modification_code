@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 from bot_competition import get_competitors
 from data_analysis import compute_average_rank, compute_average_promotion
-from utils import read_competition_trec_file, normalize_dict_len, ensure_dir, read_positions_file
+from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file
 
 
 def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label=None, save_file=None, show=False,
@@ -240,7 +240,7 @@ def main():
     positions_file = 'data/paper_data/documents.positions'
 
     plots_dir = './plots'
-    ensure_dir(plots_dir)
+    ensure_dirs(plots_dir)
 
     # competition_5_analysis(trec_dir_3, show=True, plots_dir=None)
     # word_similarity_analysis(sim_dir, show=True, plots_dir=plots_dir)
