@@ -287,7 +287,10 @@ def main():
             os.remove(replacements_file)
         competitors = get_competitors(
             trec_file=options.trec_file if options.source_data == 'raifer' else options.positions_file, qid=qid)
-        assert all([bot in competitors for bot in bots])
+
+        if not all([bot in competitors for bot in bots]):
+            raise ValueError(f'Not all given bots are competitors in the query \n'
+                             f'bots: {bots} \ncompetitors: {competitors}')
 
         if options.source_data == 'raifer':
             trectext_file = options.trectext_file_raifer
