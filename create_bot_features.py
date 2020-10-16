@@ -22,12 +22,11 @@ from vector_functionality import query_term_freq, embedding_similarity, calculat
 
 def create_sentence_pairs(top_docs, ref_doc, texts):
     result = {}
-    ref_sentences = tokenize_document(texts[ref_doc])  # sent_tokenize(texts[ref_doc])  # texts[ref_doc].split('\n')
+    ref_sentences = tokenize_document(texts[ref_doc])
     for doc in top_docs:
-        doc_sentences = tokenize_document(texts[doc])  # sent_tokenize(texts[doc])  # texts[doc].split('\n')
+        doc_sentences = tokenize_document(texts[doc])
         for in_index, top_sentence in enumerate(doc_sentences):
-            # if top_sentence.replace("\n", " ").rstrip() in ref_sentences:
-            if top_sentence in ref_sentences:
+            if top_sentence in ref_sentences or top_sentence == '':
                 continue
             for out_index, ref_sentence in enumerate(ref_sentences):
                 key = ref_doc + "$" + doc + "_" + str(out_index) + "_" + str(in_index)
@@ -35,8 +34,8 @@ def create_sentence_pairs(top_docs, ref_doc, texts):
     return result
 
 
-def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, top_docs_index, current_epoch=None,
-                       current_qid=None):
+def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, top_docs_index,
+                       current_epoch=None, current_qid=None):
     output_dir = os.path.dirname(output_file)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -138,8 +137,8 @@ def write_files(feature_list, feature_vals, output_dir, qrid, ref):
                 out.write(name + " " + str(value) + "\n")
 
 
-def create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
-                        sentence_tfidf_vectors_dir, query_text, output_dir, qrid, word_embed_model):
+def create_features(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
+                    sentence_tfidf_vectors_dir, query_text, output_dir, qrid, word_embed_model):
     feature_vals = defaultdict(dict)
     relevant_pairs = raw_ds[qrid]
     epoch, qid = parse_qrid(qrid)
@@ -285,8 +284,8 @@ def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_i
     ensure_dirs(output_final_features_file)
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
-    create_features_new(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
-                        sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qrid, word_embed_model)
+    create_features(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
+                    sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, qrid, word_embed_model)
     command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
     logger.info(command)
     run_bash_command(command)
@@ -348,12 +347,10 @@ def update_texts(doc_texts, pairs_ranked_lists, sentence_data):
 
 
 def create_ws(raw_ds, ws_fname, ref):
-    # ind_name = {-1: "5", 1: "2"}
     ensure_dirs(ws_fname)
     with open(ws_fname, 'w') as ws:
         for qrid in raw_ds:
             epoch, qid = parse_qrid(qrid)
-            # query_write = qid + str(int(epoch)) + ind_name[ref]
             query_write = f'{qid}{epoch.lstrip("0")}{ref+1}'
             for i, pair in enumerate(raw_ds[qrid]):
                 name = generate_pair_name(pair)

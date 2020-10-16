@@ -34,7 +34,7 @@ def run_bash_command(command):
 def run_and_print(command, command_name=None):
     logger = logging.getLogger(sys.argv[0])
     name = command_name.rstrip() if command_name else 'Command'
-    print_string = f'Running {name} command: {command}'
+    print_string = f'Running {name} command: \n{command}'
     logger.info(print_string)
     out = run_bash_command(command)
     output_string = name + ' output:'
