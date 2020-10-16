@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 import xml.etree.ElementTree as ET
 from os.path import exists, basename, splitext
@@ -11,7 +10,7 @@ from nltk import sent_tokenize
 from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    ensure_dirs, create_documents_workingset, get_learning_data_path, get_doc_id, xor
+    ensure_dirs, get_learning_data_path, get_doc_id
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 

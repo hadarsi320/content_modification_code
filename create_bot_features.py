@@ -12,9 +12,9 @@ from deprecated import deprecated
 from nltk import sent_tokenize
 
 from gen_utils import run_bash_command, list_multiprocessing, run_and_print
-from utils import clean_texts, get_java_object, create_trectext_file, create_index, \
-    run_model, create_features_file_diff, read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
-    transform_query_text, read_queries_file, get_query_text, parse_qrid, create_index_to_query_dict, \
+from utils import clean_texts, get_java_object, create_trectext_file, run_model, create_features_file_diff, \
+    read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
+    get_query_text, parse_qrid, create_index_to_query_dict, \
     generate_pair_name, ensure_dirs, tokenize_document, is_file_empty, get_next_doc_id, get_next_qrid
 from vector_functionality import query_term_freq, embedding_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity

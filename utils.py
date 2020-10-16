@@ -1,18 +1,17 @@
 import logging
 import os
-import re
 import shutil
 import sys
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 import gensim
 import javaobj
 from deprecated import deprecated
-
-from gen_utils import run_bash_command, run_command, run_and_print
-import xml.etree.ElementTree as ET
 from lxml import etree
 from nltk import sent_tokenize
+
+from gen_utils import run_bash_command, run_command, run_and_print
 
 
 def create_features_file_diff(features_dir, base_index_path, new_index_path, new_features_file,
