@@ -8,6 +8,7 @@ from bot_competition import get_competitors
 from data_analysis import compute_average_rank, compute_average_promotion
 from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file
 
+COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de'}
 
 def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label=None, save_file=None, show=False,
          fig_size=(6, 4)):
@@ -191,27 +192,30 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
     groups = ['students', 'bots']
     colors = ['blue', 'red', 'green']
     shapes_list = {'bots': 'D', 'students': 'o'}
-    titles = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
+    y_labels = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
     x_ticks_list = [range(1, num_rounds+1), range(2, num_rounds+1), range(2, num_rounds+1)]
     functions = [lambda x, y, z, w: compute_average_rank(x, y, z, is_paper_data=w),
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=False, is_paper_data=w),
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=True, is_paper_data=w)]
 
-    fig, axs = plt.subplots(ncols=3, figsize=(22, 8))
+    if 'axs' in kwargs:
+        axs = kwargs['axs']
+    else:
+        _, axs = plt.subplots(ncols=3, figsize=(22, 8))
     plt.rcParams.update({'font.size': 12})
 
     # for i in range(3):
     for i, key in enumerate(sorted(list_of_ranked_lists)):
         ranked_lists = list_of_ranked_lists[key]
         competitors_lists = list_of_competitors_lists[key]
-        color = colors[i]
+        color = COLORS[colors[i]]
 
         for ii in range(3):
             axis = axs[ii]
             x_ticks = x_ticks_list[ii]
             # y_ticks = y_ticks_list[ii]
             function = functions[ii]
-            title = titles[ii]
+            y_label = y_labels[ii]
 
             is_paper_data = 'positions_files' in kwargs and key in kwargs['positions_files']
             results = {group: function(ranked_lists, competitors_lists, group, is_paper_data)
@@ -224,11 +228,11 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
                 shape = shapes_list[group]
                 axis.plot(x_ticks, result, label=label, color=color, marker=shape, markersize=10)
 
-            axis.set_title(title)
-            axis.set_ylabel(title)
+            if 'title' in kwargs:
+                axis.set_title(kwargs['title'])
+            axis.set_ylabel(y_label)
             axis.legend(loc='upper right')
             axis.set_xticks(x_ticks)
-            # axis.set_yticks(y_ticks)
             axis.set_xlabel('Round')
 
     if 'save_file' in kwargs:
@@ -241,18 +245,22 @@ def main():
     paper_positions_files = {'1of5': 'data/paper_data/documents.positions'}
     paper_trec_dirs = {'2of5': 'output/2of5_10_12/trec_files/',
                         '3of5': 'output/3of5_10_12/trec_files/'}
-
-    plots_dir = './plots'
-    ensure_dirs(plots_dir)
-
-    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, show=True,
-                         save_file='Competitions Comparison Paper')
-
     raifer_trec_dirs = {'1of5': 'results/1of5_10_16_16/trec_files',
                          '2of5': 'results/2of5_10_16_16/trec_files',
                          '3of5': 'results/3of5_10_16_16/trec_files'}
-    compare_competitions(trec_dirs=raifer_trec_dirs, show=True,
+    plots_dir = './plots'
+    ensure_dirs(plots_dir)
+
+    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, show=False,
+                         save_file='Competitions Comparison Paper')
+    compare_competitions(trec_dirs=raifer_trec_dirs, show=False,
                          save_file='Competitions Comparison Raifer')
+
+    _, axs = plt.subplots(ncols=2, nrows=3, figsize=(15, 20), sharey='row')
+    paper_axs, raifer_axs = axs.transpose()
+    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, show=False, axs=paper_axs, title='Paper')
+    compare_competitions(trec_dirs=raifer_trec_dirs, show=False, axs=raifer_axs, title='Raifer')
+    plt.savefig(plots_dir + '/Competition Comparison Paper vs Raifer')
 
 
 if __name__ == '__main__':
