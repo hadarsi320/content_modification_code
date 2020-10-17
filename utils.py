@@ -452,6 +452,7 @@ def normalize_dict_len(dictionary):
     irregular_keys = [key for key in dictionary if len(dictionary[key]) < max_len]
     for key in irregular_keys:
         dictionary.pop(key)
+    return max_len
 
 
 def get_next_doc_id(doc_id):
