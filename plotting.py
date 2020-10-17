@@ -10,6 +10,7 @@ from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, r
 
 COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de'}
 
+
 def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label=None, save_file=None, show=False,
          fig_size=(6, 4)):
     # plt.clf()
@@ -126,8 +127,10 @@ def recreate_paper_plots(positions_file, show=True, plots_dir=None):
     colors = {'bots': 'b', 'actual_students': 'r', 'planted': 'g'}
     labels = {'bots': 'All Bots', 'actual_students': 'Student Documents', 'planted': 'Planted Documents'}
     functions = [lambda x: compute_average_rank(ranked_lists, competitors_lists, x, is_paper_data=True),
-                 lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, scaled=False, is_paper_data=True),
-                 lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, scaled=True, is_paper_data=True)]
+                 lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, scaled=False,
+                                                     is_paper_data=True),
+                 lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, scaled=True,
+                                                     is_paper_data=True)]
     titles = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
     x_ticks_list = [range(1, 5), range(2, 5), range(2, 5)]
 
@@ -179,9 +182,9 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
             trec_dir = trec_dirs[key]
             trec_files = sorted(listdir(trec_dirs[key]))
             list_of_ranked_lists[key] = {trec_file: read_competition_trec_file(trec_dir + '/' + trec_file)
-                                 for trec_file in trec_files}
+                                         for trec_file in trec_files}
             list_of_competitors_lists[key] = {trec_file: get_competitors(trec_dir + '/' + trec_file)
-                                      for trec_file in trec_files}
+                                              for trec_file in trec_files}
 
     rounds = []
     for key in list_of_ranked_lists:
@@ -193,7 +196,7 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
     colors = ['blue', 'red', 'green']
     shapes_list = {'bots': 'D', 'students': 'o'}
     y_labels = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
-    x_ticks_list = [range(1, num_rounds+1), range(2, num_rounds+1), range(2, num_rounds+1)]
+    x_ticks_list = [range(1, num_rounds + 1), range(2, num_rounds + 1), range(2, num_rounds + 1)]
     functions = [lambda x, y, z, w: compute_average_rank(x, y, z, is_paper_data=w),
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=False, is_paper_data=w),
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=True, is_paper_data=w)]
@@ -213,14 +216,12 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
         for ii in range(3):
             axis = axs[ii]
             x_ticks = x_ticks_list[ii]
-            # y_ticks = y_ticks_list[ii]
             function = functions[ii]
             y_label = y_labels[ii]
 
             is_paper_data = 'positions_files' in kwargs and key in kwargs['positions_files']
             results = {group: function(ranked_lists, competitors_lists, group, is_paper_data)
                        for group in groups}
-            # print(i, ii, *[len(results[key]) for key in results])
 
             for group in groups:
                 result = results[group]
@@ -235,19 +236,19 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
             axis.set_xticks(x_ticks)
             axis.set_xlabel('Round')
 
-    if 'save_file' in kwargs:
+    if 'save_file' in kwargs and 'axs' not in kwargs:
         plt.savefig(plots_dir + kwargs['save_file'])
-    if show:
+    if show and 'axs' not in kwargs:
         plt.show()
 
 
 def main():
     paper_positions_files = {'1of5': 'data/paper_data/documents.positions'}
     paper_trec_dirs = {'2of5': 'output/2of5_10_12/trec_files/',
-                        '3of5': 'output/3of5_10_12/trec_files/'}
+                       '3of5': 'output/3of5_10_12/trec_files/'}
     raifer_trec_dirs = {'1of5': 'results/1of5_10_16_16/trec_files',
-                         '2of5': 'results/2of5_10_16_16/trec_files',
-                         '3of5': 'results/3of5_10_16_16/trec_files'}
+                        '2of5': 'results/2of5_10_16_16/trec_files',
+                        '3of5': 'results/3of5_10_16_16/trec_files'}
     plots_dir = './plots'
     ensure_dirs(plots_dir)
 
@@ -256,10 +257,12 @@ def main():
     compare_competitions(trec_dirs=raifer_trec_dirs, show=False,
                          save_file='Competitions Comparison Raifer')
 
+    # creates a plot that compares Paper competitions to Raifer competitions
     _, axs = plt.subplots(ncols=2, nrows=3, figsize=(15, 20), sharey='row')
     paper_axs, raifer_axs = axs.transpose()
-    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, show=False, axs=paper_axs, title='Paper')
-    compare_competitions(trec_dirs=raifer_trec_dirs, show=False, axs=raifer_axs, title='Raifer')
+    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, axs=paper_axs,
+                         title='Paper')
+    compare_competitions(trec_dirs=raifer_trec_dirs, axs=raifer_axs, title='Raifer')
     plt.savefig(plots_dir + '/Competition Comparison Paper vs Raifer')
 
 
