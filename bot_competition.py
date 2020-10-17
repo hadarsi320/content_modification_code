@@ -1,8 +1,10 @@
 import logging
 import sys
 import xml.etree.ElementTree as ET
+from collections import defaultdict
 from os.path import exists, basename, splitext
 
+import numpy as np
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
@@ -300,3 +302,29 @@ def get_competitors(trec_file, qid=None):
             if (qid is None or last_qid == qid) and pid not in competitors_list:
                 competitors_list.append(pid)
     return competitors_list
+
+
+def find_fastest_climbing_document(ranked_list, qid, pid_list, past=1):
+    past_rank_change = defaultdict(list)
+
+    for pid in pid_list:
+        last_rank = None
+        for epoch in sorted(ranked_list)[-(past+1):]:
+            rank = ranked_list[epoch][qid].index(get_doc_id(epoch, qid, pid))
+            if last_rank is not None:
+                past_rank_change[pid].append(last_rank - rank)
+            last_rank = rank
+
+    average_rank_change = {pid: np.average(past_rank_change[pid]) for pid in pid_list}
+    ordered_rising_documents = sorted(past_rank_change, key=lambda x: average_rank_change[x], reverse=True)
+
+    last_epoch = sorted(ranked_list)[-1]
+    fastest_rising_doc = ordered_rising_documents[0]
+    if ranked_list[last_epoch][qid].index(get_doc_id(last_epoch, qid, fastest_rising_doc)) == 0:
+        # we do not want to return the document that is ranked first as that is us
+        fastest_rising_doc = ordered_rising_documents[1]
+
+    if average_rank_change[fastest_rising_doc] > 0:
+        return fastest_rising_doc
+    else:
+        return None

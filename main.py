@@ -7,7 +7,7 @@ from optparse import OptionParser
 from os.path import exists
 
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
-    get_rankings, get_competitors
+    get_rankings, get_competitors, find_fastest_climbing_document
 from bot_competition import generate_predictions, get_highest_ranked_pair, \
     generate_updated_document, update_trec_file, generate_document_tfidf_files, \
     record_doc_similarity, record_replacement
@@ -132,24 +132,25 @@ def run_general_competition(mode, qid, competitors, bots, rounds, trectext_file,
             bot_doc_id = get_doc_id(epoch, qid, bot_id)
             next_doc_id = get_doc_id(epoch + 1, qid, bot_id)
             ref_index = bots[bot_id]
+
             if ref_index == 0:
                 new_docs[next_doc_id] = doc_texts[bot_doc_id]
-                print('{} is on top'.format(bot_id))
-                continue
+                target = find_fastest_climbing_document(ranked_list, list(bots) + list(students))
 
-            # Creating features
-            top_docs_index = min(3, ref_index)
-            cant_replace = create_bot_features(qrid, ref_index, top_docs_index, ranked_list, doc_texts,
-                                               output_dir, word_embedding_model, mode=run_mode,
-                                               raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir,
-                                               documents_workingset_file=document_workingset_file,
-                                               base_index=base_index, new_index=comp_index, swig_path=swig_path,
-                                               queries_file=queries_xml_file, final_features_file=features_file)
+            else:
+                # Creating features
+                top_docs_index = min(3, ref_index)
+                cant_replace = create_bot_features(qrid, ref_index, top_docs_index, ranked_list, doc_texts,
+                                                   output_dir, word_embedding_model, mode=run_mode,
+                                                   raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir,
+                                                   documents_workingset_file=document_workingset_file,
+                                                   base_index=base_index, new_index=comp_index, swig_path=swig_path,
+                                                   queries_file=queries_xml_file, final_features_file=features_file)
 
-            if cant_replace:
-                new_docs[next_doc_id] = doc_texts[bot_doc_id]
-                print('Bot {} cant replace any sentence'.format(bot_id))
-                continue
+                if cant_replace:
+                    new_docs[next_doc_id] = doc_texts[bot_doc_id]
+                    print('Bot {} cant replace any sentence'.format(bot_id))
+                    continue
 
             # Rank pairs
             ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir,
