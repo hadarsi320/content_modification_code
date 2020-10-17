@@ -30,7 +30,7 @@ def get_competitors_dict(trec_file: str):
 def log_error(error_file, command):
     ensure_dirs(error_file)
     with open(error_file, 'a') as f:
-        f.write(f'Error occurred when running: {command}\n')
+        f.write(f'{command}\n')
 
 
 def remove_from_error_file(error_file, qid, players):
@@ -224,7 +224,7 @@ def main():
 
     os.remove(word2vec_pkl)
 
-    command = f'cp -r {output_dir}/trec_files {output_dir}/trectext_files {output_dir}/error_file {results_dir}'
+    command = f'cp -r {output_dir}/trec_files {output_dir}/trectext_files {output_dir}/error_file.txt {results_dir}'
     run_bash_command(command)
 
 
