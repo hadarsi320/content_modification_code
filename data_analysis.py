@@ -126,7 +126,7 @@ def compute_average_bot_top_duration(ranked_lists):
         duration = 1
         last_top_player = None
         for epoch in sorted(competition):
-            top_player = parse_doc_id(competition[epoch][0])
+            top_player = competition[epoch][0]
             if last_top_player is not None:
                 if top_player == last_top_player:
                     duration += 1
