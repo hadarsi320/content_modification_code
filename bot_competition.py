@@ -287,23 +287,6 @@ def get_rankings(trec_file, bot_ids, qid, epoch):
     return bots, students
 
 
-def get_competitors(trec_file, qid=None):
-    """
-    :param trec_file: a trec file, a positions file can also be given
-    :param qid: if we're only interested in one query, qid will be used to only return the competitors for that query
-    :return: the list of competitors
-    """
-    competitors_list = []
-    with open(trec_file, 'r') as f:
-        for line in f:
-            doc_id = line.split()[2]
-            _, last_qid, pid = parse_doc_id(doc_id)
-            pid = pid.replace('_', '')
-            if (qid is None or last_qid == qid) and pid not in competitors_list:
-                competitors_list.append(pid)
-    return competitors_list
-
-
 def find_fastest_climbing_document(ranked_list, qid, past=1):
     if len(ranked_list) <= past:
         return None

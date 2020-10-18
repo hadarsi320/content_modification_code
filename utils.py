@@ -4,6 +4,7 @@ import shutil
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
+from os import listdir
 
 import gensim
 import javaobj
@@ -482,3 +483,31 @@ def get_query_ids(file):
 
 def load_word_embedding_model(model_file):
     return gensim.models.KeyedVectors.load_word2vec_format(model_file, binary=True, limit=700000)
+
+
+def read_trec_dir(trec_dir):
+    """
+    :param trec_dir: a directory of trec files
+    :return: ranked_lists, competitors_lists
+    """
+    trec_files = sorted(listdir(trec_dir))
+    ranked_lists = {trec_file: read_competition_trec_file(trec_dir + '/' + trec_file) for trec_file in trec_files}
+    competitors_lists = {trec_file: get_competitors(trec_dir + '/' + trec_file) for trec_file in trec_files}
+    return ranked_lists, competitors_lists
+
+
+def get_competitors(trec_file, qid=None):
+    """
+    :param trec_file: a trec file, a positions file can also be given
+    :param qid: if we're only interested in one query, qid will be used to only return the competitors for that query
+    :return: the list of competitors
+    """
+    competitors_list = []
+    with open(trec_file, 'r') as f:
+        for line in f:
+            doc_id = line.split()[2]
+            _, last_qid, pid = parse_doc_id(doc_id)
+            pid = pid.replace('_', '')
+            if (qid is None or last_qid == qid) and pid not in competitors_list:
+                competitors_list.append(pid)
+    return competitors_list
