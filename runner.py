@@ -29,6 +29,8 @@ def get_competitors_dict(trec_file: str):
 
 def log_error(error_file, command):
     ensure_dirs(error_file)
+    command = ' '.join([argument for argument in command.split()
+                        if not ('word2vec_dump' in argument or 'output_dir' in argument)])
     with open(error_file, 'a') as f:
         f.write(f'{command}\n')
 
