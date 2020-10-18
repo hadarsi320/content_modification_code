@@ -7,7 +7,7 @@ from optparse import OptionParser
 from os.path import exists
 
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
-    get_rankings, get_competitors, find_fastest_climbing_document
+    get_rankings, find_fastest_climbing_document
 from bot_competition import generate_predictions, get_highest_ranked_pair, \
     generate_updated_document, update_trec_file, generate_document_tfidf_files, \
     record_doc_similarity, record_replacement
@@ -15,7 +15,7 @@ from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
 from utils import get_doc_id, \
     update_trectext_file, complete_sim_file, create_index, create_documents_workingset, get_next_doc_id, \
-    load_word_embedding_model
+    load_word_embedding_model, get_competitors
 from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 
