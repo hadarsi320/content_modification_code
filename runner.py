@@ -145,11 +145,11 @@ def runner_xof5(output_dir, pickle_file, num_of_bots, **kwargs):
     if 'positions_file' in kwargs:
         for qid in qid_list:
             if num_of_bots == 1:
-                bots_list[qid] = ['BOT']
+                bots_list[qid] = [['BOT']]
             elif num_of_bots == 2:
                 bots_list[qid] = [['BOT', 'DUMMY1'], ['BOT', 'DUMMY2']]
             elif num_of_bots == 3:
-                bots_list[qid] = ['BOT', 'DUMMY1', 'DUMMY2']
+                bots_list[qid] = [['BOT', 'DUMMY1', 'DUMMY2']]
 
     elif 'trec_file' in kwargs:
         for qid in qid_list:
@@ -169,8 +169,8 @@ def runner_xof5(output_dir, pickle_file, num_of_bots, **kwargs):
                     print(f'{iteration}. Competition qid={qid} competitors={", ".join(bots)} has already been ran')
                     continue
 
-                command = f'python main.py --output_dir={output_dir} --mode=general' \
-                          f' --source={"raifer" if "trec_file" in kwargs else "paper"} ' \
+                command = f'python main.py --output_dir={output_dir}' \
+                          f' --mode={"raifer" if "trec_file" in kwargs else "paper"} ' \
                           f' --qid={qid} --bots={",".join(bots)}  --word2vec_dump={pickle_file}'
                 print(f'{iteration}. Running command: {command}')
                 try:
@@ -192,18 +192,25 @@ def main():
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
 
     mode = sys.argv[1]
+    source = sys.argv[2]
+
     if mode not in ['2of2', 'rerun_2of2'] + [f'{x}of5' for x in range(1, 6)]:
         raise ValueError(f'Illegal mode given {mode}')
 
     if mode.startswith('rerun'):
+        print('Implement this rerunning thing')
         return
 
     results_dir = 'results/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
     output_dir = 'output/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
+
+    if len(sys.argv) > 3:
+        results_dir = results_dir[:-1] + '_' + sys.argv[3] + '/'
+        output_dir = output_dir[:-1] + '_' + sys.argv[3] + '/'
+
     ensure_dirs(results_dir, output_dir)
 
     word_embedding_model = load_word_embedding_model(embedding_model_file)
-
     word2vec_pkl = output_dir + 'word_embedding_model.pkl'
     with open(word2vec_pkl, 'wb') as f:
         pickle.dump(word_embedding_model, f)
@@ -215,7 +222,6 @@ def main():
     #     rerun_errors_2of2(output_dir, word2vec_pkl)
 
     elif mode.endswith('of5'):
-        source = sys.argv[2]
         num_of_bots = int(mode[0])
         if source == 'paper':
             runner_xof5(output_dir, word2vec_pkl, num_of_bots, positions_file=positions_file_paper)
