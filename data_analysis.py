@@ -2,6 +2,8 @@ from collections import defaultdict
 
 import numpy as np
 
+from utils import parse_doc_id
+
 
 def in_group(competitor, group, bots):
     dummy_bots = [bot for bot in bots if bot.startswith('DUMMY')]
@@ -113,3 +115,24 @@ def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=Fal
 
     average_rank_promotion = [np.average(rank_promotion[epoch]) for epoch in epochs[1:]]
     return average_rank_promotion
+
+
+def compute_average_bot_top_duration(ranked_lists):
+    top_durations = []
+    for competition_id in ranked_lists:
+        bots = competition_id.split('_')[3].split(',')
+        competition = ranked_lists[competition_id]
+
+        duration = 1
+        last_top_player = None
+        for epoch in sorted(competition):
+            top_player = parse_doc_id(competition[epoch][0])
+            if last_top_player is not None:
+                if top_player == last_top_player:
+                    duration += 1
+                else:
+                    if last_top_player in bots:
+                        top_durations.append(duration)
+                    duration = 1
+            last_top_player = top_player
+    return np.average(top_durations)
