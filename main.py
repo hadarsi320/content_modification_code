@@ -139,7 +139,8 @@ def run_general_competition(mode, qid, competitors, bots, rounds, trectext_file,
             if ref_index == 0:
                 target = find_fastest_climbing_document(ranked_lists, qid)
                 if target is not None:
-                    cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, target_docs=[target],
+                    target_doc_id = get_doc_id(epoch, qid, target)
+                    cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, target_docs=[target_doc_id],
                                                        ranked_lists=ranked_lists, doc_texts=doc_texts,
                                                        output_dir=output_dir, word_embed_model=word_embedding_model,
                                                        mode=run_mode, raw_ds_file=raw_ds_file,
@@ -165,7 +166,7 @@ def run_general_competition(mode, qid, competitors, bots, rounds, trectext_file,
 
             if cant_replace:
                 new_docs[next_doc_id] = doc_texts[bot_doc_id]
-                print('Bot {} cant replace any sentence'.format(bot_id))
+                logger.info('Bot {} cant replace any sentence'.format(bot_id))
                 continue
 
             # Rank pairs
@@ -208,10 +209,9 @@ def main():
     parser = OptionParser()
 
     # Variables
-    parser.add_option('--mode', choices=['2of2', 'general'], default='general')
+    parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])
     parser.add_option('--qid')
     parser.add_option('--bots')
-    parser.add_option('--source_data', choices=['paper', 'raifer'])
 
     # TODO implement the use of competition file, in order to run multiple competitions simultaneously
     # parser.add_option('--competition_file')
@@ -302,14 +302,14 @@ def main():
         replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
         if exists(replacements_file):
             os.remove(replacements_file)
-        competitors = get_competitors(
-            trec_file=options.trec_file if options.source_data == 'raifer' else options.positions_file, qid=qid)
+        competitors = get_competitors(qid=qid,
+            trec_file=options.trec_file if options.mode == 'raifer' else options.positions_file)
 
         if not all([bot in competitors for bot in bots]):
             raise ValueError(f'Not all given bots are competitors in the query \n'
                              f'bots: {bots} \ncompetitors: {competitors}')
 
-        if options.source_data == 'raifer':
+        if options.mode == 'raifer':
             trectext_file = options.trectext_file_raifer
             run_general_competition('paper', qid, competitors, bots, 7, trectext_file, output_dir,
                                     document_workingset_file, options.indri_path, options.swig_path,
@@ -319,7 +319,7 @@ def main():
                                     options.stopwords_file, options.queries_text_file, options.queries_xml_file,
                                     options.ranklib_jar, options.rank_model, svm_rank_model, word_embedding_model,
                                     trec_file=options.trec_file)
-        elif options.source_data == 'paper':
+        elif options.mode == 'paper':
             trectext_file = options.trectext_file_paper
             run_general_competition('paper', qid, competitors, bots, 3, trectext_file, output_dir,
                                     document_workingset_file, options.indri_path, options.swig_path,
