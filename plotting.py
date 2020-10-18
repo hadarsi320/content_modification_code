@@ -4,9 +4,9 @@ from os import listdir
 import numpy as np
 from matplotlib import pyplot as plt
 
-from bot_competition import get_competitors
-from data_analysis import compute_average_rank, compute_average_promotion
-from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file
+from data_analysis import compute_average_rank, compute_average_promotion, compute_average_bot_top_duration
+from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file, read_trec_dir, \
+    get_competitors
 
 COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de'}
 
@@ -167,28 +167,24 @@ def recreate_paper_plots(positions_file, show=True, plots_dir=None):
 
 
 def compare_competitions(show=True, plots_dir='plots/', **kwargs):
-    list_of_ranked_lists = {}
-    list_of_competitors_lists = {}
+    ranked_lists_dict = {}
+    competitors_lists_dict = {}
+
     if 'positions_files' in kwargs:
         positions_files = kwargs['positions_files']
         for key in positions_files:
-            list_of_ranked_lists[key] = read_positions_file(positions_files[key])
-            list_of_competitors_lists[key] = {qid: next(iter(list_of_ranked_lists[key][qid].values()))
-                                              for qid in list_of_ranked_lists[key]}
+            ranked_lists_dict[key] = read_positions_file(positions_files[key])
+            competitors_lists_dict[key] = {qid: next(iter(ranked_lists_dict[key][qid].values()))
+                                           for qid in ranked_lists_dict[key]}
 
     if 'trec_dirs' in kwargs:
         trec_dirs = kwargs['trec_dirs']
         for key in trec_dirs:
-            trec_dir = trec_dirs[key]
-            trec_files = sorted(listdir(trec_dirs[key]))
-            list_of_ranked_lists[key] = {trec_file: read_competition_trec_file(trec_dir + '/' + trec_file)
-                                         for trec_file in trec_files}
-            list_of_competitors_lists[key] = {trec_file: get_competitors(trec_dir + '/' + trec_file)
-                                              for trec_file in trec_files}
+            ranked_lists_dict[key], competitors_lists_dict[key] = read_trec_dir(trec_dirs[key])
 
     rounds = []
-    for key in list_of_ranked_lists:
-        rounds.append(normalize_dict_len(list_of_ranked_lists[key]))
+    for key in ranked_lists_dict:
+        rounds.append(normalize_dict_len(ranked_lists_dict[key]))
     assert all(num_rounds == max(rounds) for num_rounds in rounds)
     num_rounds = max(rounds)
 
@@ -208,9 +204,9 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
     plt.rcParams.update({'font.size': 12})
 
     # for i in range(3):
-    for i, key in enumerate(sorted(list_of_ranked_lists)):
-        ranked_lists = list_of_ranked_lists[key]
-        competitors_lists = list_of_competitors_lists[key]
+    for i, key in enumerate(sorted(ranked_lists_dict)):
+        ranked_lists = ranked_lists_dict[key]
+        competitors_lists = competitors_lists_dict[key]
         color = COLORS[colors[i]]
 
         for ii in range(3):
@@ -242,6 +238,30 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
         plt.show()
 
 
+def analyze_top_upgrades(trec_dirs_vanila, trec_dirs_upgrade, show=True, **kwargs):
+    colors = ['blue', 'red']
+    labels = ['Without Top Upgrade', 'With Top Upgrade']
+
+    for i, trec_dirs in enumerate([trec_dirs_vanila, trec_dirs_upgrade]):
+        color = colors[i]
+        label = labels[i]
+
+        list_of_ranked_lists = {}
+        competitions = sorted(trec_dirs)
+        for key in competitions:
+            list_of_ranked_lists[key], _ = read_trec_dir(trec_dirs[key])
+        average_bot_top_duration = [compute_average_bot_top_duration(list_of_ranked_lists[key])
+                                    for key in list_of_ranked_lists]
+
+        plt.plot(competitions, average_bot_top_duration, label=label, color=color)
+    plt.legend()
+
+    if show:
+        plt.show()
+    if 'savefig' in kwargs:
+        plt.savefig(kwargs['savefig'])
+
+
 def main():
     paper_positions_files = {'1of5': 'data/paper_data/documents.positions'}
     paper_trec_dirs = {'2of5': 'output/2of5_10_12/trec_files/',
@@ -252,18 +272,27 @@ def main():
     plots_dir = './plots'
     ensure_dirs(plots_dir)
 
-    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, show=False,
-                         save_file='Competitions Comparison Paper')
-    compare_competitions(trec_dirs=raifer_trec_dirs, show=False,
-                         save_file='Competitions Comparison Raifer')
+    # compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, show=False,
+    #                      save_file='Competitions Comparison Paper')
+    # compare_competitions(trec_dirs=raifer_trec_dirs, show=False,
+    #                      save_file='Competitions Comparison Raifer')
 
     # creates a plot that compares Paper competitions to Raifer competitions
-    _, axs = plt.subplots(ncols=2, nrows=3, figsize=(15, 20), sharey='row')
-    paper_axs, raifer_axs = axs.transpose()
-    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, axs=paper_axs,
-                         title='Paper')
-    compare_competitions(trec_dirs=raifer_trec_dirs, axs=raifer_axs, title='Raifer')
-    plt.savefig(plots_dir + '/Competition Comparison Paper vs Raifer')
+    # _, axs = plt.subplots(ncols=2, nrows=3, figsize=(15, 20), sharey='row')
+    # paper_axs, raifer_axs = axs.transpose()
+    # compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, axs=paper_axs,
+    #                      title='Paper')
+    # compare_competitions(trec_dirs=raifer_trec_dirs, axs=raifer_axs, title='Raifer')
+    # plt.savefig(plots_dir + '/Competition Comparison Paper vs Raifer')
+
+    trec_dirs_wo_upgrade = {'1of5': 'results/1of5_10_16_16/trec_files',
+                            '2of5': 'results/2of5_10_16_16/trec_files',
+                            '3of5': 'results/3of5_10_16_16/trec_files',
+                            '4of5': 'results/4of5_10_16_16/trec_files',
+                            '5of5': 'results/5of5_10_16_16/trec_files'}
+    trec_dirs_w_upgrade = {}
+
+    analyze_top_upgrades(trec_dirs_wo_upgrade, trec_dirs_w_upgrade)
 
 
 if __name__ == '__main__':
