@@ -139,7 +139,7 @@ def runner_3of5(output_dir, pickle_file, positions_file='./data/paper_data/docum
             log_error(error_file,  command)
 
 
-def runner_xof5(output_dir, pickle_file, num_of_bots, **kwargs):
+def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, **kwargs):
     error_file = output_dir + 'error_file.txt'
     qid_list = sorted(get_query_ids(kwargs['positions_file'] if 'positions_file' in kwargs else kwargs['trec_file']))
 
@@ -181,6 +181,9 @@ def runner_xof5(output_dir, pickle_file, num_of_bots, **kwargs):
                     print(f'#### Error occured in competition {qid} {", ".join(bots)}: \n{str(e)}\n')
                     log_error(error_file, command)
 
+                command = f'cp -r {output_dir}/trec_files {output_dir}/trectext_files {output_dir}/error_file.txt ' \
+                          f'{results_dir}'
+                run_bash_command(command)
             else:
                 remove_list.append(qid)
 
@@ -226,14 +229,11 @@ def main():
     elif mode.endswith('of5'):
         num_of_bots = int(mode[0])
         if source == 'paper':
-            runner_xof5(output_dir, word2vec_pkl, num_of_bots, positions_file=positions_file_paper)
+            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, positions_file=positions_file_paper)
         elif source == 'raifer':
-            runner_xof5(output_dir, word2vec_pkl, num_of_bots, trec_file=trec_file_raifer)
+            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, trec_file=trec_file_raifer)
 
     os.remove(word2vec_pkl)
-
-    command = f'cp -r {output_dir}/trec_files {output_dir}/trectext_files {output_dir}/error_file.txt {results_dir}'
-    run_bash_command(command)
 
 
 if __name__ == '__main__':
