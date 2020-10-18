@@ -134,8 +134,12 @@ def run_general_competition(mode, qid, competitors, bots, rounds, trectext_file,
             ref_index = bots[bot_id]
 
             if ref_index == 0:
-                new_docs[next_doc_id] = doc_texts[bot_doc_id]
-                target = find_fastest_climbing_document(ranked_list, list(bots) + list(students))
+                target = find_fastest_climbing_document(ranked_list, qid)
+                if target is not None:
+                    cant_replace = True
+
+                if target is None or cant_replace is True:
+                    new_docs[next_doc_id] = doc_texts[bot_doc_id]
 
             else:
                 # Creating features

@@ -304,8 +304,10 @@ def get_competitors(trec_file, qid=None):
     return competitors_list
 
 
-def find_fastest_climbing_document(ranked_list, qid, pid_list, past=1):
+def find_fastest_climbing_document(ranked_list, qid, past=1):
     past_rank_change = defaultdict(list)
+
+    pid_list = [parse_doc_id(doc_id)[2] for doc_id in next(iter(ranked_list.values()))[qid]]
 
     for pid in pid_list:
         last_rank = None

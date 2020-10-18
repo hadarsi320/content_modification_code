@@ -47,9 +47,9 @@ def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, top_docs
             for query in ranked_lists[epoch]:
                 if current_qid and query != current_qid:
                     continue
-                top_docs = ranked_lists[epoch][query][:top_docs_index]
+                copy_docs = ranked_lists[epoch][query][:top_docs_index]
                 ref_doc = ranked_lists[epoch][query][ref_index]
-                pairs = create_sentence_pairs(top_docs, ref_doc, doc_texts)
+                pairs = create_sentence_pairs(copy_docs, ref_doc, doc_texts)
                 for key in pairs:
                     output.write(str(int(query)) + str(epoch) + "\t" + key + "\t" + pairs[key] + "\n")
 
@@ -255,24 +255,24 @@ def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_i
     write_files(feature_list, feature_vals, output_dir, qrid, ref_doc_index)
 
 
-def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc_index, ref_doc_index,
-                              doc_tfidf_vectors_dir, tfidf_sentence_dir, queries, output_feature_files_dir,
-                              output_final_features_dir, workingset_file):
-    global word_embd_model
-    args = [qid for qid in queries]
-    if not os.path.exists(output_feature_files_dir):
-        os.makedirs(output_feature_files_dir)
-    if not os.path.exists(output_final_features_dir):
-        os.makedirs(output_final_features_dir)
-    raw_ds = read_raw_ds(raw_dataset_file)
-    create_ws(raw_ds, workingset_file, ref_doc_index)
-    func = partial(create_features_og, raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index,
-                   doc_tfidf_vectors_dir, tfidf_sentence_dir, queries, output_feature_files_dir)
-    workers = cpu_count() - 1
-    list_multiprocessing(args, func, workers=workers)
-    command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
-    run_bash_command(command)
-    run_bash_command("mv features " + output_final_features_dir)
+# def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc_index, ref_doc_index,
+#                               doc_tfidf_vectors_dir, tfidf_sentence_dir, queries, output_feature_files_dir,
+#                               output_final_features_dir, workingset_file):
+#     global word_embd_model
+#     args = [qid for qid in queries]
+#     if not os.path.exists(output_feature_files_dir):
+#         os.makedirs(output_feature_files_dir)
+#     if not os.path.exists(output_final_features_dir):
+#         os.makedirs(output_final_features_dir)
+#     raw_ds = read_raw_ds(raw_dataset_file)
+#     create_ws(raw_ds, workingset_file, ref_doc_index)
+#     func = partial(create_features_og, raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index,
+#                    doc_tfidf_vectors_dir, tfidf_sentence_dir, queries, output_feature_files_dir)
+#     workers = cpu_count() - 1
+#     list_multiprocessing(args, func, workers=workers)
+#     command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
+#     run_bash_command(command)
+#     run_bash_command("mv features " + output_final_features_dir)
 
 
 def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_index, top_doc_index,
