@@ -44,7 +44,7 @@ def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, **kwargs
             if 'epoch' in kwargs and epoch != kwargs['epoch']:
                 continue
             for qid in ranked_lists[epoch]:
-                if 'epoch' in kwargs and qid != kwargs['qid']:
+                if 'qid' in kwargs and qid != kwargs['qid']:
                     continue
 
                 if 'top_docs_index' in kwargs:
@@ -141,8 +141,8 @@ def write_files(feature_list, feature_vals, output_dir, qrid, ref):
                 out.write(name + " " + str(value) + "\n")
 
 
-def create_features(raw_ds, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir,
-                    sentence_tfidf_vectors_dir, query_text, output_dir, qrid, word_embed_model, **kwargs):
+def create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
+                    query_text, output_dir, raw_ds, word_embed_model, **kwargs):
     feature_vals = defaultdict(dict)
     relevant_pairs = raw_ds[qrid]
     epoch, qid = parse_qrid(qrid)
@@ -285,8 +285,8 @@ def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_i
 #     run_bash_command("mv features " + output_final_features_dir)
 
 
-def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir,
-                            sentence_tfidf_vectors_dir, qrid, query_text, output_feature_files_dir,
+def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir,
+                            sentence_tfidf_vectors_dir, raw_dataset_file, query_text, output_feature_files_dir,
                             output_final_features_file, workingset_file, word_embed_model, **kwargs):
     logger = logging.getLogger(sys.argv[0])
     if not os.path.exists(output_feature_files_dir):
@@ -294,8 +294,8 @@ def feature_creation_single(raw_dataset_file, ranked_lists, doc_texts, ref_doc_i
     ensure_dirs(output_final_features_file)
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
-    create_features(raw_ds, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
-                    query_text, output_feature_files_dir, qrid, word_embed_model, **kwargs)
+    create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
+                    query_text, output_feature_files_dir, raw_ds, word_embed_model, **kwargs)
     command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
     logger.info(command)
     run_bash_command(command)
@@ -482,9 +482,9 @@ def create_bot_features(qrid, ref_index, ranked_lists, doc_texts, output_dir, wo
         create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, new_index, swig_path,
                                      documents_workingset_file)
         query_text = get_query_text(queries_file, qid)
-        feature_creation_single(raw_ds_file, ranked_lists, doc_texts, ref_index, doc_tfidf_dir, sentences_tfidf_dir,
-                                qrid, query_text, output_feature_files_dir,
-                                final_features_file, workingset_file, word_embed_model, **kwargs)
+        feature_creation_single(qrid, ranked_lists, doc_texts, ref_index, doc_tfidf_dir, sentences_tfidf_dir,
+                                raw_ds_file, query_text, output_feature_files_dir, final_features_file, workingset_file,
+                                word_embed_model, **kwargs)
 
     # elif mode == 'multiple':
     #     create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
