@@ -7,7 +7,7 @@ from optparse import OptionParser
 from os.path import exists
 
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
-    get_rankings, find_fastest_climbing_document
+    get_rankings, get_target_documents
 from bot_competition import generate_predictions, get_highest_ranked_pair, \
     generate_updated_document, update_trec_file, generate_document_tfidf_files, \
     record_doc_similarity, record_replacement
@@ -96,7 +96,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
-def run_general_competition(mode, qid, competitors, bots, rounds, trectext_file, output_dir,
+def run_general_competition(mode, qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                             replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir, stopwords_file,
@@ -137,10 +137,9 @@ def run_general_competition(mode, qid, competitors, bots, rounds, trectext_file,
             ref_index = bots[bot_id]
 
             if ref_index == 0:
-                target = find_fastest_climbing_document(ranked_lists, qid)
-                if target is not None:
-                    target_doc_id = get_doc_id(epoch, qid, target)
-                    cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, target_docs=[target_doc_id],
+                target_documents = get_target_documents(top_refinement, qid, epoch, ranked_lists)
+                if target_documents is not None:
+                    cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, target_docs=target_documents,
                                                        ranked_lists=ranked_lists, doc_texts=doc_texts,
                                                        output_dir=output_dir, word_embed_model=word_embedding_model,
                                                        mode=run_mode, raw_ds_file=raw_ds_file,
@@ -148,7 +147,6 @@ def run_general_competition(mode, qid, competitors, bots, rounds, trectext_file,
                                                        documents_workingset_file=document_workingset_file,
                                                        base_index=base_index, new_index=comp_index, swig_path=swig_path,
                                                        queries_file=queries_xml_file, final_features_file=features_file)
-
                 else:
                     cant_replace = True
 
@@ -157,9 +155,8 @@ def run_general_competition(mode, qid, competitors, bots, rounds, trectext_file,
                 top_docs_index = min(3, ref_index)
                 cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, top_docs_index=top_docs_index,
                                                    ranked_lists=ranked_lists, doc_texts=doc_texts,
-                                                   output_dir=output_dir,
-                                                   word_embed_model=word_embedding_model, mode=run_mode,
-                                                   raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir,
+                                                   output_dir=output_dir, word_embed_model=word_embedding_model,
+                                                   mode=run_mode, raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir,
                                                    documents_workingset_file=document_workingset_file,
                                                    base_index=base_index, new_index=comp_index, swig_path=swig_path,
                                                    queries_file=queries_xml_file, final_features_file=features_file)
@@ -212,6 +209,7 @@ def main():
     parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])
     parser.add_option('--qid')
     parser.add_option('--bots')
+    parser.add_option('--top_refinement', choices=['acceleration', 'past_top', 'highest_rated_inferiors'])
 
     # TODO implement the use of competition file, in order to run multiple competitions simultaneously
     # parser.add_option('--competition_file')
@@ -302,8 +300,8 @@ def main():
         replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
         if exists(replacements_file):
             os.remove(replacements_file)
-        competitors = get_competitors(qid=qid,
-            trec_file=options.trec_file if options.mode == 'raifer' else options.positions_file)
+        competitors = get_competitors(qid=qid, trec_file=(options.trec_file if options.mode == 'raifer'
+                                                          else options.positions_file))
 
         if not all([bot in competitors for bot in bots]):
             raise ValueError(f'Not all given bots are competitors in the query \n'
@@ -311,8 +309,8 @@ def main():
 
         if options.mode == 'raifer':
             trectext_file = options.trectext_file_raifer
-            run_general_competition('paper', qid, competitors, bots, 7, trectext_file, output_dir,
-                                    document_workingset_file, options.indri_path, options.swig_path,
+            run_general_competition('paper', qid, competitors, bots, 7, options.top_refinement, trectext_file,
+                                    output_dir, document_workingset_file, options.indri_path, options.swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, options.clueweb_index, temp_index, replacements_file,
                                     options.svm_rank_scripts_dir, options.run_mode, options.scripts_dir,
@@ -321,8 +319,8 @@ def main():
                                     trec_file=options.trec_file)
         elif options.mode == 'paper':
             trectext_file = options.trectext_file_paper
-            run_general_competition('paper', qid, competitors, bots, 3, trectext_file, output_dir,
-                                    document_workingset_file, options.indri_path, options.swig_path,
+            run_general_competition('paper', qid, competitors, bots, 3, options.top_refinement, trectext_file,
+                                    output_dir, document_workingset_file, options.indri_path, options.swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, options.clueweb_index, temp_index, replacements_file,
                                     options.svm_rank_scripts_dir, options.run_mode, options.scripts_dir,

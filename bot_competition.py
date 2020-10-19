@@ -9,10 +9,10 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-from create_bot_features import update_text_doc
+from create_bot_features import update_text_doc, create_bot_features
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    ensure_dirs, get_learning_data_path, get_doc_id
+    ensure_dirs, get_learning_data_path, get_doc_id, parse_qrid
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
@@ -293,9 +293,10 @@ def find_fastest_climbing_document(ranked_list, qid, past=1):
 
     past_rank_change = defaultdict(list)
     pid_list = [parse_doc_id(doc_id)[2] for doc_id in next(iter(ranked_list.values()))[qid]]
+
     for pid in pid_list:
         last_rank = None
-        for epoch in sorted(ranked_list)[-(past+1):]:
+        for epoch in sorted(ranked_list)[-(past + 1):]:
             rank = ranked_list[epoch][qid].index(get_doc_id(epoch, qid, pid))
             if last_rank is not None:
                 past_rank_change[pid].append(last_rank - rank)
@@ -314,3 +315,37 @@ def find_fastest_climbing_document(ranked_list, qid, past=1):
         return fastest_rising_doc
     else:
         return None
+
+
+def get_last_top_document(ranked_list, qid):
+    if len(ranked_list) == 1:
+        return None
+
+    last_round, current_round = sorted(ranked_list)[-2:]
+
+    last_top_doc_id = ranked_list[last_round][qid][0]
+    current_top_doc_id = ranked_list[current_round][qid][0]
+
+    if parse_doc_id(last_top_doc_id)[2] == parse_doc_id(current_top_doc_id)[2]:
+        return None
+
+    return last_top_doc_id
+
+
+def get_target_documents(top_refinement, qid, epoch, ranked_lists):
+    if top_refinement == 'acceleration':
+        fastest_rising = find_fastest_climbing_document(ranked_lists, qid)
+        target_documents = [get_doc_id(epoch, qid, fastest_rising)] if fastest_rising is not None \
+            else None
+
+    elif top_refinement == 'past_top':
+        past_top = get_last_top_document(ranked_lists, qid)
+        target_documents = [past_top] if past_top is not None else None
+
+    elif top_refinement == 'highest_rated_inferiors':
+        target_documents = ranked_lists[str(epoch).zfill(2)][qid][1:3]
+
+    else:
+        target_documents = None
+
+    return target_documents
