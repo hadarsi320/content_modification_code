@@ -242,6 +242,7 @@ def analyze_top_upgrades(trec_dirs_vanila, trec_dirs_upgrade, show=True, **kwarg
     colors = ['blue', 'red']
     labels = ['Without Top Upgrade', 'With Top Upgrade']
 
+    plt.figure().clear()
     for i, trec_dirs in enumerate([trec_dirs_vanila, trec_dirs_upgrade]):
         color = colors[i]
         label = labels[i]
@@ -254,6 +255,8 @@ def analyze_top_upgrades(trec_dirs_vanila, trec_dirs_upgrade, show=True, **kwarg
                                     for key in list_of_ranked_lists]
 
         plt.plot(competitions, average_bot_top_duration, label=label, color=color)
+    plt.xlabel('Competition Type')
+    plt.title('Average First Rank Duration')
     plt.legend()
 
     if show:
@@ -263,36 +266,48 @@ def analyze_top_upgrades(trec_dirs_vanila, trec_dirs_upgrade, show=True, **kwarg
 
 
 def main():
+    plots_dir = './plots'
+    ensure_dirs(plots_dir)
+
     paper_positions_files = {'1of5': 'data/paper_data/documents.positions'}
     paper_trec_dirs = {'2of5': 'output/2of5_10_12/trec_files/',
                        '3of5': 'output/3of5_10_12/trec_files/'}
     raifer_trec_dirs = {'1of5': 'results/1of5_10_16_16/trec_files',
                         '2of5': 'results/2of5_10_16_16/trec_files',
                         '3of5': 'results/3of5_10_16_16/trec_files'}
-    plots_dir = './plots'
-    ensure_dirs(plots_dir)
+    raifer_trec_dirs_upgrade = {'1of5': 'output/1of5_10_18_15_1st_promotion_v1/trec_files',
+                                '2of5': 'output/2of5_10_18_15_1st_promotion_v1/trec_files',
+                                '3of5': 'output/3of5_10_18_15_1st_promotion_v1/trec_files'}
 
-    # compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, show=False,
-    #                      save_file='Competitions Comparison Paper')
-    # compare_competitions(trec_dirs=raifer_trec_dirs, show=False,
-    #                      save_file='Competitions Comparison Raifer')
+    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, show=False,
+                         save_file='Competitions Comparison Paper')
+    compare_competitions(trec_dirs=raifer_trec_dirs, show=False,
+                         save_file='Competitions Comparison Raifer')
+    compare_competitions(trec_dirs=raifer_trec_dirs_upgrade, show=False,
+                         save_file='Competitions Comparison Raifer Top Update')
 
     # creates a plot that compares Paper competitions to Raifer competitions
-    # _, axs = plt.subplots(ncols=2, nrows=3, figsize=(15, 20), sharey='row')
-    # paper_axs, raifer_axs = axs.transpose()
-    # compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, axs=paper_axs,
-    #                      title='Paper')
-    # compare_competitions(trec_dirs=raifer_trec_dirs, axs=raifer_axs, title='Raifer')
-    # plt.savefig(plots_dir + '/Competition Comparison Paper vs Raifer')
+    _, axs = plt.subplots(ncols=3, nrows=3, figsize=(20, 25), sharey='row')
+    paper_axs, raifer_axs, raifer_updated_axes = axs.transpose()
+    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, axs=paper_axs,
+                         title='Paper')
+    compare_competitions(trec_dirs=raifer_trec_dirs, axs=raifer_axs, title='Raifer')
+    compare_competitions(trec_dirs=raifer_trec_dirs_upgrade, axs=raifer_updated_axes, title='Raifer with Top Upgrade')
+    plt.savefig(plots_dir + '/Competitions Comparison Paper vs Raifer vs Top Update')
 
     trec_dirs_wo_upgrade = {'1of5': 'results/1of5_10_16_16/trec_files',
                             '2of5': 'results/2of5_10_16_16/trec_files',
                             '3of5': 'results/3of5_10_16_16/trec_files',
                             '4of5': 'results/4of5_10_16_16/trec_files',
                             '5of5': 'results/5of5_10_16_16/trec_files'}
-    trec_dirs_w_upgrade = {}
+    trec_dirs_w_upgrade = {'1of5': 'output/1of5_10_18_15_1st_promotion_v1/trec_files',
+                           '2of5': 'output/2of5_10_18_15_1st_promotion_v1/trec_files',
+                           '3of5': 'output/3of5_10_18_15_1st_promotion_v1/trec_files',
+                           '4of5': 'output/4of5_10_18_15_1st_promotion_v1/trec_files',
+                           '5of5': 'output/5of5_10_18_15_1st_promotion_v1/trec_files'}
 
-    analyze_top_upgrades(trec_dirs_wo_upgrade, trec_dirs_w_upgrade)
+    analyze_top_upgrades(trec_dirs_wo_upgrade, trec_dirs_w_upgrade, show=False,
+                         savefig=plots_dir + '/Average First Place Duration Comparison')
 
 
 if __name__ == '__main__':
