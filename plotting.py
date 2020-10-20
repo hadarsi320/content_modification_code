@@ -8,7 +8,7 @@ from data_analysis import compute_average_rank, compute_average_promotion, compu
 from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file, read_trec_dir, \
     get_competitors
 
-COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de'}
+COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de', 'orange': '#f28e02', 'purple': '#8202f2'}
 
 
 def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label=None, save_file=None, show=False,
@@ -166,19 +166,29 @@ def recreate_paper_plots(positions_file, show=True, plots_dir=None):
             plt.show()
 
 
+def get_optimal_yticks(results: dict, jump_len):
+    max_val = max(max(results[key]) for key in results)
+    min_val = min(min(results[key]) for key in results)
+
+    max_tick = (max_val // jump_len + 4) * jump_len
+    min_tick = min_val // jump_len * jump_len
+
+    return np.arange(min_tick, max_tick, jump_len)
+
+
 def compare_competitions(show=True, plots_dir='plots/', **kwargs):
     ranked_lists_dict = {}
     competitors_lists_dict = {}
 
     if 'positions_files' in kwargs:
-        positions_files = kwargs['positions_files']
+        positions_files = kwargs.pop('positions_files')
         for key in positions_files:
             ranked_lists_dict[key] = read_positions_file(positions_files[key])
             competitors_lists_dict[key] = {qid: next(iter(ranked_lists_dict[key][qid].values()))
                                            for qid in ranked_lists_dict[key]}
 
     if 'trec_dirs' in kwargs:
-        trec_dirs = kwargs['trec_dirs']
+        trec_dirs = kwargs.pop('trec_dirs')
         for key in trec_dirs:
             ranked_lists_dict[key], competitors_lists_dict[key] = read_trec_dir(trec_dirs[key])
 
@@ -189,25 +199,25 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
     num_rounds = max(rounds)
 
     groups = ['students', 'bots']
-    colors = ['blue', 'red', 'green']
+    colors = [COLORS[color] for color in ['blue', 'red', 'green', 'orange', 'purple']]
     shapes_list = {'bots': 'D', 'students': 'o'}
     y_labels = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
     x_ticks_list = [range(1, num_rounds + 1), range(2, num_rounds + 1), range(2, num_rounds + 1)]
+    jump_lengths = [0.25, 0.1, 0.05]
     functions = [lambda x, y, z, w: compute_average_rank(x, y, z, is_paper_data=w),
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=False, is_paper_data=w),
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=True, is_paper_data=w)]
 
     if 'axs' in kwargs:
-        axs = kwargs['axs']
+        axs = kwargs.pop('axs')
     else:
         _, axs = plt.subplots(ncols=3, figsize=(22, 8))
     plt.rcParams.update({'font.size': 12})
 
-    # for i in range(3):
-    for i, key in enumerate(sorted(ranked_lists_dict)):
+    for i, key in enumerate(ranked_lists_dict):
         ranked_lists = ranked_lists_dict[key]
         competitors_lists = competitors_lists_dict[key]
-        color = COLORS[colors[i]]
+        color = colors[i]
 
         for ii in range(3):
             axis = axs[ii]
@@ -221,15 +231,16 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
 
             for group in groups:
                 result = results[group]
-                label = f'{group} {key}'
+                label = f'{key}- {group}'
                 shape = shapes_list[group]
                 axis.plot(x_ticks, result, label=label, color=color, marker=shape, markersize=10)
 
             if 'title' in kwargs:
                 axis.set_title(kwargs['title'])
             axis.set_ylabel(y_label)
-            axis.legend(loc='upper right')
+            axis.legend(ncol=2, loc='upper right')
             axis.set_xticks(x_ticks)
+            axis.set_yticks(get_optimal_yticks(results, jump_len=jump_lengths[ii]))
             axis.set_xlabel('Round')
 
     if 'save_file' in kwargs and 'axs' not in kwargs:
@@ -238,12 +249,11 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
         plt.show()
 
 
-def analyze_top_upgrades(trec_dirs_vanila, trec_dirs_upgrade, show=True, **kwargs):
-    colors = ['blue', 'red']
-    labels = ['Without Top Upgrade', 'With Top Upgrade']
+def analyze_top_upgrades(trec_dirs_list, show=True, **kwargs):
+    colors = [COLORS[color] for color in ['blue', 'red', 'green', 'orange', 'purple']]
 
     plt.figure().clear()
-    for i, trec_dirs in enumerate([trec_dirs_vanila, trec_dirs_upgrade]):
+    for i, trec_dirs in enumerate(trec_dirs_list):
         color = colors[i]
         label = labels[i]
 
@@ -269,45 +279,39 @@ def main():
     plots_dir = './plots'
     ensure_dirs(plots_dir)
 
-    paper_positions_files = {'1of5': 'data/paper_data/documents.positions'}
-    paper_trec_dirs = {'2of5': 'output/2of5_10_12/trec_files/',
-                       '3of5': 'output/3of5_10_12/trec_files/'}
-    raifer_trec_dirs = {'1of5': 'results/1of5_10_16_16/trec_files',
-                        '2of5': 'results/2of5_10_16_16/trec_files',
-                        '3of5': 'results/3of5_10_16_16/trec_files'}
-    raifer_trec_dirs_upgrade = {'1of5': 'output/1of5_10_18_15_1st_promotion_v1/trec_files',
-                                '2of5': 'output/2of5_10_18_15_1st_promotion_v1/trec_files',
-                                '3of5': 'output/3of5_10_18_15_1st_promotion_v1/trec_files'}
+    competitions_1of5 = {'vanilla': 'results/1of5_10_16_16/trec_files',
+                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
+                         'past_top': 'results/1of5_10_19_20_past_top/trec_files',
+                         'inferiors': 'results/1of5_10_19_20_highest_rated_inferiors/trec_files'}
+    competitions_2of5 = {'vanilla': 'results/2of5_10_16_16/trec_files',
+                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
+                         'past_top': 'results/2of5_10_19_20_past_top/trec_files',
+                         'inferiors': 'results/2of5_10_19_20_highest_rated_inferiors/trec_files'}
+    competitions_3of5 = {'vanilla': 'results/3of5_10_16_16/trec_files',
+                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
+                         'past_top': 'results/3of5_10_19_20_past_top/trec_files',
+                         'inferiors': 'results/3of5_10_20_01_highest_rated_inferiors/trec_files'}
+    competitions_4of5 = {'vanilla': 'results/4of5_10_16_16/trec_files',
+                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
+                         'past_top': 'results/4of5_10_19_20_past_top/trec_files',
+                         'inferiors': 'results/4of5_10_20_01_highest_rated_inferiors/trec_files'}
+    competitions_5of5 = {'vanilla': 'results/5of5_10_16_16/trec_files',
+                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
+                         'past_top': 'results/5of5_10_19_20_past_top/trec_files',
+                         'inferiors': 'results/5of5_10_20_05_highest_rated_inferiors/trec_files'}
 
-    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, show=False,
-                         save_file='Competitions Comparison Paper')
-    compare_competitions(trec_dirs=raifer_trec_dirs, show=False,
-                         save_file='Competitions Comparison Raifer')
-    compare_competitions(trec_dirs=raifer_trec_dirs_upgrade, show=False,
-                         save_file='Competitions Comparison Raifer Top Update')
+    # competitions_list = [competitions_1of5, competitions_2of5, competitions_3of5, competitions_4of5, competitions_5of5]
+    competitions_list = [competitions_1of5, competitions_2of5, competitions_3of5]
 
-    # creates a plot that compares Paper competitions to Raifer competitions
-    _, axs = plt.subplots(ncols=3, nrows=3, figsize=(20, 25), sharey='row')
-    paper_axs, raifer_axs, raifer_updated_axes = axs.transpose()
-    compare_competitions(positions_files=paper_positions_files, trec_dirs=paper_trec_dirs, axs=paper_axs,
-                         title='Paper')
-    compare_competitions(trec_dirs=raifer_trec_dirs, axs=raifer_axs, title='Raifer')
-    compare_competitions(trec_dirs=raifer_trec_dirs_upgrade, axs=raifer_updated_axes, title='Raifer with Top Upgrade')
-    plt.savefig(plots_dir + '/Competitions Comparison Paper vs Raifer vs Top Update')
+    _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(20, 20))
+    for i, ax in enumerate(axs):
+        competitions = competitions_list[i]
+        compare_competitions(trec_dirs=competitions, axs=ax, title=f'{i+1} bots out of 5', show=False)
+    # plt.savefig(plots_dir + '/Competitions Comparison of Top Refinement Methods')
+    plt.show()
 
-    trec_dirs_wo_upgrade = {'1of5': 'results/1of5_10_16_16/trec_files',
-                            '2of5': 'results/2of5_10_16_16/trec_files',
-                            '3of5': 'results/3of5_10_16_16/trec_files',
-                            '4of5': 'results/4of5_10_16_16/trec_files',
-                            '5of5': 'results/5of5_10_16_16/trec_files'}
-    trec_dirs_w_upgrade = {'1of5': 'output/1of5_10_18_15_1st_promotion_v1/trec_files',
-                           '2of5': 'output/2of5_10_18_15_1st_promotion_v1/trec_files',
-                           '3of5': 'output/3of5_10_18_15_1st_promotion_v1/trec_files',
-                           '4of5': 'output/4of5_10_18_15_1st_promotion_v1/trec_files',
-                           '5of5': 'output/5of5_10_18_15_1st_promotion_v1/trec_files'}
-
-    analyze_top_upgrades(trec_dirs_wo_upgrade, trec_dirs_w_upgrade, show=False,
-                         savefig=plots_dir + '/Average First Place Duration Comparison')
+    # analyze_top_upgrades(competitions_list, show=True)
+                         # savefig=plots_dir + '/Average First Place Duration Comparison')
 
 
 if __name__ == '__main__':
