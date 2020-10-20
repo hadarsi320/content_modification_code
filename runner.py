@@ -4,11 +4,13 @@ import sys
 from collections import defaultdict
 from datetime import datetime
 from itertools import combinations
+from multiprocessing import cpu_count
 from os.path import exists
+from time import sleep
 
 from deprecated import deprecated
 
-from gen_utils import run_bash_command
+from gen_utils import run_bash_command, list_multiprocessing
 from utils import parse_qrid, ensure_dirs, get_query_ids, load_word_embedding_model
 
 
@@ -136,15 +138,17 @@ def runner_3of5(output_dir, pickle_file, positions_file='./data/paper_data/docum
 
         except Exception as e:
             print(f'#### Error occured in competition {qid}:\n{str(e)}\n')
-            log_error(error_file,  command)
+            log_error(error_file, command)
 
 
-def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, **kwargs):
+def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinement, print_interval, **kwargs):
     error_file = output_dir + 'error_file.txt'
-    qid_list = sorted(get_query_ids(kwargs['positions_file'] if 'positions_file' in kwargs else kwargs['trec_file']))
 
     bots_list = defaultdict(list)
     if 'positions_file' in kwargs:
+        mode = 'paper'
+        positions_file = kwargs.pop('positions_file')
+        qid_list = sorted(get_query_ids(positions_file))
         for qid in qid_list:
             if num_of_bots == 1:
                 bots_list[qid] = [['BOT']]
@@ -154,8 +158,11 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, **kwargs):
                 bots_list[qid] = [['BOT', 'DUMMY1', 'DUMMY2']]
 
     elif 'trec_file' in kwargs:
+        mode = 'raifer'
+        trec_file = kwargs.pop('trec_file')
+        qid_list = sorted(get_query_ids(trec_file))
         for qid in qid_list:
-            competitors = get_competitors_dict(kwargs['trec_file'])
+            competitors = get_competitors_dict(trec_file)
             bots_list[qid] = list(combinations(competitors[qid], num_of_bots))
     else:
         raise ValueError('No file given to get bots')
@@ -172,9 +179,14 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, **kwargs):
                     continue
 
                 command = f'python main.py --output_dir={output_dir}' \
-                          f' --mode={"raifer" if "trec_file" in kwargs else "paper"} ' \
+                          f' --mode={mode} ' \
                           f' --qid={qid} --bots={",".join(bots)}  --word2vec_dump={pickle_file}'
-                print(f'{iteration}. Running command: {command}')
+                if top_refinement is not None:
+                    command += f' --top_refinement={top_refinement}'
+
+                if iteration % print_interval == 0:
+                    print(f'{iteration}. Running command: {command}')
+
                 try:
                     run_bash_command(command)
                 except Exception as e:
@@ -191,13 +203,10 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, **kwargs):
             qid_list.remove(qid)
 
 
-def main():
+def main(mode, source, print_interval=1, name=None, *args, **kwargs):
     positions_file_paper = './data/paper_data/documents.positions'
     trec_file_raifer = 'data/trec_file_original_sorted.txt'
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
-
-    mode = sys.argv[1]
-    source = sys.argv[2]
 
     if mode not in ['2of2', 'rerun_2of2'] + [f'{x}of5' for x in range(1, 6)]:
         raise ValueError(f'Illegal mode given {mode}')
@@ -206,12 +215,12 @@ def main():
         print('Implement this rerunning thing')
         return
 
-    results_dir = 'results/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
-    output_dir = 'output/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
-
-    if len(sys.argv) > 3:
-        results_dir = results_dir[:-1] + '_' + sys.argv[3] + '/'
-        output_dir = output_dir[:-1] + '_' + sys.argv[3] + '/'
+    if name is not None:
+        results_dir = 'results/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
+        output_dir = 'output/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
+    else:
+        results_dir = 'results/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
+        output_dir = 'output/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
 
     ensure_dirs(results_dir, output_dir)
 
@@ -223,18 +232,29 @@ def main():
     if mode == '2of2':
         runnner_2of2(output_dir, word2vec_pkl)
 
-    # elif mode == 'rerun_2of2':
-    #     rerun_errors_2of2(output_dir, word2vec_pkl)
-
     elif mode.endswith('of5'):
         num_of_bots = int(mode[0])
         if source == 'paper':
-            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, positions_file=positions_file_paper)
+            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, args[0], print_interval,
+                        positions_file=positions_file_paper, **kwargs)
         elif source == 'raifer':
-            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, trec_file=trec_file_raifer)
+            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, args[0], print_interval,
+                        trec_file=trec_file_raifer, **kwargs)
 
     os.remove(word2vec_pkl)
 
 
 if __name__ == '__main__':
-    main()
+    # mode = sys.argv[1]
+    # source = sys.argv[2]
+    # if len(sys.argv) > 3:
+    #     main(mode, source, name=sys.argv[3])
+    # else:
+    #     main(mode, source)
+
+    workers = cpu_count() - 1
+    modes = [f'{x}of5' for x in range(1, 6)]
+    top_refinement_methods = ['past_top', 'highest_rated_inferiors', None, 'acceleration']
+
+    params_list = [(mode, 'raifer', 25, top_ref, top_ref) for top_ref in top_refinement_methods for mode in modes]
+    list_multiprocessing(params_list, main, workers=workers)
