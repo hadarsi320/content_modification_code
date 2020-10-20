@@ -128,7 +128,7 @@ def run_general_competition(mode, qid, competitors, bots, rounds, top_refinement
             new_docs[next_doc_id] = original_texts[next_doc_id]
 
         for bot_id in bots:
-            logger.info(f'{bot_id} rank: {bots[bot_id]}')
+            logger.info(f'{bot_id} rank: {bots[bot_id]+1}')
 
             features_file = final_features_dir + f'features_{qrid}_{bot_id}.dat'
             raw_ds_file = raw_ds_dir + f'raw_ds_out_{qrid}_{bot_id}.txt'
