@@ -41,9 +41,10 @@ def run_and_print(command, command_name=None):
     print(output_string, out, sep='\n', flush=True)
 
 
-def list_multiprocessing(param_lst, func, **kwargs):
+def list_multiprocessing(params_list, func, **kwargs):
     workers = kwargs.pop('workers')
     with Pool(workers) as p:
-        apply_lst = [([params], func, i, kwargs) for i, params in enumerate(param_lst)]
+        apply_lst = [((params if isinstance(params, list) else [params]), func, i, kwargs)
+                     for i, params in enumerate(params_list)]
         result = list(tqdm(p.imap(_apply_lst, apply_lst), total=len(apply_lst)))
-    return [_[1] for _ in result]
+    return [item[1] for item in result]
