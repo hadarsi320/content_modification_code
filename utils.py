@@ -31,14 +31,14 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     run_and_print(command, command_name='LTRFeatures')
 
     command = f"perl {scripts_path}generate.pl {features_dir} {working_set_file}"
-    logger.info(command)
-    run_bash_command(command)
+    run_and_print(command)
 
     command = f"mv features {new_features_file}"
-    logger.info(command)
-    run_bash_command(command)
+    run_and_print(command)
 
-    run_bash_command("mv featureID " + os.path.dirname(new_features_file))
+    command = "mv featureID " + os.path.dirname(new_features_file)
+    run_and_print(command)
+
     return new_features_file
 
 
@@ -419,7 +419,7 @@ def ensure_dirs(*args):
 
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-            print('{} Creating directory: {}'.format('#' * 20, dir_name))
+            print('{} Creating directory: {}'.format('#' * 5, dir_name))
 
 
 def tokenize_document(document):

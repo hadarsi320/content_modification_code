@@ -33,12 +33,13 @@ def run_bash_command(command):
 
 def run_and_print(command, command_name=None):
     logger = logging.getLogger(sys.argv[0])
-    name = command_name.rstrip() if command_name else 'Command'
-    print_string = f'Running {name} command: \n{command}'
+    name = command_name.rstrip() if command_name is not None else 'command'
+    print_string = f'Running {name}: \n{command}'
     logger.info(print_string)
     out = run_bash_command(command)
-    output_string = name + ' output:'
-    print(output_string, out, sep='\n', flush=True)
+    if len(out) > 0:
+        output_string = name + ' output:'
+        print(output_string, out, sep='\n', flush=True)
 
 
 def list_multiprocessing(params_list, func, **kwargs):

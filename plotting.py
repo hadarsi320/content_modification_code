@@ -143,11 +143,6 @@ def recreate_paper_plots(positions_file, show=True, plots_dir=None):
         for group in groups:
             results[group] = function(group)
 
-        print(title)
-        for group in results:
-            print(f'{group}: {results[group]}')
-        print()
-
         plt.rcParams.update({'font.size': 14})
         for j, group in enumerate(groups):
             result = results[group]

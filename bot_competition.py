@@ -91,16 +91,6 @@ def create_initial_trectext_file(trectext_file, output_dir, qid, bots, only_bots
     return new_trectext_file
 
 
-@deprecated(reason='The module create_bot_features no longer has a main')
-def create_features(qrid, trec_file, trectext_file, raw_ds_file, doc_tdidf_dir, index, output_dir,
-                    mode='single', ref_index=1, top_docs_index=1):
-    command = f'python create_bot_features.py --mode={mode} --qrid={qrid} --ref_index={ref_index} ' \
-              f'--top_docs_index={top_docs_index} --trec_file={trec_file} --trectext_file={trectext_file} ' \
-              f'--raw_ds_out={raw_ds_file} --doc_tfidf_dir={doc_tdidf_dir} --index_path={index} ' \
-              f'--output_dir={output_dir}'
-    run_and_print(command)
-
-
 def generate_learning_dataset(output_dir, label_aggregation_method, seo_qrels, coherency_qrels, feature_fname):
     command = 'python dataset_creator.py ' + output_dir + ' ' + label_aggregation_method + ' ' + seo_qrels + ' ' + \
               coherency_qrels + ' ' + feature_fname
@@ -263,7 +253,7 @@ def create_pair_ranker(model_path, label_aggregation_method, label_aggregation_b
 def get_rankings(trec_file, bot_ids, qid, epoch):
     """
     :param trec_file: a trecfile
-    :param dummy_bot: the index of the dummy who's a bot
+    :param bot_ids: the pids of the players who are bots
     :param qid: query id
     :param epoch: current round
     :return: two dictionaries of the form {pid: location}, one for the bots and the other for the students

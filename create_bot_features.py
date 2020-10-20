@@ -130,9 +130,8 @@ def past_winners_centroid(past_winners, texts, model, stemmer=None):
 
 def write_files(feature_list, feature_vals, output_dir, qrid, ref):
     epoch, qid = parse_qrid(qrid)
-    # ind_name = {-1: "5", 1: "2"}
-    # query_write = qid + epoch.lstrip('0') + ind_name[ref]
     query_write = f'{qid}{epoch.lstrip("0")}{ref + 1}'
+
     for feature in feature_list:
         with open(output_dir + "doc" + feature + "_" + query_write, 'w') as out:
             for pair in feature_vals[feature]:
@@ -147,11 +146,15 @@ def create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vect
     relevant_pairs = raw_ds[qrid]
     epoch, qid = parse_qrid(qrid)
     query_text = clean_texts(query_text)
+    # feature_list = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
+    #                 "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
+    #                 "CosineToWinnerCentroidOutVec", "CosineToWinnerCentroidIn", "CosineToWinnerCentroidOut",
+    #                 "SimilarityToPrev", "SimilarityToRefSentence", "SimilarityToPred", "SimilarityToPrevRef",
+    #                 "SimilarityToPredRef"]
     feature_list = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
                     "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
                     "CosineToWinnerCentroidOutVec", "CosineToWinnerCentroidIn", "CosineToWinnerCentroidOut",
-                    "SimilarityToPrev", "SimilarityToRefSentence", "SimilarityToPred", "SimilarityToPrevRef",
-                    "SimilarityToPredRef"]
+                    "SimilarityToPrev", "SimilarityToRefSentence", "SimilarityToPred", "SimilarityToPrevRef"]
 
     past_winners = get_past_winners(ranked_lists, epoch, qid)
     past_winners_semantic_centroid_vector = past_winners_centroid(past_winners, doc_texts, word_embed_model, True)
@@ -288,19 +291,15 @@ def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_i
 def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir,
                             sentence_tfidf_vectors_dir, raw_dataset_file, query_text, output_feature_files_dir,
                             output_final_features_file, workingset_file, word_embed_model, **kwargs):
-    logger = logging.getLogger(sys.argv[0])
     ensure_dirs(output_feature_files_dir, output_final_features_file)
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
     create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
                     query_text, output_feature_files_dir, raw_ds, word_embed_model, **kwargs)
     command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
-    logger.info(command)
-    run_bash_command(command)
+    run_and_print(command)
     command = "mv features " + output_final_features_file
-    logger.info(command)
-    run_bash_command(command)
-    print()
+    run_and_print(command)
 
 
 def run_svm_rank_model(test_file, model_file, predictions_folder):
