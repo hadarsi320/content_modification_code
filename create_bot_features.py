@@ -289,9 +289,7 @@ def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tf
                             sentence_tfidf_vectors_dir, raw_dataset_file, query_text, output_feature_files_dir,
                             output_final_features_file, workingset_file, word_embed_model, **kwargs):
     logger = logging.getLogger(sys.argv[0])
-    if not os.path.exists(output_feature_files_dir):
-        os.makedirs(output_feature_files_dir)
-    ensure_dirs(output_final_features_file)
+    ensure_dirs(output_feature_files_dir, output_final_features_file)
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
     create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,

@@ -60,8 +60,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
             break
 
         # ranking the pairs
-        ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir,
-                                            features_file)
+        ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir, features_file)
 
         # creating the new document
         rep_doc_id, out_index, in_index = get_highest_ranked_pair(features_file, ranking_file)
@@ -96,14 +95,12 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
-def run_general_competition(mode, qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
+def run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                             replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir, stopwords_file,
-                            queries_text_file, queries_xml_file, ranklib_jar, document_rank_model,
-                            pair_rank_model, word_embedding_model, **kwargs):
-    assert mode in ['paper', 'raifer']
-
+                            queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_rank_model,
+                            word_embedding_model, **kwargs):
     logger = logging.getLogger(sys.argv[0])
     original_texts = load_trectext_file(trectext_file, qid)
 
@@ -120,22 +117,24 @@ def run_general_competition(mode, qid, competitors, bots, rounds, top_refinement
         qrid = get_qrid(qid, epoch)
         ranked_lists = read_trec_file(comp_trec_file)
         doc_texts = load_trectext_file(comp_trectext_file)
-        bots, students = get_rankings(comp_trec_file, bots, qid, epoch)
+        bot_rankings, student_rankings = get_rankings(comp_trec_file, bots, qid, epoch)
 
         new_docs = {}
-        for student_id in students:
+        for student_id in student_rankings:
             next_doc_id = get_doc_id(epoch + 1, qid, student_id)
             new_docs[next_doc_id] = original_texts[next_doc_id]
 
-        for bot_id in bots:
-            logger.info(f'{bot_id} rank: {bots[bot_id]+1}')
+        for bot_id in bot_rankings:
+            logger.info(f'{bot_id} rank: {bot_rankings[bot_id]+1}')
 
             features_file = final_features_dir + f'features_{qrid}_{bot_id}.dat'
             raw_ds_file = raw_ds_dir + f'raw_ds_out_{qrid}_{bot_id}.txt'
+
             bot_doc_id = get_doc_id(epoch, qid, bot_id)
             next_doc_id = get_doc_id(epoch + 1, qid, bot_id)
-            ref_index = bots[bot_id]
+            ref_index = bot_rankings[bot_id]
 
+            # todo replace ref index entirely with target_docs
             if ref_index == 0:
                 target_documents = get_target_documents(top_refinement, qid, epoch, ranked_lists)
                 if target_documents is not None:
@@ -309,7 +308,7 @@ def main():
 
         if options.mode == 'raifer':
             trectext_file = options.trectext_file_raifer
-            run_general_competition('paper', qid, competitors, bots, 7, options.top_refinement, trectext_file,
+            run_general_competition(qid, competitors, bots, 7, options.top_refinement, trectext_file,
                                     output_dir, document_workingset_file, options.indri_path, options.swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, options.clueweb_index, temp_index, replacements_file,
@@ -319,7 +318,7 @@ def main():
                                     trec_file=options.trec_file)
         elif options.mode == 'paper':
             trectext_file = options.trectext_file_paper
-            run_general_competition('paper', qid, competitors, bots, 3, options.top_refinement, trectext_file,
+            run_general_competition(qid, competitors, bots, 3, options.top_refinement, trectext_file,
                                     output_dir, document_workingset_file, options.indri_path, options.swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, options.clueweb_index, temp_index, replacements_file,
