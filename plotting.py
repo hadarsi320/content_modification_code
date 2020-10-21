@@ -162,8 +162,8 @@ def recreate_paper_plots(positions_file, show=True, plots_dir=None):
 
 
 def get_optimal_yticks(results: dict, jump_len):
-    max_val = max(max(results[key]) for key in results)
-    min_val = min(min(results[key]) for key in results)
+    max_val = max(max(value[1]) for key in results for value in results[key])
+    min_val = min(min(value[1]) for key in results for value in results[key])
 
     max_tick = (max_val // jump_len + 4) * jump_len
     min_tick = min_val // jump_len * jump_len
@@ -209,34 +209,62 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
         _, axs = plt.subplots(ncols=3, figsize=(22, 8))
     plt.rcParams.update({'font.size': 12})
 
-    for i, key in enumerate(ranked_lists_dict):
-        ranked_lists = ranked_lists_dict[key]
-        competitors_lists = competitors_lists_dict[key]
-        color = colors[i]
+    # for i, key in enumerate(ranked_lists_dict):
+    #     ranked_lists = ranked_lists_dict[key]
+    #     competitors_lists = competitors_lists_dict[key]
+    #     color = colors[i]
+    #
+    #     for ii in range(3):
+    #         axis = axs[ii]
+    #         x_ticks = x_ticks_list[ii]
+    #         function = functions[ii]
+    #         y_label = y_labels[ii]
+    #
+    #         is_paper_data = 'positions_files' in kwargs and key in kwargs['positions_files']
+    #         results = {group: function(ranked_lists, competitors_lists, group, is_paper_data)
+    #                    for group in groups}
+    #
+    #         for group in groups:
+    #             result = results[group]
+    #             label = f'{key}- {group}'
+    #             shape = shapes_list[group]
+    #             axis.plot(x_ticks, result, label=label, color=color, marker=shape, markersize=10)
+    #
+    #         if 'title' in kwargs:
+    #             axis.set_title(kwargs['title'])
+    #         axis.set_ylabel(y_label)
+    #         axis.legend(ncol=2, loc='upper right')
+    #         axis.set_xticks(x_ticks)
+    #         axis.set_yticks(get_optimal_yticks(results, jump_len=jump_lengths[ii]))
+    #         axis.set_xlabel('Round')
 
-        for ii in range(3):
-            axis = axs[ii]
-            x_ticks = x_ticks_list[ii]
-            function = functions[ii]
-            y_label = y_labels[ii]
+    for i in range(3):
+        axis = axs[i]
+        x_ticks = x_ticks_list[i]
+        function = functions[i]
+        y_label = y_labels[i]
 
+        results = {group: [] for group in groups}
+        for j, key in enumerate(ranked_lists_dict):
+            ranked_lists = ranked_lists_dict[key]
+            competitors_lists = competitors_lists_dict[key]
             is_paper_data = 'positions_files' in kwargs and key in kwargs['positions_files']
-            results = {group: function(ranked_lists, competitors_lists, group, is_paper_data)
-                       for group in groups}
-
             for group in groups:
-                result = results[group]
+                results[group].append((key, function(ranked_lists, competitors_lists, group, is_paper_data), colors[j]))
+
+        for group in groups:
+            for key, result, color in results[group]:
                 label = f'{key}- {group}'
                 shape = shapes_list[group]
                 axis.plot(x_ticks, result, label=label, color=color, marker=shape, markersize=10)
 
-            if 'title' in kwargs:
-                axis.set_title(kwargs['title'])
-            axis.set_ylabel(y_label)
-            axis.legend(ncol=2, loc='upper right')
-            axis.set_xticks(x_ticks)
-            axis.set_yticks(get_optimal_yticks(results, jump_len=jump_lengths[ii]))
-            axis.set_xlabel('Round')
+        if 'title' in kwargs:
+            axis.set_title(kwargs['title'])
+        axis.set_ylabel(y_label)
+        axis.legend(ncol=2, loc='upper right')
+        axis.set_xticks(x_ticks)
+        axis.set_yticks(get_optimal_yticks(results, jump_len=jump_lengths[i]))
+        axis.set_xlabel('Round')
 
     if 'save_file' in kwargs and 'axs' not in kwargs:
         plt.savefig(plots_dir + kwargs['save_file'])
