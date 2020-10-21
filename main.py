@@ -95,7 +95,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
-def run_general_competition(qid_list, competitors, bots_dict, rounds, top_refinement, trectext_file, output_dir,
+def run_general_competition(competition_index, qid_list, competitors, bots_dict, rounds, top_refinement, trectext_file, output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                             replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir, stopwords_file,
@@ -104,8 +104,9 @@ def run_general_competition(qid_list, competitors, bots_dict, rounds, top_refine
     logger = logging.getLogger(sys.argv[0])
     original_texts = load_trectext_file(trectext_file, qid_list)
 
-    comp_trectext_file = create_initial_trectext_file(trectext_file, trectext_dir, qid_list, bots_dict)
-    comp_trec_file = create_initial_trec_file(trec_dir, qid_list, bots_dict, **kwargs)
+    comp_trectext_file = create_initial_trectext_file(trectext_file, trectext_dir, competition_index, qid_list,
+                                                      bots_dict)
+    comp_trec_file = create_initial_trec_file(trec_dir, competition_index, qid_list, bots_dict, **kwargs)
 
     create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
     create_documents_workingset(document_workingset_file, 1, qid_list, competitors)
@@ -114,7 +115,7 @@ def run_general_competition(qid_list, competitors, bots_dict, rounds, top_refine
 
     for epoch in range(1, rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
-        qrid = get_qrid(qid_list, epoch)
+        qrid_list = [get_qrid(qid, epoch) for qid in qid_list]
         ranked_lists = read_trec_file(comp_trec_file)
         doc_texts = load_trectext_file(comp_trectext_file)
         bot_rankings, student_rankings = get_rankings(comp_trec_file, bots_dict, qid_list, epoch)

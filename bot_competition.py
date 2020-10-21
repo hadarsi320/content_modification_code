@@ -16,16 +16,14 @@ from utils import get_qrid, create_trectext_file, parse_doc_id, \
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
-def create_initial_trec_file(output_dir, qid_list, bots_dict, only_bots=False, **kwargs):
+def create_initial_trec_file(output_dir, competition_index, qid_list, bots_dict, only_bots=False, **kwargs):
     logger = logging.getLogger(sys.argv[0])
 
-    if 'competition_index' in kwargs:
-        new_trec_file = output_dir + 'trec_file_{}'.format(kwargs['competition_index'])
-    else:
-        new_trec_file = output_dir + 'trec_file_{}_{}'.format(qid_list[0], ','.join(bots_dict[qid_list[0]]))
+    new_trec_file = output_dir + f'trec_file_{competition_index}'
+
+    ensure_dirs(new_trec_file)
 
     lines_written = 0
-    ensure_dirs(new_trec_file)
     if 'trec_file' in kwargs:
         qrid_list = [get_qrid(qid, 1) for qid in qid_list]
         with open(kwargs['trec_file'], 'r') as trec_file:
@@ -67,14 +65,10 @@ def create_initial_trec_file(output_dir, qid_list, bots_dict, only_bots=False, *
     return new_trec_file
 
 
-def create_initial_trectext_file(trectext_file, output_dir, qid_list, bots_dict, only_bots=False, **kwargs):
+def create_initial_trectext_file(trectext_file, output_dir, competition_index, qid_list, bots_dict, only_bots=False):
     logger = logging.getLogger(sys.argv[0])
 
-    if 'competition_index' in kwargs:
-        new_trectext_file = output_dir + 'documents_{}.trectext'.format(kwargs['competition_index'])
-    else:
-        new_trectext_file = output_dir + 'documents_{}_{}.trectext'\
-            .format(qid_list[0], ','.join(bots_dict[qid_list[0]]))
+    new_trectext_file = output_dir + f'documents_{competition_index}.trectext'
     ensure_dirs(new_trectext_file)
 
     parser = etree.XMLParser(recover=True)
