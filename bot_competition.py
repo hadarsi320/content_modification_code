@@ -99,7 +99,7 @@ def generate_learning_dataset(output_dir, label_aggregation_method, seo_qrels, c
 
 def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
     ensure_dirs(model_path)
-    command = svm_rank_scripts_dir + 'svm_rank_learn -c ' + svm_rank_c + ' ' + learning_data + ' ' + model_path
+    command = f'{svm_rank_scripts_dir}svm_rank_learn -c {svm_rank_c} {learning_data} {model_path}'
     run_and_print(command)
 
 
@@ -239,15 +239,14 @@ def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_inde
 def create_pair_ranker(model_path, label_aggregation_method, label_aggregation_b, svm_rank_c,
                        aggregated_data_dir, seo_qrels_file, coherency_qrels_file, unranked_features_file,
                        svm_rank_scripts_dir):
-    if not exists(model_path):
-        learning_data_dir = aggregated_data_dir + 'feature_sets/'
-        learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b)
+    learning_data_dir = aggregated_data_dir + 'feature_sets/'
+    learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b)
 
-        if not exists(learning_data_path):
-            generate_learning_dataset(aggregated_data_dir, label_aggregation_method,
-                                      seo_qrels_file, coherency_qrels_file,
-                                      unranked_features_file)
-        create_model(svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
+    if not exists(learning_data_path):
+        generate_learning_dataset(aggregated_data_dir, label_aggregation_method,
+                                  seo_qrels_file, coherency_qrels_file,
+                                  unranked_features_file)
+    create_model(svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
 
 
 def get_rankings(trec_file, bot_ids, qid, epoch):

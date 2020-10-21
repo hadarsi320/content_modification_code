@@ -368,10 +368,11 @@ def get_learning_data_path(learning_data_dir, label_aggregation_method, label_ag
     return learning_data_path
 
 
-def get_model_name(label_aggregation_method: str, label_aggregation_b: str, svm_rank_c: str):
-    return 'svm_rank_model_' + label_aggregation_method + '_' + \
-           (f'b={label_aggregation_b}_' if label_aggregation_method != 'demotion' else '') \
-           + 'c=' + svm_rank_c + '.dat'
+def get_model_name(label_aggregation_method: str, label_aggregation_b: float, svm_rank_c: float):
+    model_name = f'svm_rank_model_{label_aggregation_method}_' + \
+                 (f'b={label_aggregation_b}_' if label_aggregation_method != 'demotion' else '') + \
+                 f'c={svm_rank_c}.dat'
+    return model_name
 
 
 @deprecated(reason='This was created a while ago')
