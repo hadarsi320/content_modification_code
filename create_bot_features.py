@@ -417,50 +417,6 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
     return final
 
 
-# @deprecated(reason='The functions this function uses have been altered')
-# def create_qrels(raw_ds, base_trec, out_file, ref, new_indices_dir, texts):
-#     ind_name = {-1: "5", 1: "2"}
-#     with open(out_file, 'w') as qrels:
-#         ranked_lists = read_raw_trec_file(base_trec)
-#         raw_stats = read_raw_ds(raw_ds)
-#
-#         ws_dir = "tmp_ws/"
-#         if not os.path.exists(ws_dir):
-#             os.makedirs(ws_dir)
-#         trectext_dir = "tmp_trectext/"
-#         if not os.path.exists(trectext_dir):
-#             os.makedirs(trectext_dir)
-#         trec_dir = "tmp_trec/"
-#         if not os.path.exists(trec_dir):
-#             os.makedirs(trec_dir)
-#         scores_dir = "tmp_scores/"
-#         if not os.path.exists(scores_dir):
-#             os.makedirs(scores_dir)
-#
-#         for qid in raw_stats:
-#             epoch, query = reverese_query(qid)
-#
-#             """ Change FOR GENERIC purposes if needed"""
-#             # if epoch not in ["04", "06"]:
-#             #     continue
-#
-#             for pair in raw_stats[qid]:
-#                 ref_doc = pair.split("$")[0]
-#                 out_index = int(pair.split("_")[1])
-#                 query_write = query + epoch.lstrip('0') + ind_name[ref]
-#                 name = generate_pair_name(pair)
-#                 fname_pair = pair.replace("$", "_")
-#                 feature_dir = "tmp_features/" + fname_pair + "/"
-#                 if not os.path.exists(feature_dir):
-#                     os.makedirs(feature_dir)
-#                 features_file = "qrels_features/" + fname_pair
-#                 final_trec = run_reranking(ref_doc, feature_dir,,
-#                 new_lists = read_raw_trec_file(final_trec)
-#                 label = str(max(ranked_lists[qid].index(ref_doc) - new_lists[qid].index(ref_doc), 0))
-#                 qrels.write(query_write + " 0 " + name + " " + label + "\n")
-
-
-# TODO reconsider the use of index here
 def create_bot_features(qrid, ref_index, ranked_lists, doc_texts, output_dir, word_embed_model,
                         mode, base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
                         documents_workingset_file, final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
