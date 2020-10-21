@@ -325,7 +325,7 @@ def main():
 
     # competitions_list = [competitions_1of5, competitions_2of5, competitions_3of5, competitions_4of5, competitions_5of5]
     competitions_list = [competitions_1of5, competitions_2of5, competitions_3of5]
-    labels = [f'{i+1} bots out of 5' for i in range(5)]
+    labels = [f'{i + 1} bots out of 5' for i in range(5)]
 
     _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(25, 25))
     for i, ax in enumerate(axs):
@@ -335,10 +335,11 @@ def main():
     # plt.show()
 
     top_refine_methods = ['vanilla', 'acceleration', 'past_top', 'inferiors']
-    competitions_list_rev = [{f'{x+1}of5': competitions_list[x][meth] for x in range(3)} for meth in top_refine_methods]
+    competitions_list_rev = [{f'{x + 1}of5': competitions_list[x][meth] for x in range(3)} for meth in
+                             top_refine_methods]
 
-    analyze_top_refine_methods(competitions_list_rev, top_refine_methods, show=False, savefig=plots_dir + '/Comparison of Top Refine Methods')
-                         # savefig=plots_dir + '/Average First Place Duration Comparison')
+    analyze_top_refine_methods(competitions_list_rev, top_refine_methods, show=False,
+                               savefig=plots_dir + '/Average First Place Duration Comparison')
 
 
 if __name__ == '__main__':
