@@ -469,7 +469,7 @@ def create_bot_features(qrid, ref_index, ranked_lists, doc_texts, output_dir, wo
     output_feature_files_dir = output_dir + output_feature_files_dir
     workingset_file = output_dir + workingset_file
 
-    if mode == 'single':
+    if mode == 'serial':
         epoch, qid = parse_qrid(qrid)
 
         create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, epoch=epoch, qid=qid, **kwargs)
@@ -483,7 +483,7 @@ def create_bot_features(qrid, ref_index, ranked_lists, doc_texts, output_dir, wo
                                 raw_ds_file, query_text, output_feature_files_dir, final_features_file, workingset_file,
                                 word_embed_model, **kwargs)
 
-    # elif mode == 'multiple':
+    # elif mode == 'parallel':
     #     create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
     #                        int(top_docs_index))
     #     create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, swig_path)

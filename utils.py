@@ -252,21 +252,21 @@ def fix_format(doc_id):
     return get_doc_id(epoch, qid, pid)
 
 
-def load_trectext_file(filename, qid=None):
+def load_trectext_file(filename, qid_list=None):
     parser = etree.XMLParser(recover=True)
     tree = ET.parse(filename, parser=parser)
     root = tree.getroot()
     docs = {}
     for doc in root:
-        epoch = last_qid = pid = None
+        epoch = qid = pid = None
         for att in doc:
             if att.tag == "DOCNO":
                 doc_id = fix_format(att.text)
-                epoch, last_qid, pid = parse_doc_id(doc_id)
-                if qid and last_qid != qid:
+                epoch, qid, pid = parse_doc_id(doc_id)
+                if qid_list is not None and qid in qid_list:
                     break
             else:
-                docs[get_doc_id(epoch, last_qid, pid.replace('_', ''))] = att.text
+                docs[get_doc_id(epoch, qid, pid.replace('_', ''))] = att.text
     return docs
 
 
@@ -406,12 +406,13 @@ def generate_pair_name(pair):
     return pair.split("$")[1].split("_")[0] + "_" + out_ + "_" + in_
 
 
-def create_documents_workingset(output_file, epoch, qid, competitor_list):
+def create_documents_workingset(output_file, epoch, qid_list, competitor_list):
     ensure_dirs(output_file)
     with open(output_file, 'w') as f:
-        for competitor in competitor_list:
-            line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
-            f.write(line)
+        for qid in qid_list:
+            for competitor in competitor_list[qid]:
+                line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
+                f.write(line)
 
 
 def ensure_dirs(*args):
@@ -497,18 +498,24 @@ def read_trec_dir(trec_dir):
     return ranked_lists, competitors_lists
 
 
-def get_competitors(trec_file, qid=None):
+def get_competitors(trec_file, **kwargs):
     """
     :param trec_file: a trec file, a positions file can also be given
-    :param qid: if we're only interested in one query, qid will be used to only return the competitors for that query
     :return: the list of competitors
     """
-    competitors_list = []
+    competitors = defaultdict(list)
     with open(trec_file, 'r') as f:
         for line in f:
             doc_id = line.split()[2]
-            _, last_qid, pid = parse_doc_id(doc_id)
+            _, qid, pid = parse_doc_id(doc_id)
             pid = pid.replace('_', '')
-            if (qid is None or last_qid == qid) and pid not in competitors_list:
-                competitors_list.append(pid)
-    return competitors_list
+            if 'qid' in kwargs:
+                if qid == kwargs['qid'] and pid not in competitors[qid]:
+                    competitors[qid].append(pid)
+            elif 'qid_list' in kwargs:
+                if qid in kwargs['qid_list'] and pid not in competitors[qid]:
+                    competitors[qid].append(pid)
+            elif pid not in competitors[qid]:
+                competitors[qid].append(qid)
+
+    return dict(competitors)

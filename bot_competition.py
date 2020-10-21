@@ -16,23 +16,26 @@ from utils import get_qrid, create_trectext_file, parse_doc_id, \
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
-def create_initial_trec_file(output_dir, qid, bots, only_bots, **kwargs):
+def create_initial_trec_file(output_dir, qid_list, bots_dict, only_bots=False, **kwargs):
     logger = logging.getLogger(sys.argv[0])
 
-    new_trec_file = output_dir + 'trec_file_{}_{}'.format(qid, ','.join(bots))
+    if 'competition_index' in kwargs:
+        new_trec_file = output_dir + 'trec_file_{}'.format(kwargs['competition_index'])
+    else:
+        new_trec_file = output_dir + 'trec_file_{}_{}'.format(qid_list[0], ','.join(bots_dict[qid_list[0]]))
 
     lines_written = 0
     ensure_dirs(new_trec_file)
     if 'trec_file' in kwargs:
-        qrid = get_qrid(qid, 1)
+        qrid_list = [get_qrid(qid, 1) for qid in qid_list]
         with open(kwargs['trec_file'], 'r') as trec_file:
             with open(new_trec_file, 'w') as new_file:
                 for line in trec_file:
-                    last_qrid = line.split()[0]
-                    if last_qrid != qrid:
+                    qrid = line.split()[0]
+                    if qrid not in qrid_list:
                         continue
                     pid = line.split()[2].split('-')[-1]
-                    if not only_bots or pid in bots:
+                    if not only_bots or pid in bots_dict:
                         new_file.write(line)
                         lines_written += 1
 
@@ -42,12 +45,12 @@ def create_initial_trec_file(output_dir, qid, bots, only_bots, **kwargs):
             for line in pos_file:
                 doc_id = line.split()[2]
                 epoch, last_qid, pid = parse_doc_id(doc_id)
-                if epoch != '01' or last_qid != qid or (only_bots and pid not in bots):
+                if epoch != '01' or last_qid != qid_list or (only_bots and pid not in bots_dict):
                     continue
                 if '_' in pid:
                     pid = pid.replace('_', '')
                 position = int(line.split()[3])
-                ranked_list.append([get_qrid(qid, 1), get_doc_id(1, qid, pid), 3 - position])
+                ranked_list.append([get_qrid(qid_list, 1), get_doc_id(1, qid_list, pid), 3 - position])
         ranked_list.sort(key=lambda x: x[2], reverse=True)
         with open(new_trec_file, 'w') as new_file:
             for file in ranked_list:
@@ -55,19 +58,23 @@ def create_initial_trec_file(output_dir, qid, bots, only_bots, **kwargs):
                 lines_written += 1
 
     if lines_written == 0 and not only_bots:
-        raise ValueError(f'query {qid} not in dataset')
+        raise ValueError(f'query {qid_list} not in dataset')
 
-    if only_bots and lines_written != len(bots):
+    if only_bots and lines_written != len(bots_dict):
         raise ValueError('Competitors {} not in dataset'.format(', '.join(kwargs['pid_list'])))
 
     logger.info('Competition trec file created')
     return new_trec_file
 
 
-def create_initial_trectext_file(trectext_file, output_dir, qid, bots, only_bots):
+def create_initial_trectext_file(trectext_file, output_dir, qid_list, bots_dict, only_bots=False, **kwargs):
     logger = logging.getLogger(sys.argv[0])
 
-    new_trectext_file = output_dir + 'documents_{}_{}.trectext'.format(qid, ','.join(bots))
+    if 'competition_index' in kwargs:
+        new_trectext_file = output_dir + 'documents_{}.trectext'.format(kwargs['competition_index'])
+    else:
+        new_trectext_file = output_dir + 'documents_{}_{}.trectext'\
+            .format(qid_list[0], ','.join(bots_dict[qid_list[0]]))
     ensure_dirs(new_trectext_file)
 
     parser = etree.XMLParser(recover=True)
@@ -75,12 +82,12 @@ def create_initial_trectext_file(trectext_file, output_dir, qid, bots, only_bots
     root = tree.getroot()
     docs = {}
     for doc in root:
-        pid = None
+        qid = pid = None
         for att in doc:
             if att.tag == 'DOCNO':
                 doc_id = att.text
-                epoch, last_qid, pid = parse_doc_id(doc_id)
-                if epoch != '01' or last_qid != qid or (only_bots and pid not in bots):
+                epoch, qid, pid = parse_doc_id(doc_id)
+                if epoch != '01' or qid not in qid_list or (only_bots and pid not in bots_dict[qid]):
                     break
                 pid = pid.replace('_', '')
             elif att.tag == 'TEXT':
@@ -338,3 +345,32 @@ def get_target_documents(top_refinement, qid, epoch, ranked_lists):
         target_documents = None
 
     return target_documents
+
+
+def assert_bot_input(competition_mode, run_mode, **kwargs):
+    if competition_mode == '2of2':
+        if run_mode == 'serial':
+            bots = kwargs.pop('bots')
+            assert len(bots) == 2
+        else:
+            bots_dict = kwargs.pop('bots_dict')
+            assert all(len(bots_dict[key]) == 2 for key in bots_dict)
+
+    elif competition_mode in ['raifer', 'paper']:
+        competitors = kwargs.pop('competitors')
+        if run_mode == 'serial':
+            qid = kwargs.pop('qid')
+            bots = kwargs.pop('bots')
+            if not all(bot in competitors[qid] for bot in bots):
+                raise ValueError(f'Not all given bots are competitors in the query {qid} \n'
+                                 f'bots: {bots} \ncompetitors: {competitors[qid]}')
+        else:
+            qid_list = kwargs.pop('qid_list')
+            bots_dict = kwargs.pop('bots_dict')
+            for qid in qid_list:
+                if not all(bot in competitors[qid] for bot in bots_dict[qid]):
+                    raise ValueError(f'Not all given bots are competitors in the query {qid} \n'
+                                     f'bots: {bots_dict[qid]} \ncompetitors: {competitors[qid]}')
+
+    else:
+        raise ValueError(f'Illegal competition mode given {competition_mode}')
