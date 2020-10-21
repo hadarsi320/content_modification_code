@@ -272,7 +272,7 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
         plt.show()
 
 
-def analyze_top_upgrades(trec_dirs_list, show=True, **kwargs):
+def analyze_top_refine_methods(trec_dirs_list, labels, show=True, **kwargs):
     colors = [COLORS[color] for color in ['blue', 'red', 'green', 'orange', 'purple']]
 
     plt.figure().clear()
@@ -303,7 +303,7 @@ def main():
     ensure_dirs(plots_dir)
 
     competitions_1of5 = {'vanilla': 'results/1of5_10_16_16/trec_files',
-                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
+                         'acceleration': 'results/1of5_10_18_15_1st_promotion_v1/trec_files',
                          'past_top': 'results/1of5_10_19_20_past_top/trec_files',
                          'inferiors': 'results/1of5_10_19_20_highest_rated_inferiors/trec_files'}
     competitions_2of5 = {'vanilla': 'results/2of5_10_16_16/trec_files',
@@ -311,7 +311,7 @@ def main():
                          'past_top': 'results/2of5_10_19_20_past_top/trec_files',
                          'inferiors': 'results/2of5_10_19_20_highest_rated_inferiors/trec_files'}
     competitions_3of5 = {'vanilla': 'results/3of5_10_16_16/trec_files',
-                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
+                         'acceleration': 'results/3of5_10_18_15_1st_promotion_v1/trec_files',
                          'past_top': 'results/3of5_10_19_20_past_top/trec_files',
                          'inferiors': 'results/3of5_10_20_01_highest_rated_inferiors/trec_files'}
     competitions_4of5 = {'vanilla': 'results/4of5_10_16_16/trec_files',
@@ -325,15 +325,19 @@ def main():
 
     # competitions_list = [competitions_1of5, competitions_2of5, competitions_3of5, competitions_4of5, competitions_5of5]
     competitions_list = [competitions_1of5, competitions_2of5, competitions_3of5]
+    labels = [f'{i+1} bots out of 5' for i in range(5)]
 
-    _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(20, 20))
+    _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(25, 25))
     for i, ax in enumerate(axs):
         competitions = competitions_list[i]
-        compare_competitions(trec_dirs=competitions, axs=ax, title=f'{i+1} bots out of 5', show=False)
-    # plt.savefig(plots_dir + '/Competitions Comparison of Top Refinement Methods')
-    plt.show()
+        compare_competitions(trec_dirs=competitions, axs=ax, title=labels[i], show=False)
+    plt.savefig(plots_dir + '/Competitions Comparison of Top Refinement Methods')
+    # plt.show()
 
-    # analyze_top_upgrades(competitions_list, show=True)
+    top_refine_methods = ['vanilla', 'acceleration', 'past_top', 'inferiors']
+    competitions_list_rev = [{f'{x+1}of5': competitions_list[x][meth] for x in range(3)} for meth in top_refine_methods]
+
+    analyze_top_refine_methods(competitions_list_rev, top_refine_methods, show=False, savefig=plots_dir + '/Comparison of Top Refine Methods')
                          # savefig=plots_dir + '/Average First Place Duration Comparison')
 
 
