@@ -43,8 +43,8 @@ def create_initial_trec_file(output_dir, competition_index, qid_list, bots_dict,
         with open(kwargs['positions_file'], 'r') as pos_file:
             for line in pos_file:
                 doc_id = line.split()[2]
-                epoch, last_qid, pid = parse_doc_id(doc_id)
-                if epoch != '01' or last_qid != qid_list or (only_bots and pid not in bots_dict):
+                epoch, qid, pid = parse_doc_id(doc_id)
+                if epoch != '01' or qid != qid_list or (only_bots and pid not in bots_dict):
                     continue
                 if '_' in pid:
                     pid = pid.replace('_', '')
@@ -336,30 +336,16 @@ def get_target_documents(top_refinement, qid, epoch, ranked_lists):
     return target_documents
 
 
-def assert_bot_input(competition_mode, run_mode, **kwargs):
+def assert_bot_input(competition_mode, qid_list, bots_dict, **kwargs):
     if competition_mode == '2of2':
-        if run_mode == 'serial':
-            bots = kwargs.pop('bots')
-            assert len(bots) == 2
-        else:
-            bots_dict = kwargs.pop('bots_dict')
-            assert all(len(bots_dict[key]) == 2 for key in bots_dict)
+        assert all(len(bots_dict[key]) == 2 for key in bots_dict)
 
     elif competition_mode in ['raifer', 'paper']:
         competitors = kwargs.pop('competitors')
-        if run_mode == 'serial':
-            qid = kwargs.pop('qid')
-            bots = kwargs.pop('bots')
-            if not all(bot in competitors[qid] for bot in bots):
+        for qid in qid_list:
+            if not all(bot in competitors[qid] for bot in bots_dict[qid]):
                 raise ValueError(f'Not all given bots are competitors in the query {qid} \n'
-                                 f'bots: {bots} \ncompetitors: {competitors[qid]}')
-        else:
-            qid_list = kwargs.pop('qid_list')
-            bots_dict = kwargs.pop('bots_dict')
-            for qid in qid_list:
-                if not all(bot in competitors[qid] for bot in bots_dict[qid]):
-                    raise ValueError(f'Not all given bots are competitors in the query {qid} \n'
-                                     f'bots: {bots_dict[qid]} \ncompetitors: {competitors[qid]}')
+                                 f'bots: {bots_dict[qid]} \ncompetitors: {competitors[qid]}')
 
     else:
         raise ValueError(f'Illegal competition mode given {competition_mode}')

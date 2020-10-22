@@ -327,7 +327,7 @@ def transform_query_text(queries_raw_text):
     return transformed
 
 
-def read_queries_file(queries_file, current_qrid=None):
+def read_queries_file(queries_file):
     # consider receiving just the qid, since the round doesn't matter
     """
     reads a queries xml file
@@ -335,16 +335,16 @@ def read_queries_file(queries_file, current_qrid=None):
     :return: dictionary of the sort {query id: query text}
     """
     last_qrid = None
-    stats = {}
+    queries = {}
     with open(queries_file) as file:
         for line in file:
             if "<number>" in line:
                 last_qrid = line.replace('<number>', '').replace('</number>', "").split("_")[
                     0].rstrip().replace("\t", "").replace(" ", "")
 
-            if '<text>' in line and (not last_qrid or last_qrid == current_qrid):
-                stats[last_qrid] = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "")
-    return stats
+            if '<text>' in line:
+                queries[last_qrid] = line.replace('<text>', '').replace('</text>', '').rstrip().replace("\t", "")
+    return transform_query_text(queries)
 
 
 def get_query_text(queries_file, current_qid):

@@ -102,7 +102,7 @@ def run_general_competition(competition_index, qid_list, competitors, bots_dict,
                             output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
-                            replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir, stopwords_file,
+                            replacements_file, svm_rank_scripts_dir, scripts_dir, stopwords_file,
                             queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_rank_model,
                             word_embedding_model, **kwargs):
     logger = logging.getLogger(sys.argv[0])
@@ -122,6 +122,7 @@ def run_general_competition(competition_index, qid_list, competitors, bots_dict,
         qrid_list = [get_qrid(qid, epoch) for qid in qid_list]
         ranked_lists = read_trec_file(comp_trec_file)
         doc_texts = load_trectext_file(comp_trectext_file)
+
         features_file = final_features_dir + f'features_{competition_index}_{epoch}.dat'
         raw_ds_file = raw_ds_dir + f'raw_ds_out_{competition_index}_{epoch}.txt'
 
@@ -151,10 +152,11 @@ def run_general_competition(competition_index, qid_list, competitors, bots_dict,
 
                 if target_documents[qid][bot_id] is None:
                     new_docs[next_doc_id] = doc_texts[bot_doc_id]
+                    target_documents[qid].pop(bot_id)
 
         setup_feature_creation(qid_list, epoch, ref_indices=ref_indices, target_documents=target_documents,
                                ranked_lists=ranked_lists, doc_texts=doc_texts, output_dir=output_dir,
-                               word_embed_model=word_embedding_model, mode='parallel', raw_ds_file=raw_ds_file,
+                               word_embed_model=word_embedding_model, raw_ds_file=raw_ds_file,
                                doc_tfidf_dir=doc_tfidf_dir, documents_workingset_file=document_workingset_file,
                                base_index=base_index, new_index=comp_index, swig_path=swig_path,
                                queries_file=queries_xml_file, final_features_file=features_file)
@@ -187,7 +189,7 @@ def run_general_competition(competition_index, qid_list, competitors, bots_dict,
         shutil.rmtree(reranking_dir)
 
 
-def competition_setup(competition_mode, run_mode, top_refinement, qid_list, bots_dict, **kwargs):
+def competition_setup(competition_mode, top_refinement, qid_list, bots_dict, **kwargs):
     # Default values
     output_dir = kwargs.pop('output_dir', 'output/tmp/')
     label_aggregation_method = 'harmonic'
@@ -230,7 +232,7 @@ def competition_setup(competition_mode, run_mode, top_refinement, qid_list, bots
 
     assert run_mode in ['serial', 'parallel']
     assert competition_mode in ['2of2', 'raifer', 'paper']
-    assert top_refinement is None or top_refinement in ['acceleration', 'past_top', 'highest_rated_inferiors']
+    assert top_refinement in [None, 'acceleration', 'past_top', 'highest_rated_inferiors']
 
     program = os.path.basename(sys.argv[0])
     logger = logging.getLogger(program)
@@ -255,11 +257,11 @@ def competition_setup(competition_mode, run_mode, top_refinement, qid_list, bots
         logger.info('Loaded word Embedding Model from file')
 
     competition_index = get_competition_index(qid_list, bots_dict, competition_files_dir)
+    replacements_file = replacements_dir + f'replacements_{competition_index}/'
 
     if competition_mode == '2of2':
         trectext_file = trectext_file_raifer
-        assert_bot_input(competition_mode, run_mode, **kwargs)
-        replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid_list, ','.join(bots_dict))
+        assert_bot_input(competition_mode, **kwargs)
         similarity_file = output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid_list, ','.join(bots_dict))
         for file in [replacements_file, similarity_file]:
             if exists(file):
@@ -274,14 +276,13 @@ def competition_setup(competition_mode, run_mode, top_refinement, qid_list, bots
                               rank_model, svm_rank_model, word_embedding_model)
 
     else:
-        replacements_file = replacements_dir + f'replacements_{competition_index}/'
         if exists(replacements_file):
             os.remove(replacements_file)
 
         competitors = get_competitors(trec_file=(trec_file if competition_mode == 'raifer' else positions_file),
                                       qid_list=qid_list)
 
-        assert_bot_input(competition_mode, run_mode, **kwargs, competitors=competitors)
+        assert_bot_input(competition_mode, qid_list, bots_dict, **kwargs, competitors=competitors)
 
         if competition_mode == 'raifer':
             trectext_file = trectext_file_raifer
@@ -289,8 +290,7 @@ def competition_setup(competition_mode, run_mode, top_refinement, qid_list, bots
                                     output_dir, document_workingset_file, indri_path, swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, clueweb_index, temp_index, replacements_file,
-                                    svm_rank_scripts_dir, run_mode, scripts_dir,
-                                    stopwords_file, queries_text_file, queries_xml_file,
+                                    svm_rank_scripts_dir, stopwords_file, queries_text_file, queries_xml_file,
                                     ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
                                     trec_file=trec_file, **kwargs)
         elif competition_mode == 'paper':
@@ -299,8 +299,7 @@ def competition_setup(competition_mode, run_mode, top_refinement, qid_list, bots
                                     output_dir, document_workingset_file, indri_path, swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, clueweb_index, temp_index, replacements_file,
-                                    svm_rank_scripts_dir, run_mode, scripts_dir,
-                                    stopwords_file, queries_text_file, queries_xml_file,
+                                    svm_rank_scripts_dir, stopwords_file, queries_text_file, queries_xml_file,
                                     ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
                                     positions_file=positions_file, **kwargs)
 

@@ -15,7 +15,7 @@ from gen_utils import run_bash_command, list_multiprocessing, run_and_print
 from utils import clean_texts, get_java_object, create_trectext_file, run_model, create_features_file_diff, \
     read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
     get_query_text, parse_qrid, create_index_to_query_dict, get_doc_id, \
-    generate_pair_name, ensure_dirs, tokenize_document, is_file_empty, get_next_doc_id, get_next_qrid
+    generate_pair_name, ensure_dirs, tokenize_document, is_file_empty, get_next_doc_id, get_next_qrid, read_queries_file
 from vector_functionality import query_term_freq, embedding_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
@@ -46,8 +46,9 @@ def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_indices, target
                 if 'qid' in kwargs and qid != kwargs['qid']:
                     continue
 
-                for bot_id in ref_indices:
-                    ref_doc = ranked_lists[epoch][qid][ref_indices[qid][bot_id]]
+                for bot_id in ref_indices[qid]:
+                    ref_index = ref_indices[qid][bot_id]
+                    ref_doc = ranked_lists[epoch][qid][ref_index]
                     pairs = create_sentence_pairs(doc_texts, ref_doc, target_documents[qid][bot_id])
                     for key in pairs:
                         output.write(qid.lstrip('0') + str(epoch) + "\t" + key + "\t" + pairs[key] + "\n")
@@ -254,24 +255,23 @@ def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_i
     write_files(feature_list, feature_vals, output_dir, qrid, ref_doc_index)
 
 
-# def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc_index, ref_doc_index,
-#                               doc_tfidf_vectors_dir, tfidf_sentence_dir, queries, output_feature_files_dir,
-#                               output_final_features_dir, workingset_file):
-#     global word_embd_model
-#     args = [qid for qid in queries]
-#     if not os.path.exists(output_feature_files_dir):
-#         os.makedirs(output_feature_files_dir)
-#     if not os.path.exists(output_final_features_dir):
-#         os.makedirs(output_final_features_dir)
-#     raw_ds = read_raw_ds(raw_dataset_file)
-#     create_ws(raw_ds, workingset_file, ref_doc_index)
-#     func = partial(create_features_og, raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index,
-#                    doc_tfidf_vectors_dir, tfidf_sentence_dir, queries, output_feature_files_dir)
-#     workers = cpu_count() - 1
-#     list_multiprocessing(args, func, workers=workers)
-#     command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
-#     run_bash_command(command)
-#     run_bash_command("mv features " + output_final_features_dir)
+def feature_creation_parallel(raw_dataset_file, ranked_lists, doc_texts, top_doc_index, ref_doc_index,
+                              doc_tfidf_vectors_dir, tfidf_sentence_dir, queries, output_feature_files_dir,
+                              output_final_features_dir, workingset_file):
+    args = [qid for qid in queries]
+    if not os.path.exists(output_feature_files_dir):
+        os.makedirs(output_feature_files_dir)
+    if not os.path.exists(output_final_features_dir):
+        os.makedirs(output_final_features_dir)
+    raw_ds = read_raw_ds(raw_dataset_file)
+    create_ws(raw_ds, workingset_file, ref_doc_index)
+    func = partial(create_features_og, raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index,
+                   doc_tfidf_vectors_dir, tfidf_sentence_dir, queries, output_feature_files_dir)
+    workers = cpu_count() - 1
+    list_multiprocessing(args, func, workers=workers)
+    command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
+    run_bash_command(command)
+    run_bash_command("mv features " + output_final_features_dir)
 
 
 def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, target_docs, doc_tfidf_vectors_dir,
@@ -404,14 +404,12 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
 
 
 def setup_feature_creation(qid_list, epoch, ref_indices, target_documents, ranked_lists, doc_texts, output_dir,
-                           word_embed_model,
-                           mode, base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
+                           word_embed_model, base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
                            documents_workingset_file, final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
                            output_feature_files_dir='feature_files/', workingset_file='workingset.txt'):
     sentences_tfidf_dir = output_dir + sentences_tfidf_dir
     output_feature_files_dir = output_dir + output_feature_files_dir
     workingset_file = output_dir + workingset_file
-
 
     if mode == 'serial':
         epoch, qid = parse_qrid(qrid)
@@ -429,9 +427,9 @@ def setup_feature_creation(qid_list, epoch, ref_indices, target_documents, ranke
 
     # in this version of the code, we use parallel computing by default
     create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_indices, target_documents, epoch=epoch)
-    create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, swig_path)
+    create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, new_index, swig_path,
+                                 documents_workingset_file)
     queries = read_queries_file(queries_file)
-    queries = transform_query_text(queries)
     feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),
                               int(ref_indices), doc_tfidf_dir,
                               sentences_tfidf_dir, queries, output_feature_files_dir,
