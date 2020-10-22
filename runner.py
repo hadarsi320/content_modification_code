@@ -188,7 +188,8 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
                 stdout = sys.stdout
                 sys.stdout = open(os.devnull, 'w')
                 try:
-                    competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_dump=pickle_file)
+                    competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_dump=pickle_file,
+                                      top_refinement=top_refinement)
                     sys.stdout = stdout
                     # run_bash_command(command)
                 except Exception as e:
