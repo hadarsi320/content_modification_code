@@ -189,7 +189,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
         shutil.rmtree(reranking_dir)
 
 
-def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/', **kwargs):
+def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/', mute=False, **kwargs):
     label_aggregation_method = 'harmonic'
     run_mode = 'single'
     label_aggregation_b = 1
