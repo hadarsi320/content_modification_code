@@ -160,10 +160,11 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
     elif 'trec_file' in kwargs:
         mode = 'raifer'
         trec_file = kwargs.pop('trec_file')
+        competitors = get_competitors_dict(trec_file)
         qid_list = sorted(get_query_ids(trec_file))
         for qid in qid_list:
-            competitors = get_competitors_dict(trec_file)
-            bots_list[qid] = list(combinations(competitors[qid], num_of_bots))
+            if len(competitors[qid]) == 5:
+                bots_list[qid] = list(combinations(competitors[qid], num_of_bots))
     else:
         raise ValueError('No file given to get bots')
 
@@ -174,17 +175,13 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
             iteration += 1
             if len(bots_list[qid]) > 0:
                 bots = bots_list[qid].pop(0)
-                if exists(output_dir + f'trec_files/similarity_{qid}_{",".join(bots)}.txt'):
-                    print(f'{iteration}. Competition qid={qid} competitors={", ".join(bots)} has already been ran')
-                    continue
 
-                command = f'python main.py --output_dir={output_dir}' \
-                          f' --mode={mode} ' \
+                command = f'python main.py --output_dir={output_dir} --mode={mode} ' \
                           f' --qid={qid} --bots={",".join(bots)}  --word2vec_dump={pickle_file}'
                 if top_refinement is not None:
                     command += f' --top_refinement={top_refinement}'
 
-                if iteration % print_interval == 0:
+                if iteration == 1 or iteration % print_interval == 0:
                     print(f'{iteration}. Running command: {command}')
 
                 try:
@@ -203,7 +200,7 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
             qid_list.remove(qid)
 
 
-def main(mode, source, print_interval=1, name=None, *args, **kwargs):
+def main(mode, source, print_interval=5, top_refinement=None, **kwargs):
     positions_file_paper = './data/paper_data/documents.positions'
     trec_file_raifer = 'data/trec_file_original_sorted.txt'
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
@@ -215,7 +212,8 @@ def main(mode, source, print_interval=1, name=None, *args, **kwargs):
         print('Implement this rerunning thing')
         return
 
-    if name is not None:
+    if 'name' in kwargs:
+        name = kwargs['name']
         results_dir = 'results/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
         output_dir = 'output/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
     else:
@@ -235,26 +233,26 @@ def main(mode, source, print_interval=1, name=None, *args, **kwargs):
     elif mode.endswith('of5'):
         num_of_bots = int(mode[0])
         if source == 'paper':
-            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, args[0], print_interval,
-                        positions_file=positions_file_paper, **kwargs)
+            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, top_refinement, print_interval,
+                        positions_file=positions_file_paper)
         elif source == 'raifer':
-            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, args[0], print_interval,
-                        trec_file=trec_file_raifer, **kwargs)
+            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, top_refinement, print_interval,
+                        trec_file=trec_file_raifer)
 
     os.remove(word2vec_pkl)
 
 
 if __name__ == '__main__':
-    # mode = sys.argv[1]
-    # source = sys.argv[2]
-    # if len(sys.argv) > 3:
-    #     main(mode, source, name=sys.argv[3])
-    # else:
-    #     main(mode, source)
+    mode = sys.argv[1]
+    source = sys.argv[2]
+    if len(sys.argv) == 4:
+        main(mode, source, name=sys.argv[3])
+    else:
+        main(mode, source)
 
-    workers = cpu_count() - 1
-    modes = [f'{x}of5' for x in range(1, 6)]
-    top_refinement_methods = ['past_top', 'highest_rated_inferiors', None, 'acceleration']
-
-    params_list = [(mode, 'raifer', 25, top_ref, top_ref) for top_ref in top_refinement_methods for mode in modes]
-    list_multiprocessing(params_list, main, workers=workers)
+    # workers = cpu_count() - 1
+    # modes = [f'{x}of5' for x in range(1, 6)]
+    # top_refinement_methods = ['past_top', 'highest_rated_inferiors', None, 'acceleration']
+    #
+    # params_list = [(mode, 'raifer', 25, top_ref, top_ref) for top_ref in top_refinement_methods for mode in modes]
+    # list_multiprocessing(params_list, main, workers=workers)

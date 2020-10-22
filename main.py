@@ -189,8 +189,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
         shutil.rmtree(reranking_dir)
 
 
-def competition_setup(mode, qid, bots, top_refinement, **kwargs):
-    output_dir = kwargs.pop('output_dir', 'output/tmp')
+def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/', **kwargs):
     label_aggregation_method = 'harmonic'
     run_mode = 'single'
     label_aggregation_b = 1
@@ -304,6 +303,15 @@ if __name__ == '__main__':
     parser.add_option('--qid')
     parser.add_option('--bots')
     parser.add_option('--top_refinement', choices=['acceleration', 'past_top', 'highest_rated_inferiors'])
-
+    parser.add_option('--output_dir')
+    parser.add_option('--word2vec_dump')
     (options, args) = parser.parse_args()
-    competition_setup(options.mode, options.qid, options.bots.split(','), options.top_refinement)
+
+    arguments_dict = {}
+    if options.output_dir is not None:
+        arguments_dict['output_dir'] = options.output_dir
+    if options.word2vec_dump is not None:
+        arguments_dict['word2vec_dump'] = options.word2vec_dump
+
+    competition_setup(options.mode, options.qid.zfill(3), options.bots.split(','), options.top_refinement,
+                      **arguments_dict)
