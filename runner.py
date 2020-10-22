@@ -11,6 +11,7 @@ from time import sleep
 from deprecated import deprecated
 
 from gen_utils import run_bash_command, list_multiprocessing
+from main import competition_setup
 from utils import parse_qrid, ensure_dirs, get_query_ids, load_word_embedding_model
 
 
@@ -182,11 +183,16 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
                     command += f' --top_refinement={top_refinement}'
 
                 if iteration == 1 or iteration % print_interval == 0:
-                    print(f'{iteration}. Running command: {command}')
+                    print(f'{iteration}. Running: {command}')
 
+                stdout = sys.stdout
+                sys.stdout = open(os.devnull, 'w')
                 try:
-                    run_bash_command(command)
+                    competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_dump=pickle_file)
+                    sys.stdout = stdout
+                    # run_bash_command(command)
                 except Exception as e:
+                    sys.stdout = stdout
                     print(f'#### Error occured in competition {qid} {", ".join(bots)}: \n{str(e)}\n')
                     log_error(error_file, command)
 
@@ -245,16 +251,19 @@ def main(mode, source, print_interval=5, top_refinement=None, **kwargs):
 
 
 if __name__ == '__main__':
-    mode = sys.argv[1]
-    source = sys.argv[2]
-    if len(sys.argv) == 4:
-        main(mode, source, name=sys.argv[3])
-    else:
-        main(mode, source)
+    # mode = sys.argv[1]
+    # source = sys.argv[2]
+    # if len(sys.argv) == 4:
+    #     main(mode, source, name=sys.argv[3])
+    # else:
+    #     main(mode, source)
 
-    # workers = cpu_count() - 1
-    # modes = [f'{x}of5' for x in range(1, 6)]
-    # top_refinement_methods = ['past_top', 'highest_rated_inferiors', None, 'acceleration']
-    #
-    # params_list = [(mode, 'raifer', 25, top_ref, top_ref) for top_ref in top_refinement_methods for mode in modes]
-    # list_multiprocessing(params_list, main, workers=workers)
+    modes = [f'{i+1}of5' for i in range(5)]
+    top_refinement_methods = [None, 'acceleration', 'past_top', 'highest_rated_inferiors']
+
+    for mode in modes:
+        for top_refinement_method in top_refinement_methods:
+            if mode == '1of5' and top_refinement_method is None:
+                continue
+            name = mode if mode is not None else 'vanilla'
+            main(mode, 'raifer', top_refinement=top_refinement_method, name=name)
