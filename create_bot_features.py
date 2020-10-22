@@ -20,7 +20,7 @@ from vector_functionality import query_term_freq, embedding_similarity, calculat
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
 
-def create_sentence_pairs(top_docs, ref_doc, texts):
+def create_sentence_pairs(texts, ref_doc, top_docs):
     result = {}
     ref_sentences = tokenize_document(texts[ref_doc])
     for doc in top_docs:
@@ -34,28 +34,23 @@ def create_sentence_pairs(top_docs, ref_doc, texts):
     return result
 
 
-def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, **kwargs):
-    output_dir = os.path.dirname(output_file)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_indices, target_documents, **kwargs):
+    ensure_dirs(output_file)
 
     with open(output_file, 'w') as output:
         for epoch in ranked_lists:
             if 'epoch' in kwargs and epoch != kwargs['epoch']:
                 continue
+
             for qid in ranked_lists[epoch]:
                 if 'qid' in kwargs and qid != kwargs['qid']:
                     continue
 
-                if 'top_docs_index' in kwargs:
-                    copy_docs = ranked_lists[epoch][qid][:kwargs['top_docs_index']]
-                elif 'target_docs' in kwargs:
-                    copy_docs = kwargs['target_docs']
-
-                ref_doc = ranked_lists[epoch][qid][ref_index]
-                pairs = create_sentence_pairs(copy_docs, ref_doc, doc_texts)
-                for key in pairs:
-                    output.write(str(int(qid)) + str(epoch) + "\t" + key + "\t" + pairs[key] + "\n")
+                for bot_id in ref_indices:
+                    ref_doc = ranked_lists[epoch][qid][ref_indices[qid][bot_id]]
+                    pairs = create_sentence_pairs(doc_texts, ref_doc, target_documents[qid][bot_id])
+                    for key in pairs:
+                        output.write(qid.lstrip('0') + str(epoch) + "\t" + key + "\t" + pairs[key] + "\n")
 
 
 def read_raw_ds(raw_dataset):
@@ -140,35 +135,26 @@ def write_files(feature_list, feature_vals, output_dir, qrid, ref):
                 out.write(name + " " + str(value) + "\n")
 
 
-def create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
-                    query_text, output_dir, raw_ds, word_embed_model, **kwargs):
-    feature_vals = defaultdict(dict)
+def create_features(qrid, ranked_lists, doc_texts, ref_doc_index, target_docs, doc_tfidf_vectors_dir,
+                    sentence_tfidf_vectors_dir, query_text, output_dir, raw_ds, word_embed_model):
+    feature_values = defaultdict(dict)
     relevant_pairs = raw_ds[qrid]
     epoch, qid = parse_qrid(qrid)
     query_text = clean_texts(query_text)
-    # feature_list = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
-    #                 "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
-    #                 "CosineToWinnerCentroidOutVec", "CosineToWinnerCentroidIn", "CosineToWinnerCentroidOut",
-    #                 "SimilarityToPrev", "SimilarityToRefSentence", "SimilarityToPred", "SimilarityToPrevRef",
-    #                 "SimilarityToPredRef"]
+
     feature_list = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
                     "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
                     "CosineToWinnerCentroidOutVec", "CosineToWinnerCentroidIn", "CosineToWinnerCentroidOut",
                     "SimilarityToPrev", "SimilarityToRefSentence", "SimilarityToPred", "SimilarityToPrevRef"]
+    #                 "SimilarityToPredRef"]
 
     past_winners = get_past_winners(ranked_lists, epoch, qid)
     past_winners_semantic_centroid_vector = past_winners_centroid(past_winners, doc_texts, word_embed_model, True)
     past_winners_tfidf_centroid_vector = get_past_winners_tfidf_centroid(past_winners, doc_tfidf_vectors_dir)
 
-    if 'top_docs_index' in kwargs:
-        copy_docs = ranked_lists[epoch][qid][:kwargs['top_docs_index']]
-    elif 'target_docs' in kwargs:
-        epoch, qid = parse_qrid(qrid)
-        copy_docs = kwargs['target_docs']
-
     ref_doc = ranked_lists[epoch][qid][ref_doc_index]
     ref_sentences = sent_tokenize(doc_texts[ref_doc])  # doc_texts[ref_doc].split('\n')
-    top_docs_tfidf_centroid = document_centroid([get_java_object(doc_tfidf_vectors_dir + doc) for doc in copy_docs])
+    top_docs_tfidf_centroid = document_centroid([get_java_object(doc_tfidf_vectors_dir + doc) for doc in target_docs])
     for pair in relevant_pairs:
         # Sentences have been cleaned
         sentence_in = relevant_pairs[pair]["in"]
@@ -177,36 +163,36 @@ def create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vect
         out_vec = get_text_centroid(sentence_out, word_embed_model, True)
         replace_index = int(pair.split("_")[1])
 
-        feature_vals['FractionOfQueryWordsIn'][pair] = query_term_freq("avg", sentence_in, query_text)
-        feature_vals['FractionOfQueryWordsOut'][pair] = query_term_freq("avg", sentence_out, query_text)
-        feature_vals['CosineToCentroidIn'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
+        feature_values['FractionOfQueryWordsIn'][pair] = query_term_freq("avg", sentence_in, query_text)
+        feature_values['FractionOfQueryWordsOut'][pair] = query_term_freq("avg", sentence_out, query_text)
+        feature_values['CosineToCentroidIn'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
             sentence_tfidf_vectors_dir + pair.split("$")[1].split("_")[0] + "_" +
             pair.split("_")[2], top_docs_tfidf_centroid)
-        feature_vals['CosineToCentroidOut'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
+        feature_values['CosineToCentroidOut'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
             sentence_tfidf_vectors_dir + pair.split("$")[0] + "_" + pair.split("_")[1], top_docs_tfidf_centroid)
-        feature_vals["CosineToCentroidInVec"][pair] = \
+        feature_values["CosineToCentroidInVec"][pair] = \
             calculate_semantic_similarity_to_top_docs(sentence_in, copy_docs, doc_texts, word_embed_model, True)
-        feature_vals["CosineToCentroidOutVec"][pair] = \
+        feature_values["CosineToCentroidOutVec"][pair] = \
             calculate_semantic_similarity_to_top_docs(sentence_out, copy_docs, doc_texts, word_embed_model, True)
-        feature_vals['CosineToWinnerCentroidInVec'][pair] = \
+        feature_values['CosineToWinnerCentroidInVec'][pair] = \
             cosine_similarity(in_vec, past_winners_semantic_centroid_vector)
-        feature_vals['CosineToWinnerCentroidOutVec'][pair] = \
+        feature_values['CosineToWinnerCentroidOutVec'][pair] = \
             cosine_similarity(out_vec, past_winners_semantic_centroid_vector)
-        feature_vals['CosineToWinnerCentroidIn'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
+        feature_values['CosineToWinnerCentroidIn'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
             sentence_tfidf_vectors_dir + pair.split("$")[1].split("_")[0] + "_" + pair.split("_")[2],
             past_winners_tfidf_centroid_vector)
-        feature_vals['CosineToWinnerCentroidOut'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
+        feature_values['CosineToWinnerCentroidOut'][pair] = calculate_similarity_to_docs_centroid_tf_idf(
             sentence_tfidf_vectors_dir + pair.split("$")[0] + "_" + pair.split("_")[1],
             past_winners_tfidf_centroid_vector)
-        feature_vals['SimilarityToPrev'][pair] = \
+        feature_values['SimilarityToPrev'][pair] = \
             context_similarity(replace_index, ref_sentences, sentence_in, "prev", word_embed_model, True)
-        feature_vals['SimilarityToRefSentence'][pair] = \
+        feature_values['SimilarityToRefSentence'][pair] = \
             context_similarity(replace_index, ref_sentences, sentence_in, "own", word_embed_model, True)
-        feature_vals['SimilarityToPred'][pair] = \
+        feature_values['SimilarityToPred'][pair] = \
             context_similarity(replace_index, ref_sentences, sentence_in, "pred", word_embed_model, True)
-        feature_vals['SimilarityToPrevRef'][pair] = \
+        feature_values['SimilarityToPrevRef'][pair] = \
             context_similarity(replace_index, ref_sentences, sentence_out, "prev", word_embed_model, True)
-    write_files(feature_list, feature_vals, output_dir, qrid, ref_doc_index)
+    write_files(feature_list, feature_values, output_dir, qrid, ref_doc_index)
 
 
 def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
@@ -288,14 +274,14 @@ def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_i
 #     run_bash_command("mv features " + output_final_features_dir)
 
 
-def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir,
+def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, target_docs, doc_tfidf_vectors_dir,
                             sentence_tfidf_vectors_dir, raw_dataset_file, query_text, output_feature_files_dir,
-                            output_final_features_file, workingset_file, word_embed_model, **kwargs):
+                            output_final_features_file, workingset_file, word_embed_model):
     ensure_dirs(output_feature_files_dir, output_final_features_file)
     raw_ds = read_raw_ds(raw_dataset_file)
     create_ws(raw_ds, workingset_file, ref_doc_index)
-    create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
-                    query_text, output_feature_files_dir, raw_ds, word_embed_model, **kwargs)
+    create_features(qrid, ranked_lists, doc_texts, ref_doc_index, target_docs, doc_tfidf_vectors_dir,
+                    sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, raw_ds, word_embed_model)
     command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
     run_and_print(command)
     command = "mv features " + output_final_features_file
@@ -417,40 +403,36 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
     return final
 
 
-def create_bot_features(qrid, ref_index, ranked_lists, doc_texts, output_dir, word_embed_model,
-                        mode, base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
-                        documents_workingset_file, final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
-                        output_feature_files_dir='feature_files/', workingset_file='workingset.txt', **kwargs):
+def setup_feature_creation(qid_list, epoch, ref_indices, target_documents, ranked_lists, doc_texts, output_dir,
+                           word_embed_model,
+                           mode, base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
+                           documents_workingset_file, final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
+                           output_feature_files_dir='feature_files/', workingset_file='workingset.txt'):
     sentences_tfidf_dir = output_dir + sentences_tfidf_dir
     output_feature_files_dir = output_dir + output_feature_files_dir
     workingset_file = output_dir + workingset_file
 
+
     if mode == 'serial':
         epoch, qid = parse_qrid(qrid)
 
-        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, epoch=epoch, qid=qid, **kwargs)
+        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_indices, target_documents, epoch=epoch)
         if is_file_empty(raw_ds_file):
             return True
 
         create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, new_index, swig_path,
                                      documents_workingset_file)
         query_text = get_query_text(queries_file, qid)
-        feature_creation_single(qrid, ranked_lists, doc_texts, ref_index, doc_tfidf_dir, sentences_tfidf_dir,
-                                raw_ds_file, query_text, output_feature_files_dir, final_features_file, workingset_file,
-                                word_embed_model, **kwargs)
+        feature_creation_single(qrid, ranked_lists, doc_texts, ref_indices, target_documents, doc_tfidf_dir,
+                                sentences_tfidf_dir, raw_ds_file, query_text, output_feature_files_dir,
+                                final_features_file, workingset_file, word_embed_model)
 
-    # elif mode == 'parallel':
-    #     create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
-    #                        int(top_docs_index))
-    #     create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, swig_path)
-    #     queries = read_queries_file(queries_file)
-    #     queries = transform_query_text(queries)
-    #     feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),
-    #                               int(ref_index), doc_tfidf_dir,
-    #                               sentences_tfidf_dir, queries, output_feature_files_dir,
-    #                               output_final_feature_file_dir, workingset_file)
-
-    else:
-        raise ValueError('mode value must be given, and it must be either \'single\' or \'multiple\'')
-
-    return False
+    # in this version of the code, we use parallel computing by default
+    create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_indices, target_documents, epoch=epoch)
+    create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, swig_path)
+    queries = read_queries_file(queries_file)
+    queries = transform_query_text(queries)
+    feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),
+                              int(ref_indices), doc_tfidf_dir,
+                              sentences_tfidf_dir, queries, output_feature_files_dir,
+                              output_final_feature_file_dir, workingset_file)

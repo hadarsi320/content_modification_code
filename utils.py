@@ -509,10 +509,7 @@ def get_competitors(trec_file, **kwargs):
             doc_id = line.split()[2]
             _, qid, pid = parse_doc_id(doc_id)
             pid = pid.replace('_', '')
-            if 'qid' in kwargs:
-                if qid == kwargs['qid'] and pid not in competitors[qid]:
-                    competitors[qid].append(pid)
-            elif 'qid_list' in kwargs:
+            if 'qid_list' in kwargs:
                 if qid in kwargs['qid_list'] and pid not in competitors[qid]:
                     competitors[qid].append(pid)
             elif pid not in competitors[qid]:

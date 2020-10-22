@@ -3,19 +3,20 @@ import os
 import pickle
 import shutil
 import sys
+from collections import defaultdict
 from optparse import OptionParser
 from os.path import exists
 
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
-    get_rankings, get_target_documents, assert_bot_input
+    get_rankings, get_target_documents, assert_bot_input, get_competition_index
 from bot_competition import generate_predictions, get_highest_ranked_pair, \
     generate_updated_document, update_trec_file, generate_document_tfidf_files, \
     record_doc_similarity, record_replacement
-from create_bot_features import create_bot_features
+from create_bot_features import setup_feature_creation
 from create_bot_features import run_reranking
 from utils import get_doc_id, \
     update_trectext_file, complete_sim_file, create_index, create_documents_workingset, get_next_doc_id, \
-    load_word_embedding_model, get_competitors, ensure_dirs
+    load_word_embedding_model, get_competitors
 from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 
@@ -28,7 +29,8 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
     # initalizing the trec and trectext files specific to this competition
     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid_list=qid, trec_file=full_trec_file,
                                               bots_dict=competitor_list, only_bots=True)
-    comp_trectext_file = create_initial_trectext_file(output_dir=trectext_dir, qid_list=qid, trectext_file=trectext_file,
+    comp_trectext_file = create_initial_trectext_file(output_dir=trectext_dir, qid_list=qid,
+                                                      trectext_file=trectext_file,
                                                       bots_dict=competitor_list, only_bots=True)
 
     doc_texts = load_trectext_file(comp_trectext_file)
@@ -49,12 +51,13 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         winner_doc_id, loser_doc_id = ranked_lists[str(epoch).zfill(2)][qid]
 
         # creating features
-        cant_append = create_bot_features(qrid=qrid, ref_index=1, top_docs_index=1, ranked_lists=ranked_lists,
-                                          doc_texts=doc_texts, output_dir=output_dir,
-                                          word_embed_model=word_embedding_model, mode=run_mode, raw_ds_file=raw_ds_file,
-                                          doc_tfidf_dir=doc_tfidf_dir, base_index=base_index, new_index=comp_index,
-                                          documents_workingset_file=document_workingset_file, swig_path=swig_path,
-                                          queries_file=queries_xml_file, final_features_file=features_file)
+        cant_append = setup_feature_creation(ref_indices=1, ranked_lists=ranked_lists,
+                                             doc_texts=doc_texts, output_dir=output_dir,
+                                             word_embed_model=word_embedding_model, mode=run_mode,
+                                             raw_ds_file=raw_ds_file,
+                                             doc_tfidf_dir=doc_tfidf_dir, base_index=base_index, new_index=comp_index,
+                                             documents_workingset_file=document_workingset_file, swig_path=swig_path,
+                                             queries_file=queries_xml_file, final_features_file=features_file)
         if cant_append:
             complete_sim_file(similarity_file, total_rounds)
             break
@@ -95,7 +98,8 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
-def run_general_competition(competition_index, qid_list, competitors, bots_dict, rounds, top_refinement, trectext_file, output_dir,
+def run_general_competition(competition_index, qid_list, competitors, bots_dict, rounds, top_refinement, trectext_file,
+                            output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                             replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir, stopwords_file,
@@ -118,67 +122,60 @@ def run_general_competition(competition_index, qid_list, competitors, bots_dict,
         qrid_list = [get_qrid(qid, epoch) for qid in qid_list]
         ranked_lists = read_trec_file(comp_trec_file)
         doc_texts = load_trectext_file(comp_trectext_file)
-        bot_rankings, student_rankings = get_rankings(comp_trec_file, bots_dict, qid_list, epoch)
+        features_file = final_features_dir + f'features_{competition_index}_{epoch}.dat'
+        raw_ds_file = raw_ds_dir + f'raw_ds_out_{competition_index}_{epoch}.txt'
 
         new_docs = {}
-        for student_id in student_rankings:
-            next_doc_id = get_doc_id(epoch + 1, qid_list, student_id)
-            new_docs[next_doc_id] = original_texts[next_doc_id]
+        ref_indices = defaultdict(dict)
+        target_documents = defaultdict(dict)
 
-        for bot_id in bot_rankings:
-            logger.info(f'{bot_id} rank: {bot_rankings[bot_id] + 1}')
+        for qid in qid_list:
+            bot_rankings, student_rankings = get_rankings(ranked_lists, epoch, qid, bots_dict[qid])
+            for student_id in student_rankings:
+                next_doc_id = get_doc_id(epoch + 1, qid, student_id)
+                new_docs[next_doc_id] = original_texts[next_doc_id]
 
-            features_file = final_features_dir + f'features_{qrid}_{bot_id}.dat'
-            raw_ds_file = raw_ds_dir + f'raw_ds_out_{qrid}_{bot_id}.txt'
+            for bot_id in bot_rankings:
+                logger.info(f'{bot_id} rank: {bot_rankings[bot_id] + 1}')
 
-            bot_doc_id = get_doc_id(epoch, qid_list, bot_id)
-            next_doc_id = get_doc_id(epoch + 1, qid_list, bot_id)
-            ref_index = bot_rankings[bot_id]
+                bot_doc_id = get_doc_id(epoch, qid, bot_id)
+                next_doc_id = get_doc_id(epoch + 1, qid, bot_id)
+                ref_indices[qid][bot_id] = bot_rankings[bot_id]
 
-            # todo replace ref index entirely with target_docs
-            if ref_index == 0:
-                target_documents = get_target_documents(top_refinement, qid_list, epoch, ranked_lists)
+                if ref_indices[qid][bot_id] == 0:
+                    target_documents[qid][bot_id] = get_target_documents(top_refinement, qid, epoch, ranked_lists)
 
-            else:
-                top_docs_index = min(3, ref_index)
-                target_documents = ranked_lists[str(epoch).zfill(2)][qid_list][:top_docs_index]
+                else:
+                    top_docs_index = min(3, ref_indices[qid][bot_id])
+                    target_documents[qid][bot_id] = ranked_lists[str(epoch).zfill(2)][qid][:top_docs_index]
 
-            if target_documents is not None:
-                # Creating features
-                cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, target_docs=target_documents,
-                                                   ranked_lists=ranked_lists, doc_texts=doc_texts,
-                                                   output_dir=output_dir, word_embed_model=word_embedding_model,
-                                                   mode=run_mode, raw_ds_file=raw_ds_file,
-                                                   doc_tfidf_dir=doc_tfidf_dir,
-                                                   documents_workingset_file=document_workingset_file,
-                                                   base_index=base_index, new_index=comp_index, swig_path=swig_path,
-                                                   queries_file=queries_xml_file, final_features_file=features_file)
-            else:
-                cant_replace = True
+                if target_documents[qid][bot_id] is None:
+                    new_docs[next_doc_id] = doc_texts[bot_doc_id]
 
-            if cant_replace:
-                new_docs[next_doc_id] = doc_texts[bot_doc_id]
-                logger.info('Bot {} cant replace any sentence'.format(bot_id))
-                continue
+        setup_feature_creation(qid_list, epoch, ref_indices=ref_indices, target_documents=target_documents,
+                               ranked_lists=ranked_lists, doc_texts=doc_texts, output_dir=output_dir,
+                               word_embed_model=word_embedding_model, mode='parallel', raw_ds_file=raw_ds_file,
+                               doc_tfidf_dir=doc_tfidf_dir, documents_workingset_file=document_workingset_file,
+                               base_index=base_index, new_index=comp_index, swig_path=swig_path,
+                               queries_file=queries_xml_file, final_features_file=features_file)
 
-            # Rank pairs
-            ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir,
-                                                features_file)
+        # Rank pairs
+        ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir, features_file)
 
-            # Find highest ranked pair
-            rep_doc_id, out_index, in_index = get_highest_ranked_pair(features_file, ranking_file)
+        # Find highest ranked pair
+        rep_doc_id, out_index, in_index = get_highest_ranked_pair(features_file, ranking_file)
 
-            # Replace sentence
-            record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index)
-            new_docs[next_doc_id] = generate_updated_document(doc_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
-                                                              out_index=out_index, in_index=in_index)
+        # Replace sentence
+        record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index)
+        new_docs[next_doc_id] = generate_updated_document(doc_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
+                                                          out_index=out_index, in_index=in_index)
 
         # updating the trectext file
         update_trectext_file(comp_trectext_file, doc_texts, new_docs)
 
         # updating the index, workingset file and tfidf files
         create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-        create_documents_workingset(document_workingset_file, epoch + 1, qid_list, competitors)
+        create_documents_workingset(document_workingset_file, epoch + 1, qid, competitors)
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
 
@@ -190,7 +187,7 @@ def run_general_competition(competition_index, qid_list, competitors, bots_dict,
         shutil.rmtree(reranking_dir)
 
 
-def competition_setup(competition_mode, run_mode, top_refinement, **kwargs):
+def competition_setup(competition_mode, run_mode, top_refinement, qid_list, bots_dict, **kwargs):
     # Default values
     output_dir = kwargs.pop('output_dir', 'output/tmp/')
     label_aggregation_method = 'harmonic'
@@ -257,23 +254,7 @@ def competition_setup(competition_mode, run_mode, top_refinement, **kwargs):
         word_embedding_model = load_word_embedding_model(embedding_model_file)
         logger.info('Loaded word Embedding Model from file')
 
-    competition_index = None
-    if run_mode == 'parallel':
-        qid_list = kwargs['qid_list']
-        bots_dict = kwargs['bots_dict']
-
-        ensure_dirs(competition_files_dir)
-        competition_files = os.listdir(competition_files_dir)
-        competition_index = 1
-        while f'competition_file_{competition_index}' in competition_files:
-            competition_index += 1
-        competition_index = str(competition_index).zfill(2)
-        competition_file = f'{competition_files_dir}competition_file_{competition_index}'
-        with open(competition_file, 'w') as f:
-            for qid in qid_list:
-                f.write('{}: {}\n'.format(qid, ', '.join(bots_dict[qid])))
-
-        kwargs['competition_index'] = competition_index
+    competition_index = get_competition_index(qid_list, bots_dict, competition_files_dir)
 
     if competition_mode == '2of2':
         trectext_file = trectext_file_raifer
@@ -293,17 +274,12 @@ def competition_setup(competition_mode, run_mode, top_refinement, **kwargs):
                               rank_model, svm_rank_model, word_embedding_model)
 
     else:
-        if run_mode == 'serial':
-            replacements_file = replacements_dir + 'replacements_{}_{}'\
-                .format(kwargs['qid'], ','.join(kwargs['bots']))
-        else:
-            replacements_file = replacements_dir + f'replacements_{competition_index}/'
-
+        replacements_file = replacements_dir + f'replacements_{competition_index}/'
         if exists(replacements_file):
             os.remove(replacements_file)
 
         competitors = get_competitors(trec_file=(trec_file if competition_mode == 'raifer' else positions_file),
-                                      **kwargs)
+                                      qid_list=qid_list)
 
         assert_bot_input(competition_mode, run_mode, **kwargs, competitors=competitors)
 

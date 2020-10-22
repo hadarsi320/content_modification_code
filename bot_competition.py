@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -9,7 +10,7 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-from create_bot_features import update_text_doc, create_bot_features
+from create_bot_features import update_text_doc, setup_feature_creation
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
     ensure_dirs, get_learning_data_path, get_doc_id, parse_qrid
@@ -105,8 +106,8 @@ def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
 
 
 def generate_predictions(model_path, svm_rank_scripts_dir, predictions_dir, feature_file):
+    ensure_dirs(predictions_dir)
     predictions_file = predictions_dir + '_predictions'.join(splitext(basename(feature_file)))
-    ensure_dirs(predictions_file)
     command = svm_rank_scripts_dir + 'svm_rank_classify ' + feature_file + ' ' + model_path + ' ' + predictions_file
     run_and_print(command)
     return predictions_file
@@ -250,9 +251,9 @@ def create_pair_ranker(model_path, label_aggregation_method, label_aggregation_b
     create_model(svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
 
 
-def get_rankings(trec_file, bot_ids, qid, epoch):
+def get_rankings(ranked_lists, epoch, qid, bot_ids):
     """
-    :param trec_file: a trecfile
+    :param ranked_lists: the ranked lists of a competition
     :param bot_ids: the pids of the players who are bots
     :param qid: query id
     :param epoch: current round
@@ -261,19 +262,13 @@ def get_rankings(trec_file, bot_ids, qid, epoch):
 
     bots = {}
     students = {}
-    position = 0
     epoch = str(epoch).zfill(2)
-    with open(trec_file, 'r') as f:
-        for line in f:
-            doc_id = line.split()[2]
-            last_epoch, last_qid, pid = parse_doc_id(doc_id)
-            if last_epoch != epoch or last_qid != qid:
-                continue
-            if pid in bot_ids:
-                bots[pid] = position
-            else:
-                students[pid] = position
-            position += 1
+    for i, doc_id in enumerate(ranked_lists[epoch][qid]):
+        _, _, pid = parse_doc_id(doc_id)
+        if pid in bot_ids:
+            bots[pid] = i
+        else:
+            students[pid] = i
     return bots, students
 
 
@@ -368,3 +363,16 @@ def assert_bot_input(competition_mode, run_mode, **kwargs):
 
     else:
         raise ValueError(f'Illegal competition mode given {competition_mode}')
+
+
+def get_competition_index(qid_list, bots_dict, output_dir):
+    ensure_dirs(output_dir)
+    competition_files = os.listdir(output_dir)
+    competition_index = 1
+    while f'competition_file_{competition_index}' in competition_files:
+        competition_index += 1
+    competition_index = str(competition_index).zfill(3)
+    competition_file = f'{output_dir}competition_file_{competition_index}'
+    with open(competition_file, 'w') as f:
+        for qid in qid_list:
+            f.write('{}: {}\n'.format(qid, ', '.join(bots_dict[qid])))
