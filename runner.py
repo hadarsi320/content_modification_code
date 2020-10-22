@@ -266,4 +266,6 @@ if __name__ == '__main__':
             if mode == '1of5' and top_refinement_method is None:
                 continue
             name = mode if mode is not None else 'vanilla'
+            print('{}Running competitions with mode: {} with top refinement method: {}'
+                  .format('#'*10, mode, top_refinement_method))
             main(mode, 'raifer', top_refinement=top_refinement_method, name=name)
