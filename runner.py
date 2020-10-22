@@ -190,6 +190,7 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
                     print(f'#### Error occured in competition {qid} {", ".join(bots)}: \n{str(e)}\n')
                     log_error(error_file, command)
 
+                ensure_dirs(results_dir)
                 command = f'cp -r {output_dir}/trec_files {output_dir}/trectext_files {output_dir}/error_file.txt ' \
                           f'{results_dir}'
                 run_bash_command(command)
@@ -220,9 +221,8 @@ def main(mode, source, print_interval=5, top_refinement=None, **kwargs):
         results_dir = 'results/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
         output_dir = 'output/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
 
-    ensure_dirs(results_dir, output_dir)
-
     word_embedding_model = load_word_embedding_model(embedding_model_file)
+    ensure_dirs(output_dir)
     word2vec_pkl = output_dir + 'word_embedding_model.pkl'
     with open(word2vec_pkl, 'wb') as f:
         pickle.dump(word_embedding_model, f)
@@ -238,6 +238,8 @@ def main(mode, source, print_interval=5, top_refinement=None, **kwargs):
         elif source == 'raifer':
             runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, top_refinement, print_interval,
                         trec_file=trec_file_raifer)
+        else:
+            print(f'Illegal source given {source}')
 
     os.remove(word2vec_pkl)
 

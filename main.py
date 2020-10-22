@@ -15,7 +15,7 @@ from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
 from utils import get_doc_id, \
     update_trectext_file, complete_sim_file, create_index, create_documents_workingset, get_next_doc_id, \
-    load_word_embedding_model, get_competitors
+    load_word_embedding_model, get_competitors, ensure_dirs
 from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 
@@ -216,6 +216,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
     swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
 
+    ensure_dirs(output_dir)
     document_workingset_file = output_dir + 'document_ws.txt'
     final_features_dir = output_dir + 'final_features/'
     doc_tfidf_dir = output_dir + 'document_tfidf/'
