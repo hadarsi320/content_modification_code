@@ -242,7 +242,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
 
     # load word2vec model
     if 'word2vec_dump' in kwargs:
-        word2vec_dump = kwargs['word2vec_dump']
+        word2vec_dump = kwargs.pop('word2vec_dump')
         word_embedding_model = pickle.load(open(word2vec_dump, 'rb'))
         logger.info('Loaded word Embedding Model from pickle')
     else:
