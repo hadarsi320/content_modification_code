@@ -304,12 +304,12 @@ def main():
     # plt.savefig(plots_dir + '/Competitions Comparison of Top Refinement Methods')
     plt.show()
 
-    # top_refine_methods = ['vanilla', 'acceleration', 'past_top', 'inferiors']
-    # competitions_list_rev = [{f'{x + 1}of5': competitions_list[x][meth] for x in range(3)} for meth in
-    #                          top_refine_methods]
-    #
-    # analyze_top_refine_methods(competitions_list_rev, top_refine_methods, show=False,
-    #                            savefig=plots_dir + '/Average First Place Duration Comparison')
+    top_refine_methods = ['vanilla', 'acceleration', 'past_top', 'inferiors']
+    competitions_list_rev = [{f'{x + 1}of5': competitions_list[x][method] for x in range(3)} for method in
+                             top_refine_methods]
+
+    analyze_top_refine_methods(competitions_list_rev, top_refine_methods, show=False,
+                               savefig=plots_dir + '/Average First Place Duration Comparison')
 
 
 if __name__ == '__main__':
