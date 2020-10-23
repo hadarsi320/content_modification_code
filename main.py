@@ -230,7 +230,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
     program = os.path.basename(sys.argv[0])
     logger = logging.getLogger(program)
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
-    logging.root.setLevel(level=logging.INFO)
+    logging.root.setLevel(level=logging.CRITICAL+1 if mute else logging.INFO)
     logger.info("Running %s" % ' '.join(sys.argv))
 
     svm_rank_model = svm_models_dir + get_model_name(label_aggregation_method, label_aggregation_b, svm_rank_c)
