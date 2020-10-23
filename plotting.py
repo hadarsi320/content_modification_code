@@ -297,7 +297,7 @@ def main():
     competitions_list = [competitions_1of5]
     labels = [f'{i + 1} bots out of 5' for i in range(5)]
 
-    _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(25, 10), squeeze=False)
+    _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(24, 10*len(competitions_list)), squeeze=False)
     for i, ax in enumerate(axs):
         competitions = competitions_list[i]
         compare_competitions(trec_dirs=competitions, axs=ax, title=labels[i], show=False)
