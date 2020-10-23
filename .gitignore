@@ -1,3 +1,6 @@
 /test.py
 /plots/
 /data/learning_dataset/
+.idea/deployment.xml
+.idea/misc.xml
+.idea/content_modification_code.iml
