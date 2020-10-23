@@ -6,11 +6,9 @@ from datetime import datetime
 from itertools import combinations
 from multiprocessing import cpu_count
 from os.path import exists
-from time import sleep
-
 from deprecated import deprecated
 
-from gen_utils import run_bash_command, list_multiprocessing
+from gen_utils import run_bash_command, list_multiprocessing, run_and_print
 from main import competition_setup
 from utils import parse_qrid, ensure_dirs, get_query_ids, load_word_embedding_model
 
@@ -145,7 +143,7 @@ def runner_3of5(output_dir, pickle_file, positions_file='./data/paper_data/docum
 def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinement, print_interval, **kwargs):
     error_file = output_dir + 'error_file.txt'
 
-    bots_list = defaultdict(list)
+    bots_list = {}
     if 'positions_file' in kwargs:
         mode = 'paper'
         positions_file = kwargs.pop('positions_file')
@@ -170,42 +168,35 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
         raise ValueError('No file given to get bots')
 
     iteration = 0
-    while len(qid_list) > 0:
-        remove_list = []
-        for qid in qid_list:
+    for qid in bots_list:
+        for bots in bots_list[qid]:
             iteration += 1
-            if len(bots_list[qid]) > 0:
-                bots = bots_list[qid].pop(0)
 
-                command = f'python main.py --output_dir={output_dir} --mode={mode} ' \
-                          f' --qid={qid} --bots={",".join(bots)}  --word2vec_dump={pickle_file}'
-                if top_refinement is not None:
-                    command += f' --top_refinement={top_refinement}'
+            command = f'python main.py --output_dir={output_dir} --mode={mode} ' \
+                      f' --qid={qid} --bots={",".join(bots)}  --word2vec_dump={pickle_file}'
+            if top_refinement is not None:
+                command += f' --top_refinement={top_refinement}'
 
-                if iteration == 1 or iteration % print_interval == 0:
-                    print(f'{iteration}. Running: {command}')
+            if iteration == 1 or iteration % print_interval == 0:
+                print(f'{iteration}. Running: {command}')
 
-                stdout = sys.stdout
-                sys.stdout = open(os.devnull, 'w')
-                try:
-                    competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_dump=pickle_file,
-                                      top_refinement=top_refinement)
-                    sys.stdout = stdout
-                    # run_bash_command(command)
-                except Exception as e:
-                    sys.stdout = stdout
-                    print(f'#### Error occured in competition {qid} {", ".join(bots)}: \n{str(e)}\n')
-                    log_error(error_file, command)
+            stdout = sys.stdout
+            sys.stdout = open(os.devnull, 'w')
+            try:
+                competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_dump=pickle_file,
+                                  top_refinement=top_refinement, mute=True)
+                sys.stdout = stdout
+                # run_bash_command(command)
+            except Exception as e:
+                sys.stdout = stdout
+                print(f'#### Error occured in competition {qid} {", ".join(bots)}: \n{str(e)}\n')
+                log_error(error_file, command)
 
-                ensure_dirs(results_dir)
-                command = f'cp -r {output_dir}/trec_files {output_dir}/trectext_files {output_dir}/error_file.txt ' \
-                          f'{results_dir}'
-                run_bash_command(command)
-            else:
-                remove_list.append(qid)
-
-        for qid in remove_list:
-            qid_list.remove(qid)
+            ensure_dirs(results_dir)
+            for file in ['trec_files', 'trectext_files', 'error_file.txt']:
+                if os.path.exists(f'{output_dir}/{file}'):
+                    command = f'cp -r {output_dir}/{file} {results_dir}'
+                    run_bash_command(command)
 
 
 def main(mode, source, print_interval=5, top_refinement=None, **kwargs):
@@ -269,4 +260,4 @@ if __name__ == '__main__':
             name = top_refinement_method if top_refinement_method is not None else 'vanilla'
             print('{}Running competitions with mode: {} with top refinement method: {}'
                   .format('#'*10, mode, top_refinement_method))
-            main(mode, 'raifer', top_refinement=top_refinement_method, name=name)
+            main(mode, 'raifer', top_refinement=top_refinement_method, name=name, print_interval=5)
