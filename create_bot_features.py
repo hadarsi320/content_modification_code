@@ -146,15 +146,12 @@ def create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vect
     relevant_pairs = raw_ds[qrid]
     epoch, qid = parse_qrid(qrid)
     query_text = clean_texts(query_text)
-    # feature_list = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
-    #                 "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
-    #                 "CosineToWinnerCentroidOutVec", "CosineToWinnerCentroidIn", "CosineToWinnerCentroidOut",
-    #                 "SimilarityToPrev", "SimilarityToRefSentence", "SimilarityToPred", "SimilarityToPrevRef",
-    #                 "SimilarityToPredRef"]
+
     feature_list = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
                     "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
                     "CosineToWinnerCentroidOutVec", "CosineToWinnerCentroidIn", "CosineToWinnerCentroidOut",
                     "SimilarityToPrev", "SimilarityToRefSentence", "SimilarityToPred", "SimilarityToPrevRef"]
+    #                 "SimilarityToPredRef"]
 
     past_winners = get_past_winners(ranked_lists, epoch, qid)
     past_winners_semantic_centroid_vector = past_winners_centroid(past_winners, doc_texts, word_embed_model, True)
@@ -297,9 +294,9 @@ def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tf
     create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
                     query_text, output_feature_files_dir, raw_ds, word_embed_model, **kwargs)
     command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
-    run_and_print(command)
+    run_and_print(command, 'generateSentences.pl')
     command = "mv features " + output_final_features_file
-    run_and_print(command)
+    run_and_print(command, 'move')
 
 
 def run_svm_rank_model(test_file, model_file, predictions_folder):
@@ -307,7 +304,7 @@ def run_svm_rank_model(test_file, model_file, predictions_folder):
         os.makedirs(predictions_folder)
     predictions_file = predictions_folder + os.path.basename(model_file)
     command = "./svm_rank_classify " + test_file + " " + model_file + " " + predictions_file
-    run_and_print(command, command_name='Ranking')
+    run_and_print(command, command_name='pair ranking')
     return predictions_file
 
 

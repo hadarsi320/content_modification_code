@@ -94,20 +94,20 @@ def create_initial_trectext_file(trectext_file, output_dir, qid, bots, only_bots
 def generate_learning_dataset(output_dir, label_aggregation_method, seo_qrels, coherency_qrels, feature_fname):
     command = 'python dataset_creator.py ' + output_dir + ' ' + label_aggregation_method + ' ' + seo_qrels + ' ' + \
               coherency_qrels + ' ' + feature_fname
-    run_and_print(command)
+    run_and_print(command, 'Dataset Creator')
 
 
 def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
     ensure_dirs(model_path)
     command = f'{svm_rank_scripts_dir}svm_rank_learn -c {svm_rank_c} {learning_data} {model_path}'
-    run_and_print(command)
+    run_and_print(command, 'pair ranker learn')
 
 
 def generate_predictions(model_path, svm_rank_scripts_dir, predictions_dir, feature_file):
     predictions_file = predictions_dir + '_predictions'.join(splitext(basename(feature_file)))
     ensure_dirs(predictions_file)
     command = svm_rank_scripts_dir + 'svm_rank_classify ' + feature_file + ' ' + model_path + ' ' + predictions_file
-    run_and_print(command)
+    run_and_print(command, 'pair classify')
     return predictions_file
 
 

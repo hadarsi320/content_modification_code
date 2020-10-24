@@ -5,6 +5,7 @@ import shutil
 import sys
 from optparse import OptionParser
 from os.path import exists
+from time import time
 
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_target_documents
@@ -317,9 +318,14 @@ if __name__ == '__main__':
     if options.word2vec_dump is not None:
         arguments_dict['word2vec_dump'] = options.word2vec_dump
 
+    start = time()
     competition_setup(options.mode, options.qid.zfill(3), options.bots.split(','), options.top_refinement,
                       **arguments_dict)
 
+    print('\n\n\n')
+    print(f'Total Time {time()-start}')
     timings = gen_utils.timings
-    for key in timings:
-        print('key: {} len: {} average value: {}'.format(key, len(timings[key]), np.average(timings[key])))
+    results = [(key, len(timings[key]), np.average(timings[key]), np.var(timings[key])) for key in timings]
+    for key, len, ave, var in sorted(results, key=lambda x: x[2]):
+        print('key: {} | len: {} | average value: {} | variance: {}'
+              .format(key, len, ave, var))

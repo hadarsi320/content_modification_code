@@ -31,13 +31,13 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     run_and_print(command, command_name='LTRFeatures')
 
     command = f"perl {scripts_path}generate.pl {features_dir} {working_set_file}"
-    run_and_print(command)
+    run_and_print(command, 'generate.pl')
 
     command = f"mv features {new_features_file}"
-    run_and_print(command)
+    run_and_print(command, 'move')
 
     command = "mv featureID " + os.path.dirname(new_features_file)
-    run_and_print(command)
+    run_and_print(command, 'move')
 
     return new_features_file
 
@@ -226,7 +226,7 @@ def run_model(features_file, jar_path, score_file, model_path):
     run_bash_command('touch ' + score_file)
     command = "java -jar " + jar_path + " -load " + model_path + " -rank " + features_file + " -score " + \
               score_file
-    run_and_print(command)
+    run_and_print(command, 'ranking')
     return score_file
 
 
