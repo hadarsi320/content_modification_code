@@ -12,6 +12,7 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
+import main
 from gen_utils import run_bash_command, run_command, run_and_print
 
 
@@ -20,7 +21,6 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     """
     Creates a feature file via a given index and a given working set file
     """
-    logger = logging.getLogger(sys.argv[0])
     run_bash_command("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
     if not os.path.exists(features_dir):
         os.makedirs(features_dir)
@@ -30,6 +30,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
               f'{new_index_path} {stopwords_file} {queries_text_file} {working_set_file} {features_dir}'
     run_and_print(command, command_name='LTRFeatures')
 
+    main.lock.acquire()
     command = f"perl {scripts_path}generate.pl {features_dir} {working_set_file}"
     run_and_print(command, 'generate.pl')
 
@@ -38,6 +39,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
 
     command = "mv featureID " + os.path.dirname(new_features_file)
     run_and_print(command, 'move')
+    main.lock.release()
 
     return new_features_file
 

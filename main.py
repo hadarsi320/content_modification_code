@@ -3,6 +3,7 @@ import os
 import pickle
 import shutil
 import sys
+from multiprocessing import Lock
 from optparse import OptionParser
 from os.path import exists
 from time import time
@@ -21,6 +22,8 @@ from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 import gen_utils
 import numpy as np
+
+lock = Lock()
 
 
 def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, output_dir, base_index, comp_index,
@@ -191,6 +194,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
                                            document_rank_model, output_dir=reranking_dir)
         update_trec_file(comp_trec_file, reranked_trec_file)
         shutil.rmtree(reranking_dir)
+    shutil.rmtree(comp_index)
 
 
 def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/', mute=False, **kwargs):
@@ -229,7 +233,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
     reranking_dir = output_dir + 'reranking/'
     raw_ds_dir = output_dir + 'raw_datasets/'
     trec_dir = output_dir + 'trec_files/'
-    temp_index = output_dir + 'index'
+    competition_index = output_dir + 'index' + qid + '_' + bots
 
     program = os.path.basename(sys.argv[0])
     logger = logging.getLogger(program)
@@ -263,7 +267,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
                 os.remove(file)
 
         run_2_bot_competition(qid, bots, trectext_file, trec_file, output_dir, clueweb_index,
-                              temp_index, document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir,
+                              competition_index, document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir,
                               trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, swig_path,
                               indri_path, replacements_file, similarity_file, svm_rank_scripts_dir,
                               total_rounds, run_mode, scripts_dir, stopwords_file,
@@ -285,7 +289,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
             run_general_competition(qid, competitors, bots, 7, top_refinement, trectext_file,
                                     output_dir, document_workingset_file, indri_path, swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
-                                    final_features_dir, clueweb_index, temp_index, replacements_file,
+                                    final_features_dir, clueweb_index, competition_index, replacements_file,
                                     svm_rank_scripts_dir, run_mode, scripts_dir,
                                     stopwords_file, queries_text_file, queries_xml_file,
                                     ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
@@ -295,7 +299,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
             run_general_competition(qid, competitors, bots, 3, top_refinement, trectext_file,
                                     output_dir, document_workingset_file, indri_path, swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
-                                    final_features_dir, clueweb_index, temp_index, replacements_file,
+                                    final_features_dir, clueweb_index, competition_index, replacements_file,
                                     svm_rank_scripts_dir, run_mode, scripts_dir,
                                     stopwords_file, queries_text_file, queries_xml_file,
                                     ranklib_jar, rank_model, svm_rank_model, word_embedding_model,

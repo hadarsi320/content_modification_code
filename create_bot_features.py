@@ -11,6 +11,7 @@ import numpy as np
 from deprecated import deprecated
 from nltk import sent_tokenize
 
+import main
 from gen_utils import run_bash_command, list_multiprocessing, run_and_print
 from utils import clean_texts, get_java_object, create_trectext_file, run_model, create_features_file_diff, \
     read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
@@ -293,9 +294,13 @@ def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tf
     create_ws(raw_ds, workingset_file, ref_doc_index)
     create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
                     query_text, output_feature_files_dir, raw_ds, word_embed_model, **kwargs)
-    command = "perl scripts/generateSentences.pl " + output_feature_files_dir + " " + workingset_file
+
+    main.lock.acquire()
+    command = f"perl scripts/generateSentences.pl {output_feature_files_dir} {workingset_file}"
     run_and_print(command, 'generateSentences.pl')
     command = "mv features " + output_final_features_file
+    main.lock.release()
+
     run_and_print(command, 'move')
 
 
