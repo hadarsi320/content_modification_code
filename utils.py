@@ -424,7 +424,7 @@ def ensure_dirs(*args):
 
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
-            print('{} Creating directory: {}'.format('#' * 5, dir_name))
+            # print('{} Creating directory: {}'.format('#' * 5, dir_name))
 
 
 def tokenize_document(document):
