@@ -4,6 +4,11 @@ import sys
 from multiprocessing import Pool
 from tqdm import tqdm
 
+from time import time
+from collections import defaultdict
+
+timings = defaultdict(list)
+
 
 def _apply_lst(args):
     params, func, num, kwargs = args
@@ -36,7 +41,14 @@ def run_and_print(command, command_name=None):
     name = command_name.rstrip() if command_name is not None else 'command'
     print_string = f'Running {name}: \n{command}'
     logger.info(print_string)
+
+    start = time()
+
     out = run_bash_command(command)
+
+    run_time = time() - start
+    timings[command_name].append(run_time)
+
     if len(out) > 0:
         output_string = name + ' output:'
         print(output_string, out, sep='\n', flush=True)

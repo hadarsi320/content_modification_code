@@ -18,6 +18,9 @@ from utils import get_doc_id, \
     load_word_embedding_model, get_competitors, ensure_dirs
 from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
+import gen_utils
+import numpy as np
+
 
 def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, output_dir, base_index, comp_index,
                           document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
@@ -316,3 +319,7 @@ if __name__ == '__main__':
 
     competition_setup(options.mode, options.qid.zfill(3), options.bots.split(','), options.top_refinement,
                       **arguments_dict)
+
+    timings = gen_utils.timings
+    for key in timings:
+        print('key: {} len: {} average value: {}'.format(key, len(timings[key]), np.average(timings[key])))
