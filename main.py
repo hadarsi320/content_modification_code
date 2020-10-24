@@ -3,27 +3,21 @@ import os
 import pickle
 import shutil
 import sys
-from multiprocessing import Lock
 from optparse import OptionParser
 from os.path import exists
 from time import time
 
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
-    get_rankings, get_target_documents
-from bot_competition import generate_predictions, get_highest_ranked_pair, \
-    generate_updated_document, update_trec_file, generate_document_tfidf_files, \
-    record_doc_similarity, record_replacement
+    get_rankings, get_target_documents, generate_predictions, get_highest_ranked_pair, generate_updated_document, \
+    update_trec_file, generate_document_tfidf_files, record_doc_similarity, record_replacement
 from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
-from utils import get_doc_id, \
-    update_trectext_file, complete_sim_file, create_index, create_documents_workingset, get_next_doc_id, \
-    load_word_embedding_model, get_competitors, ensure_dirs
+from utils import get_doc_id, update_trectext_file, complete_sim_file, create_index, create_documents_workingset, \
+    get_next_doc_id, load_word_embedding_model, get_competitors, ensure_dirs
 from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 import gen_utils
 import numpy as np
-
-lock = Lock()
 
 
 def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, output_dir, base_index, comp_index,
@@ -233,7 +227,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
     reranking_dir = output_dir + 'reranking/'
     raw_ds_dir = output_dir + 'raw_datasets/'
     trec_dir = output_dir + 'trec_files/'
-    competition_index = output_dir + 'index' + qid + '_' + bots
+    competition_index = output_dir + 'index' + qid + '_' + ','.join(bots)
 
     program = os.path.basename(sys.argv[0])
     logger = logging.getLogger(program)

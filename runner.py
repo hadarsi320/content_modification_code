@@ -1,14 +1,16 @@
 import os
 import pickle
+import re
 import sys
 from collections import defaultdict
 from datetime import datetime
 from itertools import combinations
-from multiprocessing import cpu_count
+from multiprocessing import Pool
 from os.path import exists
+
 from deprecated import deprecated
 
-from gen_utils import run_bash_command, list_multiprocessing, run_and_print
+from gen_utils import run_bash_command
 from main import competition_setup
 from utils import parse_qrid, ensure_dirs, get_query_ids, load_word_embedding_model
 
@@ -199,11 +201,10 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
                     run_bash_command(command)
 
 
-def main(mode, source, print_interval=5, top_refinement=None, **kwargs):
-    positions_file_paper = './data/paper_data/documents.positions'
-    trec_file_raifer = 'data/trec_file_original_sorted.txt'
-    embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
-
+def run_all_competitions(mode, top_refinement, source='raifer', print_interval=25,
+                         positions_file_paper='./data/paper_data/documents.positions',
+                         trec_file_raifer='data/trec_file_original_sorted.txt',
+                         embedding_model_file='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'):
     if mode not in ['2of2', 'rerun_2of2'] + [f'{x}of5' for x in range(1, 6)]:
         raise ValueError(f'Illegal mode given {mode}')
 
@@ -211,13 +212,11 @@ def main(mode, source, print_interval=5, top_refinement=None, **kwargs):
         print('Implement this rerunning thing')
         return
 
-    if 'name' in kwargs:
-        name = kwargs['name']
-        results_dir = 'results/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
-        output_dir = 'output/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
-    else:
-        results_dir = 'results/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
-        output_dir = 'output/{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'))
+    name = top_refinement if top_refinement is not None else 'vanilla'
+    results_dir = 'results/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
+    output_dir = 'output/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
+
+    print('Running mode {} with refinement method {}'.format(mode, top_refinement))
 
     word_embedding_model = load_word_embedding_model(embedding_model_file)
     ensure_dirs(output_dir)
@@ -242,22 +241,21 @@ def main(mode, source, print_interval=5, top_refinement=None, **kwargs):
     os.remove(word2vec_pkl)
 
 
-if __name__ == '__main__':
-    # mode = sys.argv[1]
-    # source = sys.argv[2]
-    # if len(sys.argv) == 4:
-    #     main(mode, source, name=sys.argv[3])
-    # else:
-    #     main(mode, source)
-
-    modes = [f'{i+1}of5' for i in range(5)]
+def main():
+    results_dir = 'results/'
+    modes = [f'{i + 1}of5' for i in range(5)]
     top_refinement_methods = [None, 'acceleration', 'past_top', 'highest_rated_inferiors']
 
+    args = []
     for mode in modes:
-        for top_refinement_method in top_refinement_methods:
-            if mode == '1of5' and top_refinement_method is None:
-                continue
-            name = top_refinement_method if top_refinement_method is not None else 'vanilla'
-            print('{}Running competitions with mode: {} with top refinement method: {}'
-                  .format('#'*10, mode, top_refinement_method))
-            main(mode, 'raifer', top_refinement=top_refinement_method, name=name, print_interval=5)
+        for method in top_refinement_methods:
+            name = method if method is not None else 'vanilla'
+            if not any(re.match(mode + '.*' + name, file) is not None for file in os.listdir(results_dir)):
+                args.append((mode, method))
+
+    with Pool() as p:
+        p.starmap(run_all_competitions, args)
+
+
+if __name__ == '__main__':
+    main()

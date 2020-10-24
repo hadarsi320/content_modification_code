@@ -4,19 +4,16 @@ import os
 import sys
 from collections import defaultdict
 from copy import deepcopy
-from functools import partial
-from multiprocessing import cpu_count
 
 import numpy as np
-from deprecated import deprecated
 from nltk import sent_tokenize
 
-import main
-from gen_utils import run_bash_command, list_multiprocessing, run_and_print
+import utils
+from gen_utils import run_and_print
 from utils import clean_texts, get_java_object, create_trectext_file, run_model, create_features_file_diff, \
     read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
-    get_query_text, parse_qrid, create_index_to_query_dict, get_doc_id, \
-    generate_pair_name, ensure_dirs, tokenize_document, is_file_empty, get_next_doc_id, get_next_qrid
+    get_query_text, parse_qrid, create_index_to_query_dict, generate_pair_name, ensure_dirs, tokenize_document, \
+    is_file_empty, get_next_doc_id, get_next_qrid
 from vector_functionality import query_term_freq, embedding_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
@@ -295,11 +292,11 @@ def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tf
     create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
                     query_text, output_feature_files_dir, raw_ds, word_embed_model, **kwargs)
 
-    main.lock.acquire()
+    utils.lock.acquire()
     command = f"perl scripts/generateSentences.pl {output_feature_files_dir} {workingset_file}"
     run_and_print(command, 'generateSentences.pl')
     command = "mv features " + output_final_features_file
-    main.lock.release()
+    utils.lock.release()
 
     run_and_print(command, 'move')
 

@@ -9,10 +9,10 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-from create_bot_features import update_text_doc, create_bot_features
+from create_bot_features import update_text_doc
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    ensure_dirs, get_learning_data_path, get_doc_id, parse_qrid
+    ensure_dirs, get_learning_data_path, get_doc_id
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
