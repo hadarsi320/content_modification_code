@@ -23,7 +23,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     """
     Creates a feature file via a given index and a given working set file
     """
-    run_bash_command("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
+    run_and_print("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
     if not os.path.exists(features_dir):
         os.makedirs(features_dir)
     ensure_dirs(new_features_file)
@@ -227,7 +227,7 @@ def create_index_to_query_dict(data_set_file):
 
 def run_model(features_file, jar_path, score_file, model_path):
     ensure_dirs(score_file)
-    run_bash_command('touch ' + score_file)
+    run_and_print('touch ' + score_file)
     command = "java -jar " + jar_path + " -load " + model_path + " -rank " + features_file + " -score " + \
               score_file
     run_and_print(command, 'ranking')

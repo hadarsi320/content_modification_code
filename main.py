@@ -227,7 +227,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
     reranking_dir = output_dir + 'reranking/'
     raw_ds_dir = output_dir + 'raw_datasets/'
     trec_dir = output_dir + 'trec_files/'
-    competition_index = output_dir + 'index' + qid + '_' + ','.join(bots)
+    competition_index = output_dir + 'index_' + qid + '_' + ','.join(bots)
 
     program = os.path.basename(sys.argv[0])
     logger = logging.getLogger(program)
@@ -324,6 +324,6 @@ if __name__ == '__main__':
     print(f'Total Time {time()-start}')
     timings = gen_utils.timings
     results = [(key, len(timings[key]), np.average(timings[key]), np.var(timings[key])) for key in timings]
-    for key, len, ave, var in sorted(results, key=lambda x: x[2]):
+    for key, length, ave, var in sorted(results, key=lambda x: x[2]):
         print('key: {} | len: {} | average value: {} | variance: {}'
-              .format(key, len, ave, var))
+              .format(key, length, ave, var))

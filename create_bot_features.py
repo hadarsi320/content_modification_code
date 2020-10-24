@@ -296,9 +296,8 @@ def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tf
     command = f"perl scripts/generateSentences.pl {output_feature_files_dir} {workingset_file}"
     run_and_print(command, 'generateSentences.pl')
     command = "mv features " + output_final_features_file
-    utils.lock.release()
-
     run_and_print(command, 'move')
+    utils.lock.release()
 
 
 def run_svm_rank_model(test_file, model_file, predictions_folder):

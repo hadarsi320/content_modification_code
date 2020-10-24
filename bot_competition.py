@@ -106,7 +106,7 @@ def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
 def generate_predictions(model_path, svm_rank_scripts_dir, predictions_dir, feature_file):
     predictions_file = predictions_dir + '_predictions'.join(splitext(basename(feature_file)))
     ensure_dirs(predictions_file)
-    command = svm_rank_scripts_dir + 'svm_rank_classify ' + feature_file + ' ' + model_path + ' ' + predictions_file
+    command = f'{svm_rank_scripts_dir}svm_rank_classify {feature_file} {model_path} {predictions_file}'
     run_and_print(command, 'pair classify')
     return predictions_file
 
