@@ -145,7 +145,6 @@ def generate_updated_document_dep(max_pair, raw_ds_file, doc_texts):
 
 
 def generate_updated_document(doc_texts, ref_doc_id, rep_doc_id, out_index, in_index):
-    # TODO use update texts for the multiple competitions version
     ref_doc = sent_tokenize(doc_texts[ref_doc_id])
     rep_doc = sent_tokenize(doc_texts[rep_doc_id])
     ref_doc[out_index] = rep_doc[in_index]
@@ -162,22 +161,6 @@ def get_ranked_competitors_list(trec_file, current_epoch):
             doc_id = line.split()[2]
             competitors_ranked_list.append(parse_doc_id(doc_id)[2])
     return competitors_ranked_list
-
-
-@deprecated(reason='Created for dumb reason')
-def get_doc_text(doctext_file, doc_id):
-    xml_parser = etree.XMLParser(recover=True)
-    tree = ET.parse(doctext_file, parser=xml_parser)
-    root = tree.getroot()
-    last_doc_id = ''
-    for doc in root:
-        for att in doc:
-            if att.tag == 'DOCNO':
-                last_doc_id = att.text
-            elif att.tag == 'TEXT' and (last_doc_id == doc_id):
-                return att.text
-    raise ValueError('No document was found in path {} with the doc_id {}'
-                     .format(doctext_file, doc_id))
 
 
 def advance_round(line):
