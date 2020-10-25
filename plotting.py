@@ -277,10 +277,10 @@ def main():
                          'acceleration': 'results/1of5_10_22_22_acceleration/trec_files',
                          'past_top': 'results/1of5_10_23_01_past_top/trec_files',
                          'inferiors': 'results/1of5_10_23_04_highest_rated_inferiors/trec_files'}
-    competitions_2of5 = {'vanilla': 'results/2of5_10_16_16/trec_files',
-                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
-                         'past_top': 'results/2of5_10_19_20_past_top/trec_files',
-                         'inferiors': 'results/2of5_10_19_20_highest_rated_inferiors/trec_files'}
+    competitions_2of5 = {'vanilla': 'results/2of5_10_23_10_vanilla/trec_files',
+                         'acceleration': 'results/2of5_10_23_22_acceleration/trec_files',
+                         'past_top': 'results/2of5_10_24_20_past_top/trec_files',
+                         'inferiors': 'results/2of5_10_24_20_highest_rated_inferiors/trec_files'}
     competitions_3of5 = {'vanilla': 'results/3of5_10_16_16/trec_files',
                          'acceleration': 'results/3of5_10_18_15_1st_promotion_v1/trec_files',
                          'past_top': 'results/3of5_10_19_20_past_top/trec_files',
@@ -294,7 +294,7 @@ def main():
                          'past_top': 'results/5of5_10_19_20_past_top/trec_files',
                          'inferiors': 'results/5of5_10_20_05_highest_rated_inferiors/trec_files'}
 
-    competitions_list = [competitions_1of5]
+    competitions_list = [competitions_1of5, competitions_2of5]
     labels = [f'{i + 1} bots out of 5' for i in range(5)]
 
     _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(24, 10*len(competitions_list)), squeeze=False)
@@ -304,12 +304,12 @@ def main():
     # plt.savefig(plots_dir + '/Competitions Comparison of Top Refinement Methods')
     plt.show()
 
-    top_refine_methods = ['vanilla', 'acceleration', 'past_top', 'inferiors']
-    competitions_list_rev = [{f'{x + 1}of5': competitions_list[x][method] for x in range(3)} for method in
-                             top_refine_methods]
-
-    analyze_top_refine_methods(competitions_list_rev, top_refine_methods, show=False,
-                               savefig=plots_dir + '/Average First Place Duration Comparison')
+    # top_refine_methods = ['vanilla', 'acceleration', 'past_top', 'inferiors']
+    # competitions_list_rev = [{f'{x + 1}of5': competitions_list[x][method] for x in range(3)} for method in
+    #                          top_refine_methods]
+    #
+    # analyze_top_refine_methods(competitions_list_rev, top_refine_methods, show=False,
+    #                            savefig=plots_dir + '/Average First Place Duration Comparison')
 
 
 if __name__ == '__main__':
