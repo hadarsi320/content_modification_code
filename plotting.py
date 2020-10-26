@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 from os import listdir
 
 import numpy as np
@@ -195,7 +196,8 @@ def compare_competitions(title, show=True, plots_dir='plots/', **kwargs):
     # num_rounds = max(rounds)
 
     rounds = max(len(ranked_lists_dict[key][name]) for key in ranked_lists_dict for name in ranked_lists_dict[key])
-    assert all(len(ranked_lists_dict[key][name]) == rounds for key in ranked_lists_dict for name in ranked_lists_dict[key])
+    assert all(
+        len(ranked_lists_dict[key][name]) == rounds for key in ranked_lists_dict for name in ranked_lists_dict[key])
 
     groups = ['students', 'bots']
     colors = [COLORS[color] for color in ['blue', 'red', 'green', 'orange', 'purple']]
@@ -231,6 +233,8 @@ def compare_competitions(title, show=True, plots_dir='plots/', **kwargs):
             for key, result, color in results[group]:
                 label = f'{key}- {group}'
                 shape = shapes_list[group]
+
+                assert len(x_ticks) == len(result)
                 axis.plot(x_ticks, result, label=label, color=color, marker=shape, markersize=10)
 
         axis.set_title(title)
@@ -276,43 +280,34 @@ def main():
     plots_dir = './plots'
     ensure_dirs(plots_dir)
 
-    competitions_1of5 = {'vanilla': 'results/1of5_10_22_13_vanilla/trec_files',
-                         'acceleration': 'results/1of5_10_22_22_acceleration/trec_files',
-                         'past_top': 'results/1of5_10_23_01_past_top/trec_files',
-                         'inferiors': 'results/1of5_10_23_04_highest_rated_inferiors/trec_files'}
-    competitions_2of5 = {'vanilla': 'results/2of5_10_23_10_vanilla/trec_files',
-                         'acceleration': 'results/2of5_10_23_22_acceleration/trec_files',
-                         'past_top': 'results/2of5_10_24_20_past_top/trec_files',
-                         'inferiors': 'results/2of5_10_24_20_highest_rated_inferiors/trec_files'}
-    competitions_3of5 = {'vanilla': 'results/3of5_10_16_16/trec_files',
-                         'acceleration': 'results/3of5_10_18_15_1st_promotion_v1/trec_files',
-                         'past_top': 'results/3of5_10_19_20_past_top/trec_files',
-                         'inferiors': 'results/3of5_10_20_01_highest_rated_inferiors/trec_files'}
-    competitions_4of5 = {'vanilla': 'results/4of5_10_16_16/trec_files',
-                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
-                         'past_top': 'results/4of5_10_19_20_past_top/trec_files',
-                         'inferiors': 'results/4of5_10_20_01_highest_rated_inferiors/trec_files'}
-    competitions_5of5 = {'vanilla': 'results/5of5_10_16_16/trec_files',
-                         'acceleration': 'results/2of5_10_18_15_1st_promotion_v1/trec_files',
-                         'past_top': 'results/5of5_10_19_20_past_top/trec_files',
-                         'inferiors': 'results/5of5_10_20_05_highest_rated_inferiors/trec_files'}
+    modes = [f'{x + 1}of5' for x in range(5)]
+    tr_methods = ['vanilla', 'acceleration', 'past_top', 'highest_rated_inferiors']
+    results_dir = 'results/'
 
-    competitions_list = [competitions_1of5, competitions_2of5]
+    competitions_dict = defaultdict(dict)
+    for mode in modes:
+        for method in tr_methods:
+            competitions = [competition for competition in os.listdir(results_dir)
+                            if mode in competition and method in competition]
+            latest = sorted(competitions)[-1]
+            competitions_dict[mode][method] = results_dir + latest + '/trec_files'
+
+    competitions_list = list(competitions_dict.values())[:-1]
     labels = [f'{i + 1} bots out of 5' for i in range(5)]
 
-    _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(24, 10*len(competitions_list)), squeeze=False)
+    _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(30, 10 * len(competitions_list)),
+                          squeeze=False)
     for i, ax in enumerate(axs):
         competitions = competitions_list[i]
         compare_competitions(trec_dirs=competitions, axs=ax, title=labels[i], show=False)
     plt.savefig(plots_dir + '/Competitions Comparison of Top Refinement Methods')
     # plt.show()
 
-    # top_refine_methods = ['vanilla', 'acceleration', 'past_top', 'inferiors']
-    # competitions_list_rev = [{f'{x + 1}of5': competitions_list[x][method] for x in range(3)} for method in
-    #                          top_refine_methods]
-    #
-    # analyze_top_refine_methods(competitions_list_rev, top_refine_methods, show=False,
-    #                            savefig=plots_dir + '/Average First Place Duration Comparison')
+    competitions_list_rev = [{f'{x + 1}of5': competitions_list[x][method] for x in range(len(competitions_list))}
+                             for method in tr_methods]
+
+    analyze_top_refine_methods(competitions_list_rev, tr_methods, show=False,
+                               savefig=plots_dir + '/Average First Place Duration Comparison')
 
 
 if __name__ == '__main__':
