@@ -171,7 +171,7 @@ def get_optimal_yticks(results: dict, jump_len):
     return np.arange(min_tick, max_tick, jump_len)
 
 
-def compare_competitions(show=True, plots_dir='plots/', **kwargs):
+def compare_competitions(title, show=True, plots_dir='plots/', **kwargs):
     ranked_lists_dict = {}
     competitors_lists_dict = {}
 
@@ -187,17 +187,21 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
         for key in trec_dirs:
             ranked_lists_dict[key], competitors_lists_dict[key] = read_trec_dir(trec_dirs[key])
 
-    rounds = []
-    for key in ranked_lists_dict:
-        rounds.append(normalize_dict_len(ranked_lists_dict[key]))
-    assert all(num_rounds == max(rounds) for num_rounds in rounds)
-    num_rounds = max(rounds)
+    # Normalizing is a bad practice, there should be no errors
+    # rounds = []
+    # for key in ranked_lists_dict:
+    #     rounds.append(normalize_dict_len(ranked_lists_dict[key]))
+    # assert all(num_rounds == max(rounds) for num_rounds in rounds)
+    # num_rounds = max(rounds)
+
+    rounds = max(len(ranked_lists_dict[key][name]) for key in ranked_lists_dict for name in ranked_lists_dict[key])
+    assert all(len(ranked_lists_dict[key][name]) == rounds for key in ranked_lists_dict for name in ranked_lists_dict[key])
 
     groups = ['students', 'bots']
     colors = [COLORS[color] for color in ['blue', 'red', 'green', 'orange', 'purple']]
     shapes_list = {'bots': 'D', 'students': 'o'}
     y_labels = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
-    x_ticks_list = [range(1, num_rounds + 1), range(2, num_rounds + 1), range(2, num_rounds + 1)]
+    x_ticks_list = [range(1, rounds + 1), range(2, rounds + 1), range(2, rounds + 1)]
     jump_lengths = [0.25, 0.1, 0.05]
     functions = [lambda x, y, z, w: compute_average_rank(x, y, z, is_paper_data=w),
                  lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=False, is_paper_data=w),
@@ -229,8 +233,7 @@ def compare_competitions(show=True, plots_dir='plots/', **kwargs):
                 shape = shapes_list[group]
                 axis.plot(x_ticks, result, label=label, color=color, marker=shape, markersize=10)
 
-        if 'title' in kwargs:
-            axis.set_title(kwargs['title'])
+        axis.set_title(title)
         axis.set_ylabel(y_label)
         axis.legend(ncol=2, loc='upper right')
         axis.set_xticks(x_ticks)
@@ -301,8 +304,8 @@ def main():
     for i, ax in enumerate(axs):
         competitions = competitions_list[i]
         compare_competitions(trec_dirs=competitions, axs=ax, title=labels[i], show=False)
-    # plt.savefig(plots_dir + '/Competitions Comparison of Top Refinement Methods')
-    plt.show()
+    plt.savefig(plots_dir + '/Competitions Comparison of Top Refinement Methods')
+    # plt.show()
 
     # top_refine_methods = ['vanilla', 'acceleration', 'past_top', 'inferiors']
     # competitions_list_rev = [{f'{x + 1}of5': competitions_list[x][method] for x in range(3)} for method in
