@@ -176,17 +176,15 @@ def compare_competitions(title, show=True, plots_dir='plots/', **kwargs):
     ranked_lists_dict = {}
     competitors_lists_dict = {}
 
-    if 'positions_files' in kwargs:
-        positions_files = kwargs.pop('positions_files')
-        for key in positions_files:
-            ranked_lists_dict[key] = read_positions_file(positions_files[key])
-            competitors_lists_dict[key] = {qid: next(iter(ranked_lists_dict[key][qid].values()))
-                                           for qid in ranked_lists_dict[key]}
+    positions_files = kwargs.pop('positions_files', [])
+    for key in positions_files:
+        ranked_lists_dict[key] = read_positions_file(positions_files[key])
+        competitors_lists_dict[key] = {qid: next(iter(ranked_lists_dict[key][qid].values()))
+                                       for qid in ranked_lists_dict[key]}
 
-    if 'trec_dirs' in kwargs:
-        trec_dirs = kwargs.pop('trec_dirs')
-        for key in trec_dirs:
-            ranked_lists_dict[key], competitors_lists_dict[key] = read_trec_dir(trec_dirs[key])
+    trec_dirs = kwargs.pop('trec_dirs', [])
+    for key in trec_dirs:
+        ranked_lists_dict[key], competitors_lists_dict[key] = read_trec_dir(trec_dirs[key])
 
     # Normalizing is a bad practice, there should be no errors
     # rounds = []
@@ -212,7 +210,7 @@ def compare_competitions(title, show=True, plots_dir='plots/', **kwargs):
     if 'axs' in kwargs:
         axs = kwargs.pop('axs')
     else:
-        _, axs = plt.subplots(ncols=3, figsize=(22, 8))
+        _, axs = plt.subplots(ncols=3, figsize=(27, 8))
     plt.rcParams.update({'font.size': 12})
 
     for i in range(3):
@@ -225,7 +223,7 @@ def compare_competitions(title, show=True, plots_dir='plots/', **kwargs):
         for j, key in enumerate(ranked_lists_dict):
             ranked_lists = ranked_lists_dict[key]
             competitors_lists = competitors_lists_dict[key]
-            is_paper_data = 'positions_files' in kwargs and key in kwargs['positions_files']
+            is_paper_data = key in positions_files
             for group in groups:
                 results[group].append((key, function(ranked_lists, competitors_lists, group, is_paper_data), colors[j]))
 
@@ -308,6 +306,12 @@ def main():
 
     analyze_top_refine_methods(competitions_list_rev, tr_methods, show=False,
                                savefig=plots_dir + '/Average First Place Duration Comparison')
+
+
+def compare_to_paper_data():
+    compare_competitions('paper data', show=True,
+                         trec_dirs={'Recreated Competitions': 'results/1of5_10_27_11_rerunning_paper/trec_files'},
+                         positions_files={'Paper Competitions': 'data/paper_data/documents.positions'})
 
 
 if __name__ == '__main__':
