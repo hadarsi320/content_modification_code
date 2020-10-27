@@ -99,7 +99,7 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
             if len(competitors[qid]) == total_players:
                 bots_list[qid] = list(combinations(competitors[qid], num_of_bots))
     else:
-        raise ValueError('No file given to get bots')
+        raise ValueError('No source file given')
 
     iteration = 0
     for qid in bots_list:
@@ -136,7 +136,8 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
 def run_all_competitions(mode, top_refinement, source='raifer', print_interval=25,
                          positions_file_paper='./data/paper_data/documents.positions',
                          trec_file_raifer='data/trec_file_original_sorted.txt',
-                         embedding_model_file='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'):
+                         embedding_model_file='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model',
+                         **kwargs):
     """
     A function which runs all possible queries and bot combinations for the given arguments
     """
@@ -147,14 +148,15 @@ def run_all_competitions(mode, top_refinement, source='raifer', print_interval=2
         print('Implement this rerunning thing')
         return
 
-    name = top_refinement if top_refinement is not None else 'vanilla'
+    name = kwargs['name'] if 'name' in kwargs else \
+        top_refinement if top_refinement is not None else 'vanilla'
     results_dir = 'results/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
     output_dir = 'output/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
 
     print('Running mode {} with refinement method {}'.format(mode, top_refinement))
 
-    ensure_dirs(output_dir)
     word2vec_pkl = output_dir + 'word_embedding_model.pkl'
+    ensure_dirs(output_dir)
     word_embedding_model = load_word_embedding_model(embedding_model_file)
     with open(word2vec_pkl, 'wb') as f:
         pickle.dump(word_embedding_model, f)
