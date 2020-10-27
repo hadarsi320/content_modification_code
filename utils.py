@@ -490,14 +490,27 @@ def load_word_embedding_model(model_file):
     return gensim.models.KeyedVectors.load_word2vec_format(model_file, binary=True, limit=700000)
 
 
-def read_trec_dir(trec_dir):
+def read_trec_dir(trec_dir, **kwargs):
     """
     :param trec_dir: a directory of trec files
     :return: ranked_lists, competitors_lists
     """
+    if 'bots' in kwargs:
+        bots = kwargs['bots']
+
+    ranked_lists = {}
+    competitors_lists = {}
     trec_files = sorted(listdir(trec_dir))
-    ranked_lists = {trec_file: read_competition_trec_file(trec_dir + '/' + trec_file) for trec_file in trec_files}
-    competitors_lists = {trec_file: get_competitors(trec_dir + '/' + trec_file) for trec_file in trec_files}
+    for trec_file in trec_files:
+        if 'bots' in kwargs:
+            trec_bots = trec_file.split('_')[3].split(',')
+            if not all(bot in bots for bot in trec_bots):
+                continue
+
+        trec_path = trec_dir + '/' + trec_file
+        ranked_lists[trec_file] = read_competition_trec_file(trec_path)
+        competitors_lists[trec_file] = get_competitors(trec_path)
+
     return ranked_lists, competitors_lists
 
 
