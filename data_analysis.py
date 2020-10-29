@@ -117,8 +117,8 @@ def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=Fal
     return average_rank_promotion
 
 
-def compute_average_bot_top_duration(ranked_lists):
-    top_durations = []
+def cumpute_atd(ranked_lists):
+    bots_td, students_td = [], []
     for competition_id in ranked_lists:
         bots = competition_id.split('_')[3].split(',')
         competition = ranked_lists[competition_id]
@@ -132,7 +132,12 @@ def compute_average_bot_top_duration(ranked_lists):
                     duration += 1
                 else:
                     if last_top_player in bots:
-                        top_durations.append(duration)
+                        bots_td.append(duration)
+                    else:
+                        students_td.append(duration)
                     duration = 1
             last_top_player = top_player
-    return np.average(top_durations)
+
+    students_atd = np.average(students_td) if len(students_td) > 0 else 0
+    bots_atd = np.average(bots_td) if len(bots_td) > 0 else 0
+    return students_atd, bots_atd
