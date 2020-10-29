@@ -5,7 +5,7 @@ from os import listdir
 import numpy as np
 from matplotlib import pyplot as plt
 
-from data_analysis import compute_average_rank, compute_average_promotion, compute_average_bot_top_duration
+from data_analysis import compute_average_rank, compute_average_promotion, cumpute_atd
 from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file, read_trec_dir, \
     get_competitors
 
@@ -248,22 +248,28 @@ def compare_competitions(title, show=True, plots_dir='plots/', **kwargs):
         plt.show()
 
 
-def analyze_top_refine_methods(trec_dirs_list, labels, show=True, **kwargs):
+def compare_trm_atd(trec_dirs_dict, show=True, **kwargs):
+    """
+    trm - Top Refinement Methods
+    atd - Average Top Duration
+    """
     colors = [COLORS[color] for color in ['blue', 'red', 'green', 'orange', 'purple']]
 
     plt.figure().clear()
-    for i, trec_dirs in enumerate(trec_dirs_list):
+    for i, tr_method in enumerate(trec_dirs_dict):
         color = colors[i]
-        label = labels[i]
+        trec_dirs = trec_dirs_dict[tr_method]
 
         list_of_ranked_lists = {}
         competitions = sorted(trec_dirs)
         for key in competitions:
             list_of_ranked_lists[key], _ = read_trec_dir(trec_dirs[key])
-        average_bot_top_duration = [compute_average_bot_top_duration(list_of_ranked_lists[key])
-                                    for key in list_of_ranked_lists]
-
-        plt.plot(competitions, average_bot_top_duration, label=label, color=color)
+        competition_atd = [cumpute_atd(list_of_ranked_lists[key])
+                           for key in list_of_ranked_lists]
+        students_atd = [value[0] for value in competition_atd[:-1]]
+        bots_atd = [value[1] for value in competition_atd]
+        plt.plot(competitions[:-1], students_atd, label=tr_method+': students', color=color, marker='o')
+        plt.plot(competitions, bots_atd, label=tr_method+': bots', color=color, marker='D')
     plt.xlabel('Competition Type')
     plt.title('Average First Rank Duration')
     plt.legend()
@@ -274,12 +280,18 @@ def analyze_top_refine_methods(trec_dirs_list, labels, show=True, **kwargs):
         plt.savefig(kwargs['savefig'])
 
 
+def compare_to_paper_data():
+    compare_competitions('paper data', show=True,
+                         trec_dirs={'Recreated Competitions': 'results/1of5_10_27_11_rerunning_paper/trec_files'},
+                         positions_files={'Paper Competitions': 'data/paper_data/documents.positions'})
+
+
 def main():
     plots_dir = './plots'
     ensure_dirs(plots_dir)
 
     modes = [f'{x + 1}of5' for x in range(5)]
-    tr_methods = ['vanilla', 'acceleration', 'past_top', 'highest_rated_inferiors']
+    tr_methods = ['vanilla', 'highest_rated_inferiors']
     results_dir = 'results/'
 
     competitions_dict = defaultdict(dict)
@@ -298,21 +310,17 @@ def main():
     for i, ax in enumerate(axs):
         competitions = competitions_list[i]
         compare_competitions(trec_dirs=competitions, axs=ax, title=labels[i], show=False)
-    plt.savefig(plots_dir + '/Competitions Comparison of Top Refinement Methods')
+    plt.savefig(plots_dir + '/Comparison of Top Refinement Methods HRI')
     # plt.show()
 
-    competitions_list_rev = [{f'{x + 1}of5': competitions_list[x][method] for x in range(len(competitions_list))}
-                             for method in tr_methods]
+    competitions_list = list(competitions_dict.values())
+    competitions_list_rev = {method: {f'{x + 1}of5': competitions_list[x][method] for x in range(len(competitions_list))}
+                             for method in tr_methods}
 
-    analyze_top_refine_methods(competitions_list_rev, tr_methods, show=False,
-                               savefig=plots_dir + '/Average First Place Duration Comparison')
-
-
-def compare_to_paper_data():
-    compare_competitions('paper data', show=True,
-                         trec_dirs={'Recreated Competitions': 'results/1of5_10_27_11_rerunning_paper/trec_files'},
-                         positions_files={'Paper Competitions': 'data/paper_data/documents.positions'})
+    compare_trm_atd(competitions_list_rev, show=False,
+                    savefig=plots_dir + '/Average First Place Duration Comparison- HRI')
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+    compare_to_paper_data()
