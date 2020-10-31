@@ -322,5 +322,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # main()
-    compare_to_paper_data()
+    main()
+    # compare_to_paper_data()
