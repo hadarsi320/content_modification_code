@@ -7,6 +7,8 @@ from optparse import OptionParser
 from os.path import exists
 from time import time
 
+from deprecated import deprecated
+
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_target_documents, generate_predictions, get_highest_ranked_pair, generate_updated_document, \
     update_trec_file, generate_document_tfidf_files, record_doc_similarity, record_replacement
@@ -20,10 +22,11 @@ import gen_utils
 import numpy as np
 
 
+@deprecated("This function is most likely outdated")
 def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, output_dir, base_index, comp_index,
                           document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
                           predictions_dir, final_features_dir, swig_path, indri_path, replacements_file,
-                          similarity_file, svm_rank_scripts_dir, total_rounds, run_mode, scripts_dir, stopwords_file,
+                          similarity_file, svm_rank_scripts_dir, total_rounds, scripts_dir, stopwords_file,
                           queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_rank_model,
                           word_embedding_model):
     # initalizing the trec and trectext files specific to this competition
@@ -52,7 +55,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         # creating features
         cant_append = create_bot_features(qrid=qrid, ref_index=1, top_docs_index=1, ranked_lists=ranked_lists,
                                           doc_texts=doc_texts, output_dir=output_dir,
-                                          word_embed_model=word_embedding_model, mode=run_mode, raw_ds_file=raw_ds_file,
+                                          word_embed_model=word_embedding_model, raw_ds_file=raw_ds_file,
                                           doc_tfidf_dir=doc_tfidf_dir, base_index=base_index, new_index=comp_index,
                                           documents_workingset_file=document_workingset_file, swig_path=swig_path,
                                           queries_file=queries_xml_file, final_features_file=features_file)
@@ -71,9 +74,9 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         winner_doc = doc_texts[winner_doc_id]
 
         # updating the trectext file
-        new_trectext_dict = {get_next_doc_id(winner_doc_id): winner_doc,
-                             get_next_doc_id(loser_doc_id): updated_document}
-        update_trectext_file(comp_trectext_file, doc_texts, new_trectext_dict)
+        new_docs = {get_next_doc_id(winner_doc_id): winner_doc,
+                    get_next_doc_id(loser_doc_id): updated_document}
+        update_trectext_file(comp_trectext_file, doc_texts, new_docs)
 
         # updating the index
         create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
@@ -99,7 +102,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
 def run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
-                            replacements_file, svm_rank_scripts_dir, run_mode, scripts_dir, stopwords_file,
+                            replacements_file, svm_rank_scripts_dir, scripts_dir, stopwords_file,
                             queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_rank_model,
                             word_embedding_model, **kwargs):
     logger = logging.getLogger(sys.argv[0])
@@ -126,7 +129,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             new_docs[next_doc_id] = original_texts[next_doc_id]
 
         for bot_id in bot_rankings:
-            logger.info(f'{bot_id} rank: {bot_rankings[bot_id]+1}')
+            logger.info(f'{bot_id} rank: {bot_rankings[bot_id] + 1}')
 
             features_file = final_features_dir + f'features_{qrid}_{bot_id}.dat'
             raw_ds_file = raw_ds_dir + f'raw_ds_out_{qrid}_{bot_id}.txt'
@@ -135,20 +138,20 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             next_doc_id = get_doc_id(epoch + 1, qid, bot_id)
             ref_index = bot_rankings[bot_id]
 
-            # todo replace ref index entirely with target_docs
             if ref_index == 0:
                 target_documents = get_target_documents(top_refinement, qid, epoch, ranked_lists)
 
             else:
+                epoch_str = str(epoch).zfill(2)
                 top_docs_index = min(3, ref_index)
-                target_documents = ranked_lists[str(epoch).zfill(2)][qid][:top_docs_index]
+                target_documents = ranked_lists[epoch_str][qid][:top_docs_index]
 
             if target_documents is not None:
                 # Creating features
                 cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, target_docs=target_documents,
                                                    ranked_lists=ranked_lists, doc_texts=doc_texts,
                                                    output_dir=output_dir, word_embed_model=word_embedding_model,
-                                                   mode=run_mode, raw_ds_file=raw_ds_file,
+                                                   raw_ds_file=raw_ds_file,
                                                    doc_tfidf_dir=doc_tfidf_dir,
                                                    documents_workingset_file=document_workingset_file,
                                                    base_index=base_index, new_index=comp_index, swig_path=swig_path,
@@ -162,8 +165,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
                 continue
 
             # Rank pairs
-            ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir,
-                                                features_file)
+            ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir, features_file)
 
             # Find highest ranked pair
             rep_doc_id, out_index, in_index = get_highest_ranked_pair(features_file, ranking_file)
@@ -193,7 +195,6 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
 
 def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/', mute=False, **kwargs):
     label_aggregation_method = 'harmonic'
-    run_mode = 'single'
     label_aggregation_b = 1
     svm_rank_c = 0.01
     total_rounds = 10
@@ -232,7 +233,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
     program = os.path.basename(sys.argv[0])
     logger = logging.getLogger(program)
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
-    logging.root.setLevel(level=logging.CRITICAL+1 if mute else logging.INFO)
+    logging.root.setLevel(level=logging.CRITICAL + 1 if mute else logging.INFO)
     logger.info("Running %s" % ' '.join(sys.argv))
 
     svm_rank_model = svm_models_dir + get_model_name(label_aggregation_method, label_aggregation_b, svm_rank_c)
@@ -264,7 +265,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
                               competition_index, document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir,
                               trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, swig_path,
                               indri_path, replacements_file, similarity_file, svm_rank_scripts_dir,
-                              total_rounds, run_mode, scripts_dir, stopwords_file,
+                              total_rounds, scripts_dir, stopwords_file,
                               queries_text_file, queries_xml_file, ranklib_jar,
                               rank_model, svm_rank_model, word_embedding_model)
     else:
@@ -284,7 +285,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
                                     output_dir, document_workingset_file, indri_path, swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, clueweb_index, competition_index, replacements_file,
-                                    svm_rank_scripts_dir, run_mode, scripts_dir,
+                                    svm_rank_scripts_dir, scripts_dir,
                                     stopwords_file, queries_text_file, queries_xml_file,
                                     ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
                                     trec_file=trec_file)
@@ -294,7 +295,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
                                     output_dir, document_workingset_file, indri_path, swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, clueweb_index, competition_index, replacements_file,
-                                    svm_rank_scripts_dir, run_mode, scripts_dir,
+                                    svm_rank_scripts_dir, scripts_dir,
                                     stopwords_file, queries_text_file, queries_xml_file,
                                     ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
                                     positions_file=positions_file)
@@ -321,7 +322,7 @@ if __name__ == '__main__':
                       **arguments_dict)
 
     print('\n\n\n')
-    print(f'Total Time {time()-start}')
+    print(f'Total Time {time() - start}')
     timings = gen_utils.timings
     results = [(key, len(timings[key]), np.average(timings[key]), np.var(timings[key])) for key in timings]
     for key, length, ave, var in sorted(results, key=lambda x: x[2]):

@@ -95,15 +95,13 @@ def read_positions_file(positions_file):
     return stats
 
 
-def create_trectext_file(document_texts, trectext_fname, working_set_fname=None):
+def create_trectext_file(document_texts, trectext_file, working_set_file=None):
     """
     creates trectext document from a given text file
     """
-    trectext_dir = os.path.dirname(trectext_fname)
-    if not os.path.exists(trectext_dir):
-        os.makedirs(trectext_dir)
+    ensure_dirs(trectext_file)
 
-    with open(trectext_fname, "w", encoding="utf-8") as f:
+    with open(trectext_file, "w", encoding="utf-8") as f:
         f.write('<DATA>\n')
         query_to_docs = defaultdict(list)
         for document in sorted(document_texts):
@@ -120,14 +118,14 @@ def create_trectext_file(document_texts, trectext_fname, working_set_fname=None)
         f.write('</DATA>\n')
 
     # what is the purpose of creating this file?
-    if working_set_fname:
-        with open(working_set_fname, 'w') as f:
+    if working_set_file:
+        with open(working_set_file, 'w') as f:
             for query, docnos in query_to_docs.items():
                 i = 1
                 for docid in docnos:
                     f.write(query.zfill(3) + ' Q0 ' + docid + ' ' + str(i) + ' -' + str(i) + ' indri\n')
                     i += 1
-    return trectext_fname
+    return trectext_file
 
 
 def update_trectext_file(trectext_file, old_documents, new_documents):
@@ -418,10 +416,9 @@ def create_documents_workingset(output_file, epoch, qid, competitor_list):
             f.write(line)
 
 
-def ensure_dirs(*args):
-    for file in args:
+def ensure_dirs(*files):
+    for file in files:
         dir_name = os.path.dirname(file)
-
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
             # print('{} Creating directory: {}'.format('#' * 5, dir_name))

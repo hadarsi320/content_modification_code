@@ -41,6 +41,7 @@ def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, **kwargs
         for epoch in ranked_lists:
             if 'epoch' in kwargs and epoch != kwargs['epoch']:
                 continue
+
             for qid in ranked_lists[epoch]:
                 if 'qid' in kwargs and qid != kwargs['qid']:
                     continue
@@ -53,7 +54,7 @@ def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, **kwargs
                 ref_doc = ranked_lists[epoch][qid][ref_index]
                 pairs = create_sentence_pairs(copy_docs, ref_doc, doc_texts)
                 for key in pairs:
-                    output.write(str(int(qid)) + str(epoch) + "\t" + key + "\t" + pairs[key] + "\n")
+                    output.write(qid.lstrip('0') + str(epoch) + '\t' + key + '\t' + pairs[key] + '\n')
 
 
 def read_raw_ds(raw_dataset):
@@ -126,9 +127,9 @@ def past_winners_centroid(past_winners, texts, model, stemmer=None):
     return sum_vector
 
 
-def write_files(feature_list, feature_vals, output_dir, qrid, ref):
+def write_files(feature_list, feature_vals, output_dir, qrid, ref_index):
     epoch, qid = parse_qrid(qrid)
-    query_write = f'{qid}{epoch.lstrip("0")}{ref + 1}'
+    query_write = f'{qid}{epoch.lstrip("0")}{ref_index + 1}'
 
     for feature in feature_list:
         with open(output_dir + "doc" + feature + "_" + query_write, 'w') as out:
@@ -138,7 +139,7 @@ def write_files(feature_list, feature_vals, output_dir, qrid, ref):
                 out.write(name + " " + str(value) + "\n")
 
 
-def create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
+def create_features(qrid, ranked_lists, doc_texts, ref_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
                     query_text, output_dir, raw_ds, word_embed_model, **kwargs):
     feature_vals = defaultdict(dict)
     relevant_pairs = raw_ds[qrid]
@@ -161,7 +162,7 @@ def create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vect
         epoch, qid = parse_qrid(qrid)
         copy_docs = kwargs['target_docs']
 
-    ref_doc = ranked_lists[epoch][qid][ref_doc_index]
+    ref_doc = ranked_lists[epoch][qid][ref_index]
     ref_sentences = sent_tokenize(doc_texts[ref_doc])  # doc_texts[ref_doc].split('\n')
     top_docs_tfidf_centroid = document_centroid([get_java_object(doc_tfidf_vectors_dir + doc) for doc in copy_docs])
     for pair in relevant_pairs:
@@ -201,7 +202,7 @@ def create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vect
             context_similarity(replace_index, ref_sentences, sentence_in, "pred", word_embed_model, True)
         feature_vals['SimilarityToPrevRef'][pair] = \
             context_similarity(replace_index, ref_sentences, sentence_out, "prev", word_embed_model, True)
-    write_files(feature_list, feature_vals, output_dir, qrid, ref_doc_index)
+    write_files(feature_list, feature_vals, output_dir, qrid, ref_index)
 
 
 def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_index, doc_tfidf_vectors_dir,
@@ -283,13 +284,13 @@ def create_features_og(raw_ds, ranked_lists, doc_texts, top_doc_index, ref_doc_i
 #     run_bash_command("mv features " + output_final_features_dir)
 
 
-def feature_creation_single(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir,
-                            sentence_tfidf_vectors_dir, raw_dataset_file, query_text, output_feature_files_dir,
-                            output_final_features_file, workingset_file, word_embed_model, **kwargs):
+def feature_creation(qrid, ranked_lists, doc_texts, ref_index, doc_tfidf_vectors_dir,
+                     sentence_tfidf_vectors_dir, raw_dataset_file, query_text, output_feature_files_dir,
+                     output_final_features_file, workingset_file, word_embed_model, **kwargs):
     ensure_dirs(output_feature_files_dir, output_final_features_file)
     raw_ds = read_raw_ds(raw_dataset_file)
-    create_ws(raw_ds, workingset_file, ref_doc_index)
-    create_features(qrid, ranked_lists, doc_texts, ref_doc_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
+    create_ws(raw_ds, workingset_file, ref_index)
+    create_features(qrid, ranked_lists, doc_texts, ref_index, doc_tfidf_vectors_dir, sentence_tfidf_vectors_dir,
                     query_text, output_feature_files_dir, raw_ds, word_embed_model, **kwargs)
 
     utils.lock.acquire()
@@ -351,12 +352,12 @@ def update_texts(doc_texts, pairs_ranked_lists, sentence_data):
     return new_texts
 
 
-def create_ws(raw_ds, ws_fname, ref):
+def create_ws(raw_ds, ws_fname, ref_index):
     ensure_dirs(ws_fname)
     with open(ws_fname, 'w') as ws:
         for qrid in raw_ds:
             epoch, qid = parse_qrid(qrid)
-            query_write = f'{qid}{epoch.lstrip("0")}{ref + 1}'
+            query_write = f'{qid}{epoch.lstrip("0")}{ref_index + 1}'
             for i, pair in enumerate(raw_ds[qrid]):
                 name = generate_pair_name(pair)
                 ws.write(query_write + " Q0 " + name + " 0 " + str(i + 1) + " pairs_seo\n")
@@ -383,18 +384,17 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
     logger = logging.getLogger(sys.argv[0])
     ensure_dirs(output_dir)
 
-    specific_ws = output_dir + specific_ws_name
-    feature_file = output_dir + new_feature_file_name
-    score_file = output_dir + score_file_name
     reranked_trec_file = output_dir + new_trec_file_name
+    feature_file = output_dir + new_feature_file_name
     full_feature_dir = output_dir + feature_dir_name
+    specific_ws = output_dir + specific_ws_name
+    score_file = output_dir + score_file_name
 
     ranked_lists = read_raw_trec_file(trec_file)
     create_reranking_ws(qrid, ranked_lists, specific_ws)
     logger.info("creating features")
-    features_file = create_features_file_diff(full_feature_dir, base_index, new_index, feature_file,
-                                              specific_ws, scripts_dir, swig_path, stopwords_file,
-                                              queries_text_file)
+    features_file = create_features_file_diff(full_feature_dir, base_index, new_index, feature_file, specific_ws,
+                                              scripts_dir, swig_path, stopwords_file, queries_text_file)
     logger.info("creating docname index")
     docname_index = create_index_to_doc_name_dict(features_file)
     logger.info("docname index creation is completed")
@@ -458,41 +458,24 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
 #                 qrels.write(query_write + " 0 " + name + " " + label + "\n")
 
 
-# TODO reconsider the use of index here
 def create_bot_features(qrid, ref_index, ranked_lists, doc_texts, output_dir, word_embed_model,
-                        mode, base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
+                        base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
                         documents_workingset_file, final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
                         output_feature_files_dir='feature_files/', workingset_file='workingset.txt', **kwargs):
     sentences_tfidf_dir = output_dir + sentences_tfidf_dir
     output_feature_files_dir = output_dir + output_feature_files_dir
     workingset_file = output_dir + workingset_file
 
-    if mode == 'single':
-        epoch, qid = parse_qrid(qrid)
+    epoch, qid = parse_qrid(qrid)
+    create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, epoch=epoch, qid=qid, **kwargs)
+    if is_file_empty(raw_ds_file):
+        return True
 
-        create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, epoch=epoch, qid=qid, **kwargs)
-        if is_file_empty(raw_ds_file):
-            return True
-
-        create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, new_index, swig_path,
-                                     documents_workingset_file)
-        query_text = get_query_text(queries_file, qid)
-        feature_creation_single(qrid, ranked_lists, doc_texts, ref_index, doc_tfidf_dir, sentences_tfidf_dir,
-                                raw_ds_file, query_text, output_feature_files_dir, final_features_file, workingset_file,
-                                word_embed_model, **kwargs)
-
-    # elif mode == 'multiple':
-    #     create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, int(ref_index),
-    #                        int(top_docs_index))
-    #     create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, swig_path)
-    #     queries = read_queries_file(queries_file)
-    #     queries = transform_query_text(queries)
-    #     feature_creation_parallel(raw_ds_file, ranked_lists, doc_texts, int(top_docs_index),
-    #                               int(ref_index), doc_tfidf_dir,
-    #                               sentences_tfidf_dir, queries, output_feature_files_dir,
-    #                               output_final_feature_file_dir, workingset_file)
-
-    else:
-        raise ValueError('mode value must be given, and it must be either \'single\' or \'multiple\'')
+    create_sentence_vector_files(sentences_tfidf_dir, raw_ds_file, base_index, new_index, swig_path,
+                                 documents_workingset_file)
+    query_text = get_query_text(queries_file, qid)
+    feature_creation(qrid, ranked_lists, doc_texts, ref_index, doc_tfidf_dir, sentences_tfidf_dir, raw_ds_file,
+                     query_text, output_feature_files_dir, final_features_file, workingset_file,
+                     word_embed_model, **kwargs)
 
     return False
