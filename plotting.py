@@ -1,5 +1,5 @@
 import os
-from collections import defaultdict
+from collections import defaultdict, Counter
 from os import listdir
 
 import numpy as np
@@ -293,7 +293,7 @@ def compare_to_paper_data():
                          positions_files={'Paper Competitions': 'data/paper_data/documents.positions'})
 
 
-def plot_rank_distribution(trec_dir, show=True, rightmost=False, **kwargs):
+def plot_rank_distribution(trec_dir, show=True, set_ylabel=False, **kwargs):
     ranked_lists, competitors_dict = read_trec_dir(trec_dir)
     rounds = len(next(iter(ranked_lists.values())))
     max_rank = len(next(iter(competitors_dict.values())))
@@ -304,8 +304,6 @@ def plot_rank_distribution(trec_dir, show=True, rightmost=False, **kwargs):
     for competition in ranked_lists:
         bots = competition.split('_')[3].split(',')
         for epoch in ranked_lists[competition]:
-            if epoch == '01':
-                continue
             for i, pid in enumerate(ranked_lists[competition][epoch]):
                 if pid in bots:
                     bot_ranks[epoch].append(i)
@@ -314,9 +312,9 @@ def plot_rank_distribution(trec_dir, show=True, rightmost=False, **kwargs):
 
     if 'axes' in kwargs:
         axes = kwargs.pop('axes')
-        assert len(axes) == rounds - 1
+        assert len(axes) == rounds
     else:
-        competitors_dict, axes = plt.subplots(nrows=rounds, figsize=(8, 3 * rounds), sharey='all')
+        _, axes = plt.subplots(nrows=rounds, figsize=(8, 3 * rounds), sharey='col')
 
     x_axis = range(1, max_rank + 1)
     for i, epoch in enumerate(student_ranks):
@@ -326,7 +324,7 @@ def plot_rank_distribution(trec_dir, show=True, rightmost=False, **kwargs):
         axis.legend(['Student Ranks', 'Bot Ranks'])
         axis.set_title(f'Round {epoch}')
         axis.set_xlabel('Rank')
-        if rightmost:
+        if set_ylabel:
             axis.set_ylabel('Distribution')
 
     if 'savefig' in kwargs:
@@ -336,11 +334,52 @@ def plot_rank_distribution(trec_dir, show=True, rightmost=False, **kwargs):
         plt.show()
 
 
+def plot_top_distribution(trec_dir, show=True, set_ylabel=True, **kwargs):
+    ranked_lists, competitors_dict = read_trec_dir(trec_dir)
+    rounds = len(next(iter(ranked_lists.values())))
+    total_competitions = len(ranked_lists)
+
+    bots_top = Counter()
+    students_top = Counter()
+
+    for competition in ranked_lists:
+        bots = competition.split('_')[3].split(',')
+        for epoch in ranked_lists[competition]:
+            top_pid = ranked_lists[competition][epoch][0]
+            if top_pid in bots:
+                bots_top[epoch] += 1
+            else:
+                students_top[epoch] += 1
+
+    results = {epoch:
+                   [students_top[epoch] / total_competitions, bots_top[epoch] / total_competitions]
+               for epoch in students_top}
+
+    if 'axes' in kwargs:
+        axes = kwargs.pop('axes')
+        assert len(axes) == rounds
+    else:
+        _, axes = plt.subplots(nrows=rounds, figsize=(5, 3 * rounds), sharey='col')
+
+    x_ticks = [0, 1]
+    for axis, epoch in zip(axes, sorted(results)):
+        axis.bar(x_ticks, results[epoch])
+        axis.set_xticks(x_ticks)
+        axis.set_xticklabels(['Students', 'Bots'])
+        axis.set_title(f'Round {epoch}')
+        if set_ylabel:
+            axis.set_ylabel('Distribution')
+
+    if show:
+        plt.show()
+
+
 def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, average_top_duration=False,
-                         rank_distribution=False):
+                         rank_distribution=False, top_distribution=False, **kwargs):
     plots_dir = './plots'
     results_dir = 'results/'
     ensure_dirs(plots_dir)
+    rounds = kwargs.pop('rounds', None)
 
     trec_dirs = defaultdict(dict)
     for mode in modes:
@@ -372,23 +411,32 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
                         savefig=plots_dir + '/Average First Place Duration Comparison- HRI')
 
     if rank_distribution:
-        rounds = 7  # TODO find an elegant way of making this not hard-coded
         for mode in modes:
             fig, axes_mat = plt.subplots(ncols=len(tr_methods), nrows=rounds,
-                                         figsize=(10, 3 * rounds), squeeze=False, sharey='all')
+                                         figsize=(10, 3 * rounds), squeeze=False, sharey='row')
             for i, (method, axes) in enumerate(zip(tr_methods, axes_mat.transpose())):
-                plot_rank_distribution(trec_dirs[mode][method], axes=axes, show=False, title=method, rightmost=i == 0)
-            fig.suptitle('Rank Distribution for TR methods: {}'.format(', '.join(tr_methods)), fontsize=14)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+                plot_rank_distribution(trec_dirs[mode][method], axes=axes, show=False, set_ylabel=i == 0)
+            fig.suptitle('Rank Distribution for TR methods: {}'.format(', '.join(tr_methods)), fontsize=18)
+            plt.tight_layout(rect=(0, 0.03, 1, 0.97))
+            plt.savefig('plots/new_fig')
+            # plt.show()
+
+    if top_distribution:
+        for mode in modes:
+            fig, axes_mat = plt.subplots(ncols=len(tr_methods), nrows=rounds,
+                                         figsize=(10, 3 * rounds), squeeze=False, sharey='row')
+            for i, (method, axes) in enumerate(zip(tr_methods, axes_mat.transpose())):
+                plot_top_distribution(trec_dirs[mode][method], axes=axes, show=False, set_ylabel=i == 0)
+            fig.suptitle('Top Distribution for TR methods: {}'.format(', '.join(tr_methods)), fontsize=18)
+            plt.tight_layout(rect=(0, 0.03, 1, 0.97))
             plt.savefig('plots/new_fig')
             # plt.show()
 
 
 def main():
-    # modes = [f'{x + 1}of5' for x in range(5)]
-    modes = ['1of5']
+    modes = ['1of5'] # [f'{x + 1}of5' for x in range(5)]
     tr_methods = ['vanilla', 'highest_rated_inferiors']
-    plot_trm_comparisons(modes, tr_methods, rank_distribution=True)
+    plot_trm_comparisons(modes, tr_methods, top_distribution=True, rounds=8)
 
 
 if __name__ == '__main__':
