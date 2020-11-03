@@ -418,7 +418,7 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
                 plot_rank_distribution(trec_dirs[mode][method], axes=axes, show=False, set_ylabel=i == 0)
             fig.suptitle('Rank Distribution for TR methods: {}'.format(', '.join(tr_methods)), fontsize=18)
             plt.tight_layout(rect=(0, 0.03, 1, 0.97))
-            plt.savefig('plots/new_fig')
+            plt.savefig(plots_dir + '/Rank Distribution Vanilla vs HRI')
             # plt.show()
 
     if top_distribution:
@@ -429,14 +429,14 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
                 plot_top_distribution(trec_dirs[mode][method], axes=axes, show=False, set_ylabel=i == 0)
             fig.suptitle('Top Distribution for TR methods: {}'.format(', '.join(tr_methods)), fontsize=18)
             plt.tight_layout(rect=(0, 0.03, 1, 0.97))
-            plt.savefig('plots/new_fig')
+            plt.savefig(plots_dir+'/Top Distribution Vanilla vs HRI')
             # plt.show()
 
 
 def main():
     modes = ['1of5'] # [f'{x + 1}of5' for x in range(5)]
     tr_methods = ['vanilla', 'highest_rated_inferiors']
-    plot_trm_comparisons(modes, tr_methods, top_distribution=True, rounds=8)
+    plot_trm_comparisons(modes, tr_methods, rank_distribution=True, top_distribution=True, rounds=8)
 
 
 if __name__ == '__main__':
