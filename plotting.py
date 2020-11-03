@@ -12,6 +12,13 @@ from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, r
 COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de', 'orange': '#f28e02', 'purple': '#8202f2'}
 
 
+def item_counts(l: list, normalize=False):
+    counts = np.array([l.count(value) for value in sorted(set(l))])
+    if normalize:
+        return counts / np.sum(counts)
+    return counts
+
+
 def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label=None, save_file=None, show=False,
          fig_size=(6, 4)):
     # plt.clf()
@@ -268,8 +275,8 @@ def compare_trm_atd(trec_dirs_dict, show=True, **kwargs):
                            for key in list_of_ranked_lists]
         students_atd = [value[0] for value in competition_atd[:-1]]
         bots_atd = [value[1] for value in competition_atd]
-        plt.plot(competitions[:-1], students_atd, label=tr_method+': students', color=color, marker='o')
-        plt.plot(competitions, bots_atd, label=tr_method+': bots', color=color, marker='D')
+        plt.plot(competitions[:-1], students_atd, label=tr_method + ': students', color=color, marker='o')
+        plt.plot(competitions, bots_atd, label=tr_method + ': bots', color=color, marker='D')
     plt.xlabel('Competition Type')
     plt.title('Average First Rank Duration')
     plt.legend()
@@ -286,41 +293,103 @@ def compare_to_paper_data():
                          positions_files={'Paper Competitions': 'data/paper_data/documents.positions'})
 
 
-def main():
+def plot_rank_distribution(trec_dir, show=True, rightmost=False, **kwargs):
+    ranked_lists, competitors_dict = read_trec_dir(trec_dir)
+    rounds = len(next(iter(ranked_lists.values())))
+    max_rank = len(next(iter(competitors_dict.values())))
+
+    bot_ranks = defaultdict(list)
+    student_ranks = defaultdict(list)
+
+    for competition in ranked_lists:
+        bots = competition.split('_')[3].split(',')
+        for epoch in ranked_lists[competition]:
+            if epoch == '01':
+                continue
+            for i, pid in enumerate(ranked_lists[competition][epoch]):
+                if pid in bots:
+                    bot_ranks[epoch].append(i)
+                else:
+                    student_ranks[epoch].append(i)
+
+    if 'axes' in kwargs:
+        axes = kwargs.pop('axes')
+        assert len(axes) == rounds - 1
+    else:
+        competitors_dict, axes = plt.subplots(nrows=rounds, figsize=(8, 3 * rounds), sharey='all')
+
+    x_axis = range(1, max_rank + 1)
+    for i, epoch in enumerate(student_ranks):
+        axis = axes[i]
+        axis.bar(x_axis, item_counts(student_ranks[epoch], normalize=True), alpha=0.7)
+        axis.bar(x_axis, item_counts(bot_ranks[epoch], normalize=True), alpha=0.7)
+        axis.legend(['Student Ranks', 'Bot Ranks'])
+        axis.set_title(f'Round {epoch}')
+        axis.set_xlabel('Rank')
+        if rightmost:
+            axis.set_ylabel('Distribution')
+
+    if 'savefig' in kwargs:
+        plt.savefig(kwargs['savefig'])
+
+    if show is True:
+        plt.show()
+
+
+def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, average_top_duration=False,
+                         rank_distribution=False):
     plots_dir = './plots'
+    results_dir = 'results/'
     ensure_dirs(plots_dir)
 
-    modes = [f'{x + 1}of5' for x in range(5)]
-    tr_methods = ['vanilla', 'highest_rated_inferiors']
-    results_dir = 'results/'
-
-    competitions_dict = defaultdict(dict)
+    trec_dirs = defaultdict(dict)
     for mode in modes:
         for method in tr_methods:
             competitions = [competition for competition in os.listdir(results_dir)
                             if mode in competition and method in competition]
             latest = sorted(competitions)[-1]
-            competitions_dict[mode][method] = results_dir + latest + '/trec_files'
+            trec_dirs[mode][method] = results_dir + latest + '/trec_files'
 
-    competitions_list = list(competitions_dict.values())[:-1]
-    labels = [f'{i + 1} bots out of 5' for i in range(5)]
+    if performance_comparison:
+        competitions_list = list(trec_dirs.values())[:-1]
+        labels = [f'{i + 1} bots out of 5' for i in range(5)]
 
-    _, axs = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(30, 10 * len(competitions_list)),
-                          squeeze=False)
-    for i, ax in enumerate(axs):
-        competitions = competitions_list[i]
-        compare_competitions(trec_dirs=competitions, axs=ax, title=labels[i], show=False)
-    plt.savefig(plots_dir + '/Comparison of Top Refinement Methods HRI')
-    # plt.show()
+        _, axes_mat = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(30, 10 * len(competitions_list)),
+                                   squeeze=False)
+        for i, axes in enumerate(axes_mat):
+            competitions = competitions_list[i]
+            compare_competitions(trec_dirs=competitions, axs=axes, title=labels[i], show=False)
+        plt.savefig(plots_dir + '/Comparison of Top Refinement Methods HRI')
 
-    competitions_list = list(competitions_dict.values())
-    competitions_list_rev = {method: {f'{x + 1}of5': competitions_list[x][method] for x in range(len(competitions_list))}
-                             for method in tr_methods}
+    if average_top_duration:
+        competitions_list = list(trec_dirs.values())
+        competitions_list_rev = {method:
+                                     {f'{x + 1}of5': competitions_list[x][method] for x in
+                                      range(len(competitions_list))}
+                                 for method in tr_methods}
 
-    compare_trm_atd(competitions_list_rev, show=False,
-                    savefig=plots_dir + '/Average First Place Duration Comparison- HRI')
+        compare_trm_atd(competitions_list_rev, show=False,
+                        savefig=plots_dir + '/Average First Place Duration Comparison- HRI')
+
+    if rank_distribution:
+        rounds = 7  # TODO find an elegant way of making this not hard-coded
+        for mode in modes:
+            fig, axes_mat = plt.subplots(ncols=len(tr_methods), nrows=rounds,
+                                         figsize=(10, 3 * rounds), squeeze=False, sharey='all')
+            for i, (method, axes) in enumerate(zip(tr_methods, axes_mat.transpose())):
+                plot_rank_distribution(trec_dirs[mode][method], axes=axes, show=False, title=method, rightmost=i == 0)
+            fig.suptitle('Rank Distribution for TR methods: {}'.format(', '.join(tr_methods)), fontsize=14)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+            plt.savefig('plots/new_fig')
+            # plt.show()
+
+
+def main():
+    # modes = [f'{x + 1}of5' for x in range(5)]
+    modes = ['1of5']
+    tr_methods = ['vanilla', 'highest_rated_inferiors']
+    plot_trm_comparisons(modes, tr_methods, rank_distribution=True)
 
 
 if __name__ == '__main__':
     main()
-    # compare_to_paper_data()
