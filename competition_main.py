@@ -21,6 +21,27 @@ from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 import gen_utils
 import numpy as np
 
+svm_models_dir = 'rank_svm_models/'
+aggregated_data_dir = 'data/learning_dataset/'
+svm_rank_scripts_dir = 'scripts/'
+seo_qrels_file = 'data/qrels_seo_bot.txt'
+coherency_qrels_file = 'data/coherency_aggregated_labels.txt'
+unranked_features_file = 'data/features_bot_sorted.txt'
+trec_file = 'data/trec_file_original_sorted.txt'
+trectext_file_raifer = 'data/documents.trectext'
+trectext_file_paper = 'data/paper_data/documents.trectext'
+positions_file = 'data/paper_data/documents.positions'
+rank_model = 'rank_models/model_lambdatamart'
+ranklib_jar = 'scripts/RankLib.jar'
+queries_text_file = 'data/working_comp_queries_expanded.txt'
+queries_xml_file = 'data/queries_seo_exp.xml'
+scripts_dir = 'scripts/'
+stopwords_file = 'data/stopwords_list'
+indri_path = '/lv_local/home/hadarsi/indri/'
+clueweb_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
+swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
+embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
+
 
 @deprecated("This function is most likely outdated")
 def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, output_dir, base_index, comp_index,
@@ -37,7 +58,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
 
     doc_texts = load_trectext_file(comp_trectext_file)
     create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-    create_documents_workingset(document_workingset_file, 1, qid, competitor_list)
+    create_documents_workingset(document_workingset_file, competitor_list, qid, 1)
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
     record_doc_similarity(doc_texts, 1, similarity_file, word_embedding_model, doc_tfidf_dir)
@@ -93,7 +114,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
 
         # creating document tfidf vectors (+ recording doc similarity)
         doc_texts = load_trectext_file(comp_trectext_file)
-        create_documents_workingset(document_workingset_file, epoch + 1, qid, competitor_list)
+        create_documents_workingset(document_workingset_file, competitor_list, qid, epoch + 1)
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
@@ -112,7 +133,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, bots=bots, only_bots=False, **kwargs)
 
     create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-    create_documents_workingset(document_workingset_file, 1, qid, competitors)
+    create_documents_workingset(document_workingset_file, competitors, qid, 1)
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
 
@@ -180,7 +201,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
 
         # updating the index, workingset file and tfidf files
         create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-        create_documents_workingset(document_workingset_file, epoch + 1, qid, competitors)
+        create_documents_workingset(document_workingset_file, competitors, qid, epoch + 1)
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
 
@@ -198,26 +219,6 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
     label_aggregation_b = 1
     svm_rank_c = 0.01
     total_rounds = 10
-    svm_models_dir = 'rank_svm_models/'
-    aggregated_data_dir = 'data/learning_dataset/'
-    svm_rank_scripts_dir = 'scripts/'
-    seo_qrels_file = 'data/qrels_seo_bot.txt'
-    coherency_qrels_file = 'data/coherency_aggregated_labels.txt'
-    unranked_features_file = 'data/features_bot_sorted.txt'
-    trec_file = 'data/trec_file_original_sorted.txt'
-    trectext_file_raifer = 'data/documents.trectext'
-    trectext_file_paper = 'data/paper_data/documents.trectext'
-    positions_file = 'data/paper_data/documents.positions'
-    rank_model = 'rank_models/model_lambdatamart'
-    ranklib_jar = 'scripts/RankLib.jar'
-    queries_text_file = 'data/working_comp_queries_expanded.txt'
-    queries_xml_file = 'data/queries_seo_exp.xml'
-    scripts_dir = 'scripts/'
-    stopwords_file = 'data/stopwords_list'
-    indri_path = '/lv_local/home/hadarsi/indri/'
-    clueweb_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
-    swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
-    embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
 
     ensure_dirs(output_dir)
     document_workingset_file = output_dir + 'document_ws.txt'
@@ -285,19 +286,17 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
                                     output_dir, document_workingset_file, indri_path, swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, clueweb_index, competition_index, replacements_file,
-                                    svm_rank_scripts_dir, scripts_dir,
-                                    stopwords_file, queries_text_file, queries_xml_file,
-                                    ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
+                                    svm_rank_scripts_dir, scripts_dir,stopwords_file, queries_text_file,
+                                    queries_xml_file, ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
                                     trec_file=trec_file)
         elif mode == 'paper':
             trectext_file = trectext_file_paper
-            run_general_competition(qid, competitors, bots, 3, top_refinement, trectext_file,
-                                    output_dir, document_workingset_file, indri_path, swig_path,
-                                    doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
-                                    final_features_dir, clueweb_index, competition_index, replacements_file,
-                                    svm_rank_scripts_dir, scripts_dir,
-                                    stopwords_file, queries_text_file, queries_xml_file,
-                                    ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
+            run_general_competition(qid, competitors, bots, 3, top_refinement, trectext_file, output_dir,
+                                    document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir,
+                                    trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
+                                    clueweb_index, competition_index, replacements_file,
+                                    svm_rank_scripts_dir, scripts_dir, stopwords_file, queries_text_file,
+                                    queries_xml_file, ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
                                     positions_file=positions_file)
 
 
