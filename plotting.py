@@ -402,6 +402,52 @@ def plot_top_distribution(trec_dir, show=True, set_ylabel=True, **kwargs):
         plt.show()
 
 
+def plot_similarity_to_winner(comp_dir, rounds, show=True, **kwargs):
+    plots_dir = 'plots/'
+    tmp_dir = 'plotting_tmp/'
+    index = tmp_dir + 'index'
+    doc_ws_file = tmp_dir + 'doc_ws_file.txt'
+    tfidf_dir = tmp_dir + 'tfidf/'
+
+    trectext_dir = comp_dir + '/trectext_files/'
+    top_similarity = defaultdict(list)
+
+    for file in os.listdir(trectext_dir):
+        qid = file.split('_')[1]
+        bots = file.split('_')[2].split('.')[0].split(',')
+        trec_file = f'{comp_dir}/trec_files/trec_file_{qid}_{",".join(bots)}'
+        competitors = get_competitors(trec_file)
+        ranked_list = read_trec_file(trec_file)
+
+        create_index(trectext_dir+file, new_index_name=index, indri_path=competition_main.indri_path)
+        create_documents_workingset(doc_ws_file, competitors, qid, total_rounds=rounds)
+        generate_document_tfidf_files(doc_ws_file, output_dir=tfidf_dir,
+                                      swig_path=competition_main.swig_path,
+                                      base_index=competition_main.clueweb_index, new_index=index)
+
+        for epoch in ranked_list:
+            top_document = tfidf_dir + ranked_list[epoch][qid][0]
+            for bot in bots:
+                bot_document = tfidf_dir + f'ROUND-{epoch}-{qid}-{bot}'
+                top_similarity[epoch].append(document_tfidf_similarity(top_document, bot_document))
+
+        shutil.rmtree(tmp_dir)
+    
+    results = {epoch: np.mean(top_similarity[epoch]) for epoch in top_similarity}
+    plot_kwargs = {}
+    if 'label' in kwargs:
+        plot_kwargs['label'] = kwargs.pop('label')
+    plt.plot(range(1, rounds+1), results.values(), **plot_kwargs)
+    plt.title('Similarity of Bot Documents to Winning Document')
+    plt.xlabel('Round')
+    plt.ylabel('Average Similarity')
+
+    if show:
+        plt.show()
+    if 'savefig' in kwargs:
+        plt.savefig(plots_dir + kwargs.pop('savefig'))
+
+
 def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, average_top_duration=False,
                          rank_distribution=False, top_distribution=False, **kwargs):
     plots_dir = './plots'
