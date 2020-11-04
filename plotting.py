@@ -3,11 +3,15 @@ from collections import defaultdict, Counter
 from os import listdir
 
 import numpy as np
+import shutil
 from matplotlib import pyplot as plt
 
+import competition_main
+from bot_competition import generate_document_tfidf_files
 from data_analysis import compute_average_rank, compute_average_promotion, cumpute_atd
 from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file, read_trec_dir, \
-    get_competitors
+    get_competitors, create_index, create_documents_workingset, get_num_rounds, read_raw_trec_file, read_trec_file
+from vector_functionality import document_tfidf_similarity
 
 COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de', 'orange': '#f28e02', 'purple': '#8202f2'}
 
@@ -294,6 +298,7 @@ def compare_to_paper_data():
 
 
 def plot_rank_distribution(trec_dir, show=True, set_ylabel=False, **kwargs):
+    ALPHA = 0.8
     ranked_lists, competitors_dict = read_trec_dir(trec_dir)
     rounds = len(next(iter(ranked_lists.values())))
     max_rank = len(next(iter(competitors_dict.values())))
@@ -313,20 +318,39 @@ def plot_rank_distribution(trec_dir, show=True, set_ylabel=False, **kwargs):
     if 'axes' in kwargs:
         axes = kwargs.pop('axes')
         assert len(axes) == rounds
+        format_plot = False
     else:
         _, axes = plt.subplots(nrows=rounds, figsize=(8, 3 * rounds), sharey='col')
+        format_plot = True
+
+    if 'method' in kwargs:
+        method = kwargs.pop('method')
+        labels = [f'{method}: Students', f'{method}: Bots']
+    else:
+        labels = ['Students', 'Bots']
+
+    if 'colors' in kwargs:
+        colors = kwargs.pop('colors')
+        students_kwargs = {'color': colors[0]}
+        bots_kwargs = {'color': colors[1]}
+    else:
+        students_kwargs = {}
+        bots_kwargs = {}
 
     x_axis = np.arange(1, max_rank+1)
     width = 0.4
-    for i, epoch in enumerate(student_ranks):
-        axis = axes[i]
-        axis.bar(x_axis-width/2, item_counts(student_ranks[epoch], normalize=True), width=width, alpha=1, label='Student')
-        axis.bar(x_axis+width/2, item_counts(bot_ranks[epoch], normalize=True), width=width, alpha=1, label='Bots')
-        axis.legend()
-        axis.set_title(f'Round {epoch}')
-        axis.set_xlabel('Rank')
-        if set_ylabel:
-            axis.set_ylabel('Rank Distribution')
+    for epoch, axis in zip(student_ranks, axes):
+        axis.bar(x_axis-width/2, item_counts(student_ranks[epoch], normalize=True),
+                 width=width, alpha=ALPHA, label=labels[0], **students_kwargs)
+        axis.bar(x_axis+width/2, item_counts(bot_ranks[epoch], normalize=True),
+                 width=width, alpha=ALPHA, label=labels[1], **bots_kwargs)
+
+        if format_plot:
+            axis.legend()
+            axis.set_title(f'Round {epoch}')
+            axis.set_xlabel('Rank')
+            if set_ylabel:
+                axis.set_ylabel('Rank Distribution')
 
     if 'savefig' in kwargs:
         plt.savefig(kwargs['savefig'])
@@ -355,6 +379,9 @@ def plot_top_distribution(trec_dir, show=True, set_ylabel=True, **kwargs):
     results = {epoch:
                    [students_top[epoch] / total_competitions, bots_top[epoch] / total_competitions]
                for epoch in students_top}
+
+    # results = {'students': [students_top[epoch] / total_competitions for epoch in students_top],
+    #            'bots': [bots_top[epoch] / total_competitions for epoch in bots_top]}
 
     if 'axes' in kwargs:
         axes = kwargs.pop('axes')
@@ -412,13 +439,22 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
                         savefig=plots_dir + '/Average First Place Duration Comparison- HRI')
 
     if rank_distribution:
+        color_pairs = [['b', 'g'], ['m', 'r']]  # TODO generalize to more methods
         for mode in modes:
-            fig, axes_mat = plt.subplots(ncols=len(tr_methods), nrows=rounds,
-                                         figsize=(10, 3 * rounds), squeeze=False, sharey='row')
-            for i, (method, axes) in enumerate(zip(tr_methods, axes_mat.transpose())):
-                plot_rank_distribution(trec_dirs[mode][method], axes=axes, show=False, set_ylabel=i == 0)
-            fig.suptitle('Rank Distribution for TR methods: {}'.format(', '.join(tr_methods)), fontsize=18)
+            fig, axes = plt.subplots(nrows=rounds, figsize=(10, 3 * rounds), squeeze=True, sharey='none')
+            for i, (method, color_pair) in enumerate(zip(tr_methods, color_pairs)):
+                trec_dir = trec_dirs[mode][method]
+                plot_rank_distribution(trec_dir, axes=axes, show=False, set_ylabel=i == 0, method=method,
+                                       colors=color_pair)
+
+            fig.suptitle('Rank Distribution of Students and Bots', fontsize=18)
+            for i, axis in enumerate(axes):
+                axis.legend()
+                axis.set_title(f'Round {i+1}')
+                axis.set_xlabel('Rank')
+                axis.set_ylabel('Rank Distribution')
             plt.tight_layout(rect=(0, 0.03, 1, 0.97))
+
             plt.savefig(plots_dir + '/Rank Distribution Vanilla vs HRI')
             # plt.show()
 
