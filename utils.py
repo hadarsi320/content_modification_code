@@ -140,11 +140,11 @@ def create_index(trectext_file, new_index_name, indri_path):
     """
     if os.path.exists(new_index_name):
         shutil.rmtree(new_index_name)
+    ensure_dirs(new_index_name)
 
     corpus_class = 'trectext'
     memory = '1G'
     stemmer = 'krovetz'
-    ensure_dirs(new_index_name)
     command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trectext_file} -corpus.class={corpus_class} ' \
               f'-index={new_index_name} -memory={memory} -stemmer.name={stemmer}'
     run_and_print(command, command_name='IndriBuildIndex')
@@ -384,7 +384,7 @@ def print_and_delete(file_path):
     os.remove(file_path)
 
 
-def get_qrid(qid: str, epoch: int):
+def get_qrid(qid: str, epoch):
     return qid.lstrip('0') + str(epoch).zfill(2)
 
 
@@ -398,7 +398,7 @@ def parse_doc_id(doc_id: str):
     return epoch, qid, pid
 
 
-def get_doc_id(epoch: int, qid, player_id):
+def get_doc_id(epoch, qid: str, player_id: str):
     return f'ROUND-{int(epoch):02d}-{qid}-{player_id}'
 
 
@@ -408,12 +408,18 @@ def generate_pair_name(pair):
     return pair.split("$")[1].split("_")[0] + "_" + out_ + "_" + in_
 
 
-def create_documents_workingset(output_file, epoch, qid, competitor_list):
+def create_documents_workingset(output_file, competitor_list, qid, epoch=None, **kwargs):
     ensure_dirs(output_file)
+    if 'total_rounds' in kwargs:
+        total_rounds = kwargs.pop('total_rounds')
+        rounds = range(1, total_rounds+1)
+    else:
+        rounds = [epoch]
     with open(output_file, 'w') as f:
-        for competitor in competitor_list:
-            line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
-            f.write(line)
+        for epoch in rounds:
+            for competitor in competitor_list:
+                line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
+                f.write(line)
 
 
 def ensure_dirs(*files):
@@ -526,3 +532,13 @@ def get_competitors(trec_file, qid=None):
             if (qid is None or last_qid == qid) and pid not in competitors_list:
                 competitors_list.append(pid)
     return competitors_list
+
+
+def get_num_rounds(trec_file):
+    epochs = []
+    with open(trec_file, 'r') as f:
+        for line in f:
+            qrid = line.split()[0]
+            epoch = int(parse_qrid(qrid)[0])
+            epochs.append(epoch)
+    return max(epochs)
