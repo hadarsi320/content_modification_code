@@ -316,16 +316,17 @@ def plot_rank_distribution(trec_dir, show=True, set_ylabel=False, **kwargs):
     else:
         _, axes = plt.subplots(nrows=rounds, figsize=(8, 3 * rounds), sharey='col')
 
-    x_axis = range(1, max_rank + 1)
+    x_axis = np.arange(1, max_rank+1)
+    width = 0.4
     for i, epoch in enumerate(student_ranks):
         axis = axes[i]
-        axis.bar(x_axis, item_counts(student_ranks[epoch], normalize=True), alpha=0.7)
-        axis.bar(x_axis, item_counts(bot_ranks[epoch], normalize=True), alpha=0.7)
-        axis.legend(['Student Ranks', 'Bot Ranks'])
+        axis.bar(x_axis-width/2, item_counts(student_ranks[epoch], normalize=True), width=width, alpha=1, label='Student')
+        axis.bar(x_axis+width/2, item_counts(bot_ranks[epoch], normalize=True), width=width, alpha=1, label='Bots')
+        axis.legend()
         axis.set_title(f'Round {epoch}')
         axis.set_xlabel('Rank')
         if set_ylabel:
-            axis.set_ylabel('Distribution')
+            axis.set_ylabel('Rank Distribution')
 
     if 'savefig' in kwargs:
         plt.savefig(kwargs['savefig'])
@@ -434,9 +435,9 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
 
 
 def main():
-    modes = ['1of5'] # [f'{x + 1}of5' for x in range(5)]
+    modes = ['1of5']  # [f'{x + 1}of5' for x in range(5)]
     tr_methods = ['vanilla', 'highest_rated_inferiors']
-    plot_trm_comparisons(modes, tr_methods, rank_distribution=True, top_distribution=True, rounds=8)
+    plot_trm_comparisons(modes, tr_methods, rank_distribution=True, top_distribution=False, rounds=8)
 
 
 if __name__ == '__main__':
