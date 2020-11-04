@@ -542,3 +542,7 @@ def get_num_rounds(trec_file):
             epoch = int(parse_qrid(qrid)[0])
             epochs.append(epoch)
     return max(epochs)
+
+
+def format_name(name):
+    return ' '.join(name.split('_')).title()
