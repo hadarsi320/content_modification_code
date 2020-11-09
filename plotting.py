@@ -298,9 +298,9 @@ def compare_to_paper_data():
                          positions_files={'Paper Competitions': 'data/paper_data/documents.positions'})
 
 
-def plot_rank_distribution(trec_dir, show=True, set_ylabel=False, **kwargs):
+def plot_rank_distribution(competition_dir, show=True, set_ylabel=False, **kwargs):
     ALPHA = 0.8
-    ranked_lists, competitors_dict = read_trec_dir(trec_dir)
+    ranked_lists, competitors_dict = read_trec_dir(competition_dir+'/trec_files/')
     rounds = len(next(iter(ranked_lists.values())))
     max_rank = len(next(iter(competitors_dict.values())))
 
@@ -491,12 +491,12 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
                         savefig=plots_dir + '/Average First Place Duration Comparison- HRI')
 
     if rank_distribution:
-        color_pairs = [['b', 'g'], ['m', 'r']]  # TODO generalize to more methods
+        color_pairs = [['b', 'm'], ['r', 'g']]  # TODO generalize to more methods
         for mode in modes:
             fig, axes = plt.subplots(nrows=rounds, figsize=(10, 3 * rounds), squeeze=True, sharey='none')
             for i, (method, color_pair) in enumerate(zip(tr_methods, color_pairs)):
-                trec_dir = comp_dirs[mode][method]
-                plot_rank_distribution(trec_dir, axes=axes, show=False, set_ylabel=i == 0, method=method,
+                competition_dir = comp_dirs[mode][method]
+                plot_rank_distribution(competition_dir, axes=axes, show=False, set_ylabel=i == 0, method=method,
                                        colors=color_pair)
 
             fig.suptitle('Rank Distribution of Students and Bots', fontsize=18)
@@ -530,7 +530,7 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
 def main():
     modes = ['1of5']  # [f'{x + 1}of5' for x in range(5)]
     tr_methods = ['vanilla', 'highest_rated_inferiors']
-    plot_trm_comparisons(modes, tr_methods, rank_distribution=False, top_distribution=False, similarity_to_winner=True,
+    plot_trm_comparisons(modes, tr_methods, rank_distribution=True, top_distribution=False, similarity_to_winner=False,
                          rounds=8)
     # fun_input = {'vanilla': 'results/1of5_10_22_13_vanilla',
     #              'highest_rated_inferiors': 'results/1of5_10_23_04_highest_rated_inferiors'}
