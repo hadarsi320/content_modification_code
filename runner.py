@@ -64,7 +64,7 @@ def runnner_2of2(output_dir, pickle_file, trec_file='./data/trec_file_original_s
                 continue
 
             command = f'python main.py --mode=2of2 --qid={qid} --bots={",".join(pid_list)}' \
-                      f' --output_dir={output_dir} --word2vec_dump={pickle_file}'
+                      f' --output_dir={output_dir}'
             print(f'{iteration}. Running command: {command}')
             try:
                 run_bash_command(command)
@@ -73,9 +73,9 @@ def runnner_2of2(output_dir, pickle_file, trec_file='./data/trec_file_original_s
                 log_error(error_file, command, e)
 
 
-def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinement, print_interval, total_players=5,
-                **kwargs):
-    error_file = output_dir + 'errors/'
+def run_all_combinations(output_dir, results_dir, pickle_file, num_of_bots, top_refinement, print_interval,
+                         total_players=5, **kwargs):
+    error_dir = output_dir + 'errors/'
 
     bots_list = {}
     if 'positions_file' in kwargs:
@@ -120,16 +120,15 @@ def runner_xof5(output_dir, results_dir, pickle_file, num_of_bots, top_refinemen
                 competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_dump=pickle_file,
                                   top_refinement=top_refinement, mute=True)
                 sys.stdout = stdout
-                # run_bash_command(command)
             except Exception as e:
                 sys.stdout = stdout
                 print(f'#### Error occured in competition {qid} {", ".join(bots)}: \n{str(e)}\n')
-                log_error(error_file, command, e)
+                log_error(error_dir, command, e)
 
             ensure_dirs(results_dir)
-            for file in ['trec_files', 'trectext_files', 'errors']:
-                if os.path.exists(f'{output_dir}/{file}'):
-                    command = f'cp -r {output_dir}/{file} {results_dir}'
+            for dir in ['trec_files', 'trectext_files', 'errors']:
+                if os.path.exists(f'{output_dir}/{dir}'):
+                    command = f'cp -r {output_dir}/{dir} {results_dir}'
                     run_bash_command(command)
 
 
@@ -167,11 +166,11 @@ def run_all_competitions(mode, top_refinement, source='raifer', print_interval=2
     elif mode.endswith('of5'):
         num_of_bots = int(mode[0])
         if source == 'paper':
-            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, top_refinement, print_interval,
-                        positions_file=positions_file_paper)
+            run_all_combinations(output_dir, results_dir, word2vec_pkl, num_of_bots, top_refinement, print_interval,
+                                 positions_file=positions_file_paper)
         elif source == 'raifer':
-            runner_xof5(output_dir, results_dir, word2vec_pkl, num_of_bots, top_refinement, print_interval,
-                        trec_file=trec_file_raifer)
+            run_all_combinations(output_dir, results_dir, word2vec_pkl, num_of_bots, top_refinement, print_interval,
+                                 trec_file=trec_file_raifer)
         else:
             print(f'Illegal source given {source}')
 
@@ -181,7 +180,7 @@ def run_all_competitions(mode, top_refinement, source='raifer', print_interval=2
 def main():
     results_dir = 'results/'
     modes = [f'{i + 1}of5' for i in range(5)]
-    top_refinement_methods = [None, 'acceleration', 'past_top', 'highest_rated_inferiors']
+    top_refinement_methods = [None, 'acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets']
 
     args = []
     for mode in modes:

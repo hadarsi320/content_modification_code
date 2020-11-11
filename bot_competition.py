@@ -304,7 +304,7 @@ def get_last_top_document(ranked_list, qid):
     return last_top_doc_id
 
 
-def get_target_documents(top_refinement, qid, epoch, ranked_lists):
+def get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets):
     if top_refinement == 'acceleration':
         fastest_rising = find_fastest_climbing_document(ranked_lists, qid)
         target_documents = [get_doc_id(epoch, qid, fastest_rising)] if fastest_rising is not None \
@@ -316,6 +316,9 @@ def get_target_documents(top_refinement, qid, epoch, ranked_lists):
 
     elif top_refinement == 'highest_rated_inferiors':
         target_documents = ranked_lists[str(epoch).zfill(2)][qid][1:3]
+
+    elif top_refinement == 'past_targets' and qid in past_targets:
+        target_documents = past_targets[qid]
 
     else:
         target_documents = None

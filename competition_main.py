@@ -137,6 +137,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
 
+    past_targets = {}
     for epoch in range(1, rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
         qrid = get_qrid(qid, epoch)
@@ -160,13 +161,14 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             ref_index = bot_rankings[bot_id]
 
             if ref_index == 0:
-                target_documents = get_target_documents(top_refinement, qid, epoch, ranked_lists)
+                target_documents = get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets)
 
             else:
                 epoch_str = str(epoch).zfill(2)
                 top_docs_index = min(3, ref_index)
                 target_documents = ranked_lists[epoch_str][qid][:top_docs_index]
 
+            past_targets[qid] = target_documents
             if target_documents is not None:
                 # Creating features
                 cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, target_docs=target_documents,
