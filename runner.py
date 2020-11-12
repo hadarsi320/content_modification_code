@@ -106,10 +106,10 @@ def run_all_combinations(output_dir, results_dir, pickle_file, num_of_bots, top_
         for bots in bots_list[qid]:
             iteration += 1
 
-            command = f'python main.py --output_dir={output_dir} --mode={mode} ' \
-                      f' --qid={qid} --bots={",".join(bots)}  --word2vec_dump={pickle_file}'
+            command = f'python main.py output_dir={output_dir} mode={mode} ' \
+                      f' qid={qid} bots={",".join(bots)} word2vec_dump={pickle_file}'
             if top_refinement is not None:
-                command += f' --top_refinement={top_refinement}'
+                command += f' top_refinement={top_refinement}'
 
             if iteration == 1 or iteration % print_interval == 0:
                 print(f'{iteration}. Running: {command}')
@@ -180,7 +180,7 @@ def run_all_competitions(mode, top_refinement, source='raifer', print_interval=2
 def main():
     results_dir = 'results/'
     modes = [f'{i + 1}of5' for i in range(5)]
-    top_refinement_methods = [None, 'acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets']
+    top_refinement_methods = [None, 'acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets', 'everything']
 
     args = []
     for mode in modes:

@@ -120,7 +120,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
-def run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
+def run_general_competition(qid, competitors, bots, rounds, top_refinement, threshold, trectext_file, output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                             replacements_file, svm_rank_scripts_dir, scripts_dir, stopwords_file,
@@ -191,7 +191,13 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir, features_file)
 
             # Find highest ranked pair
-            rep_doc_id, out_index, in_index = get_highest_ranked_pair(features_file, ranking_file)
+            prediction = get_highest_ranked_pair(features_file, ranking_file, threshold)
+            if prediction is None:
+                new_docs[next_doc_id] = doc_texts[bot_doc_id]
+                logger.info('Bot {} cant replace any sentence'.format(bot_id))
+                continue
+            else:
+                rep_doc_id, out_index, in_index = prediction
 
             # Replace sentence
             record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index)
@@ -216,7 +222,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     shutil.rmtree(comp_index)
 
 
-def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/', mute=False, **kwargs):
+def competition_setup(mode, qid, bots, top_refinement, threshold=None, output_dir='output/tmp/', mute=False, **kwargs):
     label_aggregation_method = 'harmonic'
     label_aggregation_b = 1
     svm_rank_c = 0.01
@@ -284,7 +290,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
 
         if mode == 'raifer':
             trectext_file = trectext_file_raifer
-            run_general_competition(qid, competitors, bots, 7, top_refinement, trectext_file,
+            run_general_competition(qid, competitors, bots, 7, top_refinement, threshold, trectext_file,
                                     output_dir, document_workingset_file, indri_path, swig_path,
                                     doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
                                     final_features_dir, clueweb_index, competition_index, replacements_file,
@@ -293,7 +299,7 @@ def competition_setup(mode, qid, bots, top_refinement, output_dir='output/tmp/',
                                     trec_file=trec_file)
         elif mode == 'paper':
             trectext_file = trectext_file_paper
-            run_general_competition(qid, competitors, bots, 3, top_refinement, trectext_file, output_dir,
+            run_general_competition(qid, competitors, bots, 3, top_refinement, threshold, trectext_file, output_dir,
                                     document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir,
                                     trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
                                     clueweb_index, competition_index, replacements_file,

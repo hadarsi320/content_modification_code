@@ -111,7 +111,7 @@ def generate_predictions(model_path, svm_rank_scripts_dir, predictions_dir, feat
     return predictions_file
 
 
-def get_highest_ranked_pair(features_file, predictions_file):
+def get_highest_ranked_pair(features_file, predictions_file, threshold):
     """
     :param features_file: The features file, holds a line for every
     :param predictions_file: A file that holds a score for every line in the features file
@@ -123,7 +123,11 @@ def get_highest_ranked_pair(features_file, predictions_file):
     with open(predictions_file, 'r') as f:
         scores = [float(line) for line in f if len(line) > 0]
 
-    max_pair, _ = max(zip(pairs, scores), key=lambda x: x[1])
+    max_pair, score = max(zip(pairs, scores), key=lambda x: x[1])
+
+    if threshold is not None and score < threshold:
+        return None
+
     rep_doc_id, out_index, in_index = max_pair.split('_')
     return rep_doc_id, int(out_index), int(in_index)
 
@@ -319,6 +323,14 @@ def get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets)
 
     elif top_refinement == 'past_targets' and qid in past_targets:
         target_documents = past_targets[qid]
+
+    elif top_refinement == 'everything':
+        target_documents = []
+        for method in ['acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets']:
+            targets = get_target_documents(method, qid, epoch, ranked_lists, past_targets)
+            for target in targets:
+                if target not in target_documents:
+                    target_documents.append(target)
 
     else:
         target_documents = None
