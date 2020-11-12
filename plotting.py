@@ -1,10 +1,12 @@
 import os
+import sys
 from collections import defaultdict, Counter
 from os import listdir
 
 import numpy as np
 import shutil
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 import competition_main
 from bot_competition import generate_document_tfidf_files
@@ -417,18 +419,21 @@ def plot_similarity_to_winner(comp_dirs_dict: dict, rounds: int, show=True, **kw
     for method, comp_dir in comp_dirs_dict.items():
         trectext_dir = comp_dir + '/trectext_files/'
 
-        for file in os.listdir(trectext_dir):
+        for file in tqdm(os.listdir(trectext_dir)):
             qid = file.split('_')[1]
             bots = file.split('_')[2].split('.')[0].split(',')
             trec_file = f'{comp_dir}/trec_files/trec_file_{qid}_{",".join(bots)}'
             competitors = get_competitors(trec_file)
             ranked_list = read_trec_file(trec_file)
 
+            stdout = sys.stdout
+            sys.stdout = open(os.devnull, 'w')
             create_index(trectext_dir+file, new_index_name=index, indri_path=competition_main.indri_path)
             create_documents_workingset(doc_ws_file, competitors, qid, total_rounds=rounds)
             generate_document_tfidf_files(doc_ws_file, output_dir=tfidf_dir,
                                           swig_path=competition_main.swig_path,
                                           base_index=competition_main.clueweb_index, new_index=index)
+            sys.stdout = stdout
 
             for epoch in ranked_list:
                 top_document = tfidf_dir + ranked_list[epoch][qid][0]
@@ -492,7 +497,7 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
                                  for method in tr_methods}
 
         compare_trm_atd(competitions_list_rev, show=False,
-                        savefig=plots_dir + '/Average First Place Duration Comparison- HRI')
+                        savefig=plots_dir + '/Average First Place Duration ' + ' vs '.join(tr_methods))
 
     if rank_distribution:
         assert len(tr_methods) == 2
@@ -511,7 +516,7 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
                 axis.set_ylabel('Rank Distribution')
             plt.tight_layout(rect=(0, 0.03, 1, 0.97))
 
-            plt.savefig(plots_dir + '/Rank Distribution Vanilla vs Acceleration')
+            plt.savefig(plots_dir + '/Rank Distribution ' + ' vs '.join(tr_methods))
             plt.close()
             # plt.show()
 
@@ -523,20 +528,20 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
                 plot_top_distribution(comp_dirs[mode][method], axes=axes, show=False, set_ylabel=i == 0)
             fig.suptitle('Top Distribution for TR methods: {}'.format(', '.join(tr_methods)), fontsize=18)
             plt.tight_layout(rect=(0, 0.03, 1, 0.97))
-            plt.savefig(plots_dir+'/Top Distribution Vanilla vs HRI')
+            plt.savefig(plots_dir+'/Top Distribution ' + ' vs '.join(tr_methods))
             plt.show()
             plt.close()
 
     if similarity_to_winner:
         for mode in comp_dirs:
-            plot_similarity_to_winner(comp_dirs[mode], rounds, show=True,
-                                      savefig=plots_dir+'/Similarity To Winner Document Vanilla vs Acceleration')
+            plot_similarity_to_winner(comp_dirs[mode], rounds, show=False,
+                                      savefig=plots_dir+'/Similarity To Winner Document ' + ' vs '.join(tr_methods))
             plt.close()
 
 
 def main():
     modes = ['1of5']  # [f'{x + 1}of5' for x in range(5)]
-    tr_methods = ['vanilla', 'acceleration']
+    tr_methods = ['vanilla', 'past_targets']
     plot_trm_comparisons(modes, tr_methods, rank_distribution=True, top_distribution=False, similarity_to_winner=True,
                          rounds=8)
     # compare_to_paper_data()
