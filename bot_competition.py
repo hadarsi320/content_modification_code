@@ -328,6 +328,8 @@ def get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets)
         target_documents = []
         for method in ['acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets']:
             targets = get_target_documents(method, qid, epoch, ranked_lists, past_targets)
+            if targets is None:
+                continue
             for target in targets:
                 if target not in target_documents:
                     target_documents.append(target)
