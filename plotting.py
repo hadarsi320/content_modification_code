@@ -541,7 +541,7 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
 
 def main():
     modes = ['1of5']  # [f'{x + 1}of5' for x in range(5)]
-    tr_methods = ['vanilla', 'past_targets']
+    tr_methods = ['vanilla', 'everything']
     plot_trm_comparisons(modes, tr_methods, rank_distribution=True, top_distribution=False, similarity_to_winner=True,
                          rounds=8)
     # compare_to_paper_data()
