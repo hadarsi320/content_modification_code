@@ -47,7 +47,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
 
 
 def read_trec_file(trec_file, current_round=None, current_qid=None, competitor_list=None):
-    stats = defaultdict(dict)
+    ranked_list = defaultdict(dict)
     with open(trec_file) as file:
         for line in file:
             doc_id = line.split()[2]
@@ -56,10 +56,10 @@ def read_trec_file(trec_file, current_round=None, current_qid=None, competitor_l
                     (current_qid and current_qid != qid) or \
                     (competitor_list and pid not in competitor_list):
                 continue
-            if qid not in stats[epoch]:
-                stats[epoch][qid] = []
-            stats[epoch][qid].append(doc_id)
-    return dict(stats)
+            if qid not in ranked_list[epoch]:
+                ranked_list[epoch][qid] = []
+            ranked_list[epoch][qid].append(doc_id)
+    return dict(ranked_list)
 
 
 def read_raw_trec_file(trec_file):
@@ -546,3 +546,15 @@ def get_num_rounds(trec_file):
 
 def format_name(name):
     return ' '.join(name.split('_')).title()
+
+
+def create_trec_file(trec_file, ranked_list, scores=None, name=None):
+    ensure_dirs(trec_file)
+    with open(trec_file, 'w') as f:
+        for qid in ranked_list:
+            for epoch in ranked_list[qid]:
+                for i, doc_id in enumerate(ranked_list[qid][epoch]):
+                    line = qid.lstrip('0') + epoch.zfill(2) + ' Q0 ' + doc_id + ' 0 ' + \
+                           (scores[qid][epoch] if scores is not None else str(i)) + \
+                           (' ' + name if name is not None else '') + '\n'
+                    f.write(line)
