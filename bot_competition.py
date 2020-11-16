@@ -4,6 +4,7 @@ import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from os.path import exists, basename, splitext
+from random import random
 
 import numpy as np
 from deprecated import deprecated
@@ -379,4 +380,7 @@ def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_p
     top_player = parse_doc_id(top_doc_id)[2]
 
     shutil.rmtree(output_dir)
-    return top_player == 'new'
+
+    res = top_player == 'new'
+    # a way of simulating the results we would receive had we had a rank model which was only right about 3/4 of the time.
+    return res if random() < 3/4 else not res
