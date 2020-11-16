@@ -23,9 +23,9 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     """
     Creates a feature file via a given index and a given working set file
     """
-    run_and_print("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
-    if not os.path.exists(features_dir):
-        os.makedirs(features_dir)
+    if os.path.exists(features_dir):
+        run_and_print("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
+    os.makedirs(features_dir)
     ensure_dirs(new_features_file)
 
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar LTRFeatures {base_index_path} ' \
@@ -126,6 +126,18 @@ def create_trectext_file(document_texts, trectext_file, working_set_file=None):
                     f.write(query.zfill(3) + ' Q0 ' + docid + ' ' + str(i) + ' -' + str(i) + ' indri\n')
                     i += 1
     return trectext_file
+
+
+def create_trec_file(trec_file, ranked_list, scores=None, name=None):
+    ensure_dirs(trec_file)
+    with open(trec_file, 'w') as f:
+        for qid in ranked_list:
+            for epoch in ranked_list[qid]:
+                for doc_id in ranked_list[qid][epoch]:
+                    line = get_qrid(qid, epoch) + ' Q0 ' + doc_id + ' 0 ' + \
+                           (scores[qid][epoch] if scores is not None else '0') + \
+                           (' ' + name if name is not None else '') + '\n'
+                    f.write(line)
 
 
 def update_trectext_file(trectext_file, old_documents, new_documents):
@@ -352,7 +364,7 @@ def read_queries_file(queries_file, current_qrid=None):
 def get_query_text(queries_file, current_qid):
     with open(queries_file) as file:
         for line in file:
-            if "<number>" in line:
+            if '<number>' in line:
                 qrid = line.replace('<number>', '').replace('</number>', "").split("_")[0].rstrip() \
                     .replace("\t", "").replace(" ", "")
                 _, qid = parse_qrid(qrid)
@@ -410,11 +422,12 @@ def generate_pair_name(pair):
 
 def create_documents_workingset(output_file, competitor_list, qid, epoch=None, **kwargs):
     ensure_dirs(output_file)
+
     if 'total_rounds' in kwargs:
-        total_rounds = kwargs.pop('total_rounds')
-        rounds = range(1, total_rounds+1)
+        rounds = range(1, kwargs.pop('total_rounds')+1)
     else:
         rounds = [epoch]
+
     with open(output_file, 'w') as f:
         for epoch in rounds:
             for competitor in competitor_list:
@@ -546,15 +559,3 @@ def get_num_rounds(trec_file):
 
 def format_name(name):
     return ' '.join(name.split('_')).title()
-
-
-def create_trec_file(trec_file, ranked_list, scores=None, name=None):
-    ensure_dirs(trec_file)
-    with open(trec_file, 'w') as f:
-        for qid in ranked_list:
-            for epoch in ranked_list[qid]:
-                for i, doc_id in enumerate(ranked_list[qid][epoch]):
-                    line = qid.lstrip('0') + epoch.zfill(2) + ' Q0 ' + doc_id + ' 0 ' + \
-                           (scores[qid][epoch] if scores is not None else str(i)) + \
-                           (' ' + name if name is not None else '') + '\n'
-                    f.write(line)
