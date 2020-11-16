@@ -32,7 +32,7 @@ def log_error(error_dir, command, error):
     ensure_dirs(error_dir)
     command = ' '.join([argument for argument in command.split()
                         if not ('word2vec_dump' in argument or 'output_dir' in argument)])
-    with open(error_dir+command, 'w') as f:
+    with open(error_dir + command, 'w') as f:
         f.write(str(error))
 
 
@@ -178,6 +178,12 @@ def run_all_competitions(mode, top_refinement, source='raifer', print_interval=2
 
 
 def main():
+    while True:
+        avoid_reruns = input('Avoid rerunning competitions? True/False')
+        if avoid_reruns in ['True', 'False']:
+            break
+    avoid_reruns = avoid_reruns == 'True'
+
     results_dir = 'results/'
     modes = [f'{i + 1}of5' for i in range(5)]
     top_refinement_methods = [None, 'acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets', 'everything']
@@ -186,7 +192,9 @@ def main():
     for mode in modes:
         for method in top_refinement_methods:
             name = method if method is not None else 'vanilla'
-            if not any(re.match(mode + '.*' + name, file) is not None for file in os.listdir(results_dir)):
+            # if not any(re.match(mode + '.*' + name, file) is not None for file in os.listdir(results_dir)):
+            if avoid_reruns is False or \
+                    all(re.match(mode + '.*' + name, file) is None for file in os.listdir(results_dir)):
                 args.append((mode, method))
 
     with Pool() as p:
