@@ -378,7 +378,7 @@ def create_reranking_ws(qrid, ranked_lists, file_name):
 
 
 def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir, stopwords_file, queries_text_file,
-                  jar_path, rank_model, output_dir, specific_ws_name='specific_ws',
+                  jar_path, rank_model, output_dir, reranking_ws_name='reranking_ws',
                   new_feature_file_name='new_feature_file', feature_dir_name='feature_dir/',
                   new_trec_file_name='trec_file', score_file_name='score_file'):
     logger = logging.getLogger(sys.argv[0])
@@ -387,13 +387,13 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
     reranked_trec_file = output_dir + new_trec_file_name
     feature_file = output_dir + new_feature_file_name
     full_feature_dir = output_dir + feature_dir_name
-    specific_ws = output_dir + specific_ws_name
+    reranking_ws = output_dir + reranking_ws_name
     score_file = output_dir + score_file_name
 
     ranked_lists = read_raw_trec_file(trec_file)
-    create_reranking_ws(qrid, ranked_lists, specific_ws)
+    create_reranking_ws(qrid, ranked_lists, reranking_ws)
     logger.info("creating features")
-    features_file = create_features_file_diff(full_feature_dir, base_index, new_index, feature_file, specific_ws,
+    features_file = create_features_file_diff(full_feature_dir, base_index, new_index, feature_file, reranking_ws,
                                               scripts_dir, swig_path, stopwords_file, queries_text_file)
     logger.info("creating docname index")
     docname_index = create_index_to_doc_name_dict(features_file)

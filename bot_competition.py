@@ -1,4 +1,5 @@
 import logging
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -9,10 +10,11 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-from create_bot_features import update_text_doc
+from create_bot_features import update_text_doc, run_reranking
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    ensure_dirs, get_learning_data_path, get_doc_id
+    ensure_dirs, get_learning_data_path, get_doc_id, create_trec_file, create_index, create_documents_workingset, \
+    read_trec_file
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
@@ -111,7 +113,7 @@ def generate_predictions(model_path, svm_rank_scripts_dir, predictions_dir, feat
     return predictions_file
 
 
-def get_highest_ranked_pair(features_file, predictions_file, threshold):
+def get_highest_ranked_pair(features_file, predictions_file, threshold=None):
     """
     :param features_file: The features file, holds a line for every
     :param predictions_file: A file that holds a score for every line in the features file
@@ -308,8 +310,13 @@ def get_last_top_document(ranked_list, qid):
     return last_top_doc_id
 
 
-def get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets):
-    if top_refinement == 'acceleration':
+def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refinement):
+    if rank > 0:
+        epoch_str = str(epoch).zfill(2)
+        top_docs_index = min(3, rank)
+        target_documents = ranked_lists[epoch_str][qid][:top_docs_index]
+
+    elif top_refinement == 'acceleration':
         fastest_rising = find_fastest_climbing_document(ranked_lists, qid)
         target_documents = [get_doc_id(epoch, qid, fastest_rising)] if fastest_rising is not None \
             else None
@@ -327,7 +334,7 @@ def get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets)
     elif top_refinement == 'everything':
         target_documents = []
         for method in ['acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets']:
-            targets = get_target_documents(method, qid, epoch, ranked_lists, past_targets)
+            targets = get_target_documents(rank, qid, epoch, ranked_lists, past_targets, method)
             if targets is None:
                 continue
             for target in targets:
@@ -338,3 +345,38 @@ def get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets)
         target_documents = None
 
     return target_documents
+
+
+def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_path, indri_path, document_rank_model,
+                           scripts_dir, stopwords_file, queries_text_file, ranklib_jar):
+    ensure_dirs(output_dir)
+    document_workingset_file = output_dir + 'document_ws'
+    doc_tfidf_dir = output_dir + 'document_tfidf/'
+    trectext_file = output_dir + 'trectext_file'
+    trec_file = output_dir + 'trec_file'
+    val_index = output_dir + 'rec_index'
+    epoch = '0'
+    next_epoch = '1'
+    qrid = get_qrid(qid, epoch)
+    competitors = ['old', 'new']
+
+    ranked_list = {qid: {epoch: [get_doc_id(epoch, qid, pid) for pid in competitors]}}
+    create_trec_file(trec_file, ranked_list, name='replacement_validation')
+
+    trectext_dict = {get_doc_id(next_epoch, qid, 'old'): old_doc, get_doc_id(next_epoch, qid, 'new'): new_doc}
+    create_trectext_file(trectext_dict, trectext_file)
+
+    create_index(trectext_file, new_index_name=val_index, indri_path=indri_path)
+    create_documents_workingset(document_workingset_file, competitors, qid, next_epoch)
+    generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
+                                  swig_path=swig_path, base_index=base_index, new_index=val_index)
+
+    reranked_trec_file = run_reranking(qrid, trec_file, base_index, val_index, swig_path,
+                                       scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
+                                       document_rank_model, output_dir=output_dir)
+    reranked_list = read_trec_file(reranked_trec_file)
+    top_doc_id = reranked_list[next_epoch.zfill(2)][qid][0]
+    top_player = parse_doc_id(top_doc_id)[2]
+
+    shutil.rmtree(output_dir)
+    return top_player == 'new'
