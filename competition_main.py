@@ -137,13 +137,13 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
 
             bot_doc_id = get_doc_id(epoch, qid, bot_id)
             next_doc_id = get_doc_id(epoch + 1, qid, bot_id)
-            ref_index = bot_rankings[bot_id]
+            bot_rank = bot_rankings[bot_id]
 
-            target_documents = get_target_documents(ref_index, qid, epoch, ranked_lists, past_targets, top_refinement)
+            target_documents = get_target_documents(bot_rank, qid, epoch, ranked_lists, past_targets, top_refinement)
             past_targets[qid] = target_documents
             if target_documents is not None:
                 # Creating features
-                cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, target_docs=target_documents,
+                cant_replace = create_bot_features(qrid=qrid, ref_index=bot_rank, target_docs=target_documents,
                                                    ranked_lists=ranked_lists, doc_texts=doc_texts,
                                                    output_dir=output_dir, word_embed_model=word_embedding_model,
                                                    raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir,
@@ -170,13 +170,19 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             else:
                 rep_doc_id, out_index, in_index = prediction
 
-            # reconsider replacement
+            old_doc = doc_texts[bot_doc_id]
             new_doc = generate_updated_document(doc_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
                                                 out_index=out_index, in_index=in_index)
-            old_doc = doc_texts[bot_doc_id]
-            replacement_valid = replacement_validation(qid, old_doc, new_doc, rep_val_dir, base_index, swig_path,
-                                                       indri_path, document_rank_model, scripts_dir, stopwords_file,
-                                                       queries_text_file, ranklib_jar)
+
+            # TODO consider doing a validity check exclusively for documents in first place
+            if bot_rank == 0:
+                # reconsider replacement
+                replacement_valid = replacement_validation(qid, old_doc, new_doc, rep_val_dir, base_index, swig_path,
+                                                           indri_path, document_rank_model, scripts_dir, stopwords_file,
+                                                           queries_text_file, ranklib_jar)
+            else:
+                replacements_file = True
+
             if replacement_valid:
                 # Replace sentence
                 record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index)
@@ -232,6 +238,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement=None, output_di
 
     ensure_dirs(output_dir)
     document_workingset_file = output_dir + 'document_ws.txt'
+    rep_val_dir = output_dir + 'replacement_evaluation/'
     final_features_dir = output_dir + 'final_features/'
     doc_tfidf_dir = output_dir + 'document_tfidf/'
     trectext_dir = output_dir + 'trectext_files/'
@@ -239,7 +246,6 @@ def competition_setup(mode, qid: str, bots: list, top_refinement=None, output_di
     reranking_dir = output_dir + 'reranking/'
     raw_ds_dir = output_dir + 'raw_datasets/'
     trec_dir = output_dir + 'trec_files/'
-    rep_val_dir = 'replacement_evaluation/'
     competition_index = output_dir + 'index_' + qid + '_' + ','.join(bots)
 
     program = os.path.basename(sys.argv[0])
