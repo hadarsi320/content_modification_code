@@ -186,7 +186,7 @@ def main():
     #         break
     # avoid_reruns = avoid_reruns == 'Yes'
 
-    run_name = input('Insert folder_name\n')
+    run_name = input('Insert run name\n')
     if len(run_name) == 0:
         run_name = None
 
