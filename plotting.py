@@ -5,6 +5,8 @@ from os import listdir
 
 import numpy as np
 import shutil
+
+import re
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
@@ -16,7 +18,8 @@ from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, r
     format_name
 from vector_functionality import document_tfidf_similarity
 
-COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de', 'orange': '#f28e02', 'purple': '#8202f2'}
+COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de', 'orange': '#f28e02', 'purple': '#8202f2',
+          'sky': '#0acef5'}
 
 
 def item_counts(l: list, normalize=False):
@@ -196,9 +199,9 @@ def compare_competitions(title, show=True, plots_dir='plots/', legend_ncols=2, *
         competitors_lists_dict[key] = {qid: next(iter(ranked_lists_dict[key][qid].values()))
                                        for qid in ranked_lists_dict[key]}
 
-    trec_dirs = kwargs.pop('trec_dirs', [])
-    for key in trec_dirs:
-        ranked_lists_dict[key], competitors_lists_dict[key] = read_trec_dir(trec_dirs[key])
+    comp_dirs = kwargs.pop('comp_dirs', [])
+    for key in comp_dirs:
+        ranked_lists_dict[key], competitors_lists_dict[key] = read_trec_dir(comp_dirs[key]+'/trec_files/')
 
     # Normalizing is a bad practice, there should be no errors
     # rounds = []
@@ -212,7 +215,7 @@ def compare_competitions(title, show=True, plots_dir='plots/', legend_ncols=2, *
         len(ranked_lists_dict[key][name]) == rounds for key in ranked_lists_dict for name in ranked_lists_dict[key])
 
     groups = ['students', 'bots']
-    colors = [COLORS[color] for color in ['blue', 'red', 'green', 'orange', 'purple']]
+    colors = [COLORS[color] for color in ['blue', 'red', 'green', 'orange', 'purple', 'sky']]
     shapes_list = {'bots': 'D', 'students': 'o'}
     y_labels = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
     x_ticks_list = [range(1, rounds + 1), range(2, rounds + 1), range(2, rounds + 1)]
@@ -461,7 +464,7 @@ def plot_similarity_to_winner(comp_dirs_dict: dict, rounds: int, show=True, **kw
         plt.show()
 
 
-def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, average_top_duration=False,
+def plot_trm_comparisons(modes, tr_methods, run_name=None, performance_comparison=False, average_top_duration=False,
                          rank_distribution=False, top_distribution=False, similarity_to_winner=False,
                          **kwargs):
     plots_dir = './plots'
@@ -473,21 +476,23 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
     # TODO update usage of comp_dirs to fit the new transfer from trec dirs to comp dirs
     for mode in modes:
         for method in tr_methods:
-            competitions = [competition for competition in os.listdir(results_dir)
-                            if mode in competition and method in competition]
+            competitions = [comp_dir for comp_dir in os.listdir(results_dir)
+                            if re.match(mode + '.*' + method + (('_' + run_name) if run_name is not None else '') + '$',
+                                        comp_dir)]
             latest = sorted(competitions)[-1]
-            comp_dirs[mode][method] = results_dir + latest
+            comp_dirs[mode][method] = results_dir + latest + '/'
 
     if performance_comparison:
-        competitions_list = list(comp_dirs.values())[:-1]
+        competitions_list = [comp_dirs[mode] for mode in comp_dirs if mode != '5of5']
         labels = [f'{i + 1} bots out of 5' for i in range(5)]
 
         _, axes_mat = plt.subplots(ncols=3, nrows=len(competitions_list), figsize=(30, 10 * len(competitions_list)),
                                    squeeze=False)
         for i, axes in enumerate(axes_mat):
             competitions = competitions_list[i]
-            compare_competitions(trec_dirs=competitions, axs=axes, title=labels[i], show=False)
-        plt.savefig(plots_dir + '/Comparison of Top Refinement Methods HRI')
+            compare_competitions(comp_dirs=competitions, axs=axes, title=labels[i], show=False)
+        # plt.savefig(plots_dir + '/Comparison of Top Refinement Methods HRI')
+        plt.show()
 
     if average_top_duration:
         competitions_list = list(comp_dirs.values())
@@ -520,18 +525,6 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
             plt.close()
             # plt.show()
 
-    if top_distribution:
-        for mode in modes:
-            fig, axes_mat = plt.subplots(ncols=len(tr_methods), nrows=rounds,
-                                         figsize=(10, 3 * rounds), squeeze=False, sharey='row')
-            for i, (method, axes) in enumerate(zip(tr_methods, axes_mat.transpose())):
-                plot_top_distribution(comp_dirs[mode][method], axes=axes, show=False, set_ylabel=i == 0)
-            fig.suptitle('Top Distribution for TR methods: {}'.format(', '.join(tr_methods)), fontsize=18)
-            plt.tight_layout(rect=(0, 0.03, 1, 0.97))
-            plt.savefig(plots_dir+'/Top Distribution ' + ' vs '.join(tr_methods))
-            plt.show()
-            plt.close()
-
     if similarity_to_winner:
         for mode in comp_dirs:
             plot_similarity_to_winner(comp_dirs[mode], rounds, show=False,
@@ -541,9 +534,9 @@ def plot_trm_comparisons(modes, tr_methods, performance_comparison=False, averag
 
 def main():
     modes = ['1of5']  # [f'{x + 1}of5' for x in range(5)]
-    tr_methods = ['vanilla', 'past_targets']
-    plot_trm_comparisons(modes, tr_methods, rank_distribution=True, top_distribution=False, similarity_to_winner=True,
-                         rounds=8)
+    tr_methods = ['vanilla', 'highest_rated_inferiors', 'past_top', 'acceleration', 'past_targets', 'everything']
+    plot_trm_comparisons(modes, tr_methods, run_name='rep_val', performance_comparison=True, rank_distribution=False,
+                         similarity_to_winner=False, rounds=8)
     # compare_to_paper_data()
 
 
