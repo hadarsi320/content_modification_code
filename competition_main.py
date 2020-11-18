@@ -181,7 +181,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
                                                            indri_path, document_rank_model, scripts_dir, stopwords_file,
                                                            queries_text_file, ranklib_jar)
             else:
-                replacements_file = True
+                replacement_valid = True
 
             if replacement_valid:
                 # Replace sentence
