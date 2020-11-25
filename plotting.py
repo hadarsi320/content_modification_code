@@ -22,11 +22,10 @@ COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de', 'orange': '#f
           'sky': '#0acef5'}
 
 
-def item_counts(l: list, normalize=False):
-    counts = np.array([l.count(value) for value in sorted(set(l))])
-    if normalize:
-        return counts / np.sum(counts)
-    return counts
+def get_rank_distribution(rank_list: list, total_ranks):
+    assert all(value in range(total_ranks) for value in rank_list)
+    counts = np.array([rank_list.count(value) for value in range(total_ranks)])
+    return counts / np.sum(counts)
 
 
 def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label=None, savefig=None, show=False,
@@ -310,7 +309,7 @@ def compare_to_paper_data():
 
 
 def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=False, **kwargs):
-    ALPHA = 1
+    alpha = 1
     ranked_lists, competitors_dict = read_trec_dir(competition_dir+'/trec_files/')
     rounds = len(next(iter(ranked_lists.values())))
     max_rank = len(next(iter(competitors_dict.values())))
@@ -324,8 +323,6 @@ def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=Fals
             for i, pid in enumerate(ranked_lists[competition][epoch]):
                 if pid in bots:
                     bot_ranks[epoch].append(i)
-                # else:
-                #     student_ranks[epoch].append(i)
 
     if 'axes' in kwargs:
         axes = kwargs.pop('axes')
@@ -348,12 +345,13 @@ def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=Fals
     x_axis = np.arange(1, max_rank+1)
     width = 0.4
     for epoch, axis in zip(bot_ranks, axes):
+        res = get_rank_distribution(bot_ranks[epoch], total_ranks=max_rank)
         if position == 'left':
-            axis.bar(x_axis-width/2, item_counts(bot_ranks[epoch], normalize=True),
-                     width=width, alpha=ALPHA, label=labels[1], **bots_kwargs)
+            axis.bar(x_axis - width / 2, res,
+                     width=width, alpha=alpha, label=labels[1], **bots_kwargs)
         else:
-            axis.bar(x_axis+width/2, item_counts(bot_ranks[epoch], normalize=True),
-                     width=width, alpha=ALPHA, label=labels[1], **bots_kwargs)
+            axis.bar(x_axis + width / 2, res,
+                     width=width, alpha=alpha, label=labels[1], **bots_kwargs)
 
         if format_plot:
             axis.legend()
@@ -431,11 +429,10 @@ def plot_similarity_to_winner(comp_dirs_dict: dict, rounds: int, show=True, **kw
 
             stdout = sys.stdout
             sys.stdout = open(os.devnull, 'w')
-            create_index(trectext_dir+file, new_index_name=index, indri_path=competition_main.indri_path)
+            create_index(trectext_dir+file, new_index_name=index, indri_path=indri_path)
             create_documents_workingset(doc_ws_file, competitors, qid, total_rounds=rounds)
             generate_document_tfidf_files(doc_ws_file, output_dir=tfidf_dir,
-                                          swig_path=competition_main.swig_path,
-                                          base_index=competition_main.clueweb_index, new_index=index)
+                                          swig_path=swig_path, base_index=clueweb_index, new_index=index)
             sys.stdout = stdout
 
             for epoch in ranked_list:
@@ -464,9 +461,8 @@ def plot_similarity_to_winner(comp_dirs_dict: dict, rounds: int, show=True, **kw
         plt.show()
 
 
-def plot_trm_comparisons(modes, tr_methods, run_name=None, performance_comparison=False, average_top_duration=False,
-                         rank_distribution=False, top_distribution=False, similarity_to_winner=False,
-                         **kwargs):
+def plot_trm_comparisons(modes, tr_methods, plot_name, run_name=None, performance_comparison=False,
+                         average_top_duration=False, rank_distribution=False, similarity_to_winner=False, **kwargs):
     plots_dir = './plots'
     results_dir = 'results/'
     ensure_dirs(plots_dir)
@@ -476,9 +472,9 @@ def plot_trm_comparisons(modes, tr_methods, run_name=None, performance_compariso
     # TODO update usage of comp_dirs to fit the new transfer from trec dirs to comp dirs
     for mode in modes:
         for method in tr_methods:
+            reg_exp = mode + '.*' + method + (('_' + run_name) if run_name is not None else '') + '$'
             competitions = [comp_dir for comp_dir in os.listdir(results_dir)
-                            if re.match(mode + '.*' + method + (('_' + run_name) if run_name is not None else '') + '$',
-                                        comp_dir)]
+                            if re.match(reg_exp, comp_dir)]
             latest = sorted(competitions)[-1]
             comp_dirs[mode][method] = results_dir + latest + '/'
 
@@ -491,7 +487,7 @@ def plot_trm_comparisons(modes, tr_methods, run_name=None, performance_compariso
         for i, axes in enumerate(axes_mat):
             competitions = competitions_list[i]
             compare_competitions(comp_dirs=competitions, axs=axes, title=labels[i], show=False)
-        # plt.savefig(plots_dir + '/Comparison of Top Refinement Methods HRI')
+        # plt.savefig(plots_dir + '/Comparison of Top Refinement Methods ' + plot_name)
         plt.show()
 
     if average_top_duration:
@@ -502,7 +498,7 @@ def plot_trm_comparisons(modes, tr_methods, run_name=None, performance_compariso
                                  for method in tr_methods}
 
         compare_trm_atd(competitions_list_rev, show=False,
-                        savefig=plots_dir + '/Average First Place Duration ' + ' vs '.join(tr_methods))
+                        savefig=plots_dir + '/Average First Place Duration ' + plot_name)
 
     if rank_distribution:
         assert len(tr_methods) == 2
@@ -519,25 +515,35 @@ def plot_trm_comparisons(modes, tr_methods, run_name=None, performance_compariso
                 axis.set_title(f'Round {i+1}')
                 axis.set_xlabel('Rank')
                 axis.set_ylabel('Rank Distribution')
-            plt.tight_layout(rect=(0, 0.03, 1, 0.97))
+            plt.tight_layout(rect=(0.0, 0.05, 1.0, 0.95))
 
-            plt.savefig(plots_dir + '/Rank Distribution ' + ' vs '.join(tr_methods))
+            # plt.savefig(plots_dir + '/Rank Distribution ' + plot_name)
+            plt.show()
             plt.close()
-            # plt.show()
 
     if similarity_to_winner:
         for mode in comp_dirs:
             plot_similarity_to_winner(comp_dirs[mode], rounds, show=False,
-                                      savefig=plots_dir+'/Similarity To Winner Document ' + ' vs '.join(tr_methods))
+                                      savefig=plots_dir+'/Similarity To Winner Document ' + plot_name)
             plt.close()
 
 
 def main():
-    modes = ['1of5']  # [f'{x + 1}of5' for x in range(5)]
-    tr_methods = ['vanilla', 'highest_rated_inferiors', 'past_top', 'acceleration', 'past_targets', 'everything']
-    plot_trm_comparisons(modes, tr_methods, run_name='rep_val', performance_comparison=True, rank_distribution=False,
-                         similarity_to_winner=False, rounds=8)
-    # compare_to_paper_data()
+
+    # modes = [f'{x + 1}of5' for x in range(5)]
+    # tr_methods = ['vanilla', 'highest_rated_inferiors', 'past_top', 'acceleration', 'past_targets', 'everything']
+    # tr_methods = ['vanilla', 'highest_rated_inferiors']
+    # run_names = ['rep_val', 'rep_val_v2', 'rep_val_v3']
+
+    modes = ['1of5']
+    tr_methods = ['highest_rated_inferiors', 'past_top', 'acceleration', 'past_targets']
+    run_name = 'rep_val_v3'
+    for method in tr_methods:
+        print(method)
+        cur_methods = ['vanilla', method]
+        plot_name = ' '.join(format_name(method) for method in cur_methods)
+        plot_trm_comparisons(modes, cur_methods, plot_name=plot_name, run_name=run_name, rounds=8,
+                             performance_comparison=False, rank_distribution=True, similarity_to_winner=False)
 
 
 if __name__ == '__main__':
