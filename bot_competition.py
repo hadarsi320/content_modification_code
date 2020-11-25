@@ -383,4 +383,5 @@ def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_p
 
     res = top_player == 'new'
     # a way of simulating the results we would receive had we had a rank model which was only right about 3/4 of the time.
-    return res if random() < 3/4 else not res
+    # return res if random() < 3/4 else not res
+    return res
