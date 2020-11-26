@@ -532,18 +532,18 @@ def main():
 
     # modes = [f'{x + 1}of5' for x in range(5)]
     # tr_methods = ['vanilla', 'highest_rated_inferiors', 'past_top', 'acceleration', 'past_targets', 'everything']
-    # tr_methods = ['vanilla', 'highest_rated_inferiors']
     # run_names = ['rep_val', 'rep_val_v2', 'rep_val_v3']
 
     modes = ['1of5']
-    tr_methods = ['highest_rated_inferiors', 'past_top', 'acceleration', 'past_targets']
-    run_name = 'rep_val_v3'
-    for method in tr_methods:
-        print(method)
-        cur_methods = ['vanilla', method]
-        plot_name = ' '.join(format_name(method) for method in cur_methods)
-        plot_trm_comparisons(modes, cur_methods, plot_name=plot_name, run_name=run_name, rounds=8,
-                             performance_comparison=False, rank_distribution=True, similarity_to_winner=False)
+    tr_methods = ['highest_rated_inferiors', 'acceleration']
+    runs = ['rep_val_v3']
+    for run in runs:
+        for method in tr_methods:
+            print(run, method)
+            cur_methods = ['vanilla', method]
+            plot_name = ' '.join(format_name(method) for method in cur_methods)
+            plot_trm_comparisons(modes, cur_methods, plot_name=plot_name, run_name=run, rounds=8,
+                                 performance_comparison=False, rank_distribution=True, similarity_to_winner=False)
 
 
 if __name__ == '__main__':
