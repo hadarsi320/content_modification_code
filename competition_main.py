@@ -103,8 +103,8 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                             replacements_file, svm_rank_scripts_dir, scripts_dir, stopwords_file,
-                            queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_rank_model,
-                            word_embedding_model, rep_val_dir, **kwargs):
+                            queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_ranker,
+                            top_ranker, word_embedding_model, rep_val_dir, **kwargs):
     logger = logging.getLogger(sys.argv[0])
     original_texts = load_trectext_file(trectext_file, qid)
 
@@ -159,7 +159,8 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
                 continue
 
             # Rank pairs
-            ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir, features_file)
+            ranker = top_ranker if bot_rank == 0 else pair_ranker
+            ranking_file = generate_predictions(ranker, svm_rank_scripts_dir, predictions_dir, features_file)
 
             # Find highest ranked pair
             prediction = get_highest_ranked_pair(features_file, ranking_file)
@@ -209,8 +210,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     shutil.rmtree(comp_index)
 
 
-def competition_setup(mode, qid: str, bots: list, top_refinement=None, output_dir='output/tmp/',
-                      label_aggregation_method='harmonic', mute=False, **kwargs):
+def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='output/tmp/', mute=False, **kwargs):
     svm_models_dir = 'rank_svm_models/'
     aggregated_data_dir = 'data/learning_dataset/'
     svm_rank_scripts_dir = 'scripts/'
@@ -232,9 +232,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement=None, output_di
     swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
 
-    label_aggregation_b = 1
-    svm_rank_c = 0.01
-    total_rounds = 10
+    pair_ranker_args = ('harmonic', 1)
 
     ensure_dirs(output_dir)
     document_workingset_file = output_dir + 'document_ws.txt'
@@ -254,12 +252,21 @@ def competition_setup(mode, qid: str, bots: list, top_refinement=None, output_di
     logging.root.setLevel(level=logging.CRITICAL + 1 if mute else logging.INFO)
     logger.info("Running %s" % ' '.join(sys.argv))
 
-    svm_rank_model = svm_models_dir + get_model_name(label_aggregation_method, label_aggregation_b, svm_rank_c)
-    if not exists(svm_rank_model):
-        create_pair_ranker(svm_rank_model, label_aggregation_method,
-                           label_aggregation_b, svm_rank_c, aggregated_data_dir,
+    pair_ranker = svm_models_dir + get_model_name(pair_ranker_args)
+    if not exists(pair_ranker):
+        create_pair_ranker(pair_ranker, pair_ranker_args, aggregated_data_dir,
                            seo_qrels_file, coherency_qrels_file, unranked_features_file,
                            svm_rank_scripts_dir)
+
+    if 'top_ranker_args' in kwargs:
+        top_ranker_args = kwargs.pop('top_ranker_args')
+        top_ranker = svm_models_dir + get_model_name(top_ranker_args)
+        if not exists(top_ranker):
+            create_pair_ranker(top_ranker, top_ranker_args, aggregated_data_dir,
+                               seo_qrels_file, coherency_qrels_file, unranked_features_file,
+                               svm_rank_scripts_dir)
+    else:
+        top_ranker = pair_ranker
 
     # load word2vec model
     if 'word2vec_dump' in kwargs:
@@ -283,9 +290,8 @@ def competition_setup(mode, qid: str, bots: list, top_refinement=None, output_di
                               competition_index, document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir,
                               trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, swig_path,
                               indri_path, replacements_file, similarity_file, svm_rank_scripts_dir,
-                              total_rounds, scripts_dir, stopwords_file,
-                              queries_text_file, queries_xml_file, ranklib_jar,
-                              rank_model, svm_rank_model, word_embedding_model)
+                              10, scripts_dir, stopwords_file, queries_text_file, queries_xml_file,
+                              ranklib_jar, rank_model, pair_ranker, top_ranker, word_embedding_model)
     else:
         replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
         if exists(replacements_file):
@@ -299,22 +305,18 @@ def competition_setup(mode, qid: str, bots: list, top_refinement=None, output_di
 
         if mode == 'raifer':
             trectext_file = trectext_file_raifer
-            run_general_competition(qid, competitors, bots, 7, top_refinement, trectext_file,
-                                    output_dir, document_workingset_file, indri_path, swig_path,
-                                    doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
-                                    final_features_dir, clueweb_index, competition_index, replacements_file,
-                                    svm_rank_scripts_dir, scripts_dir, stopwords_file, queries_text_file,
-                                    queries_xml_file, ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
-                                    rep_val_dir, trec_file=trec_file)
-        elif mode == 'paper':
+            kwargs = dict(trec_file=trec_file)
+        else:
             trectext_file = trectext_file_paper
-            run_general_competition(qid, competitors, bots, 3, top_refinement, trectext_file, output_dir,
-                                    document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir,
-                                    trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
-                                    clueweb_index, competition_index, replacements_file,
-                                    svm_rank_scripts_dir, scripts_dir, stopwords_file, queries_text_file,
-                                    queries_xml_file, ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
-                                    rep_val_dir, positions_file=positions_file)
+            kwargs = dict(positions_file=positions_file)
+
+        run_general_competition(qid, competitors, bots, 3, top_refinement, trectext_file, output_dir,
+                                document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir,
+                                trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
+                                clueweb_index, competition_index, replacements_file,
+                                svm_rank_scripts_dir, scripts_dir, stopwords_file, queries_text_file,
+                                queries_xml_file, ranklib_jar, rank_model, pair_ranker, top_ranker,
+                                word_embedding_model, rep_val_dir, **kwargs)
 
 
 if __name__ == '__main__':
@@ -322,9 +324,10 @@ if __name__ == '__main__':
     parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])
     parser.add_option('--qid')
     parser.add_option('--bots')
-    parser.add_option('--top_refinement', choices=['acceleration', 'past_top', 'highest_rated_inferiors'])
+    parser.add_option('--top_refinement')
     parser.add_option('--output_dir')
     parser.add_option('--word2vec_dump')
+    parser.add_option('--top_ranker_args')
     (options, args) = parser.parse_args()
 
     arguments_dict = {}
@@ -332,6 +335,8 @@ if __name__ == '__main__':
         arguments_dict['output_dir'] = options.output_dir
     if options.word2vec_dump is not None:
         arguments_dict['word2vec_dump'] = options.word2vec_dump
+    if options.top_ranker_args is not None:
+        arguments_dict['top_ranker_args'] = options.top_ranker_args.split('_')
 
     start = time()
     competition_setup(options.mode, options.qid.zfill(3), options.bots.split(','), options.top_refinement,
