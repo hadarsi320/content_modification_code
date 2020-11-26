@@ -73,10 +73,7 @@ def runnner_2of2(output_dir, pickle_file, trec_file='./data/trec_file_original_s
                 log_error(error_file, command, e)
 
 
-def run_all_combinations(output_dir, results_dir, pickle_file, num_of_bots, top_refinement, print_interval,
-                         total_players=5, **kwargs):
-    error_dir = output_dir + 'errors/'
-
+def get_bots(num_of_bots, total_players, **kwargs):
     bots_list = {}
     if 'positions_file' in kwargs:
         mode = 'paper'
@@ -101,60 +98,64 @@ def run_all_combinations(output_dir, results_dir, pickle_file, num_of_bots, top_
     else:
         raise ValueError('No source file given')
 
-    iteration = 0
+    return mode, bots_list
+
+
+def run_all_queries(output_dir, results_dir, top_ranker_args, num_of_bots, top_refinement, pickle_file,
+                    print_interval=15, total_players=5, **kwargs):
+    error_dir = output_dir + 'errors/'
+    mode, bots_list = get_bots(num_of_bots, total_players, **kwargs)
+
+    iteration = 1
     for qid in bots_list:
         for bots in bots_list[qid]:
-            iteration += 1
-
-            command = f'python main.py output_dir={output_dir} mode={mode} ' \
-                      f' qid={qid} bots={",".join(bots)}'
-            if top_refinement is not None:
-                command += f' top_refinement={top_refinement}'
-
+            run_description = f'output_dir={output_dir} qid={qid} bots={",".join(bots)} ' \
+                      f'top_refinement={top_refinement} top_ranker={"_".join(top_ranker_args)}'
             if iteration == 1 or iteration % print_interval == 0:
-                print(f'{iteration}. Running: {command}')
+                print(f'{iteration}. {run_description}')
 
             stdout = sys.stdout
             sys.stdout = open(os.devnull, 'w')
             try:
                 competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_dump=pickle_file,
-                                  top_refinement=top_refinement, mute=True)
+                                  top_refinement=top_refinement, top_ranker_args=top_ranker_args, mute=True)
                 sys.stdout = stdout
             except Exception as e:
                 sys.stdout = stdout
                 print(f'#### Error occured in competition {qid} {", ".join(bots)}: \n{str(e)}\n')
-                log_error(error_dir, command, e)
+                log_error(error_dir, run_description, e)
 
             ensure_dirs(results_dir)
-            for dir in ['trec_files', 'trectext_files', 'errors']:
-                if os.path.exists(f'{output_dir}/{dir}'):
-                    command = f'cp -r {output_dir}/{dir} {results_dir}'
+            for directory in ['trec_files', 'trectext_files', 'errors']:
+                if os.path.exists(f'{output_dir}/{directory}'):
+                    command = f'cp -r {output_dir}/{directory} {results_dir}'
                     run_bash_command(command)
+            iteration += 1
 
 
-def run_all_competitions(mode, top_refinement, run_name, source='raifer', print_interval=25,
+def run_all_competitions(mode, top_refinement, top_ranker_args, run_name, source='raifer',
                          positions_file_paper='./data/paper_data/documents.positions',
                          trec_file_raifer='data/trec_file_original_sorted.txt',
-                         embedding_model_file='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model',
-                         **kwargs):
+                         embedding_model_file='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'):
     """
     A function which runs all possible queries and bot combinations for the given arguments
+    top_refinement: one of the following options: 'vanilla', 'acceleration', 'past_top', 'highest_rated_inferiors',
+                              'past_targets', 'everything'
     """
-    if mode not in ['2of2', 'rerun_2of2'] + [f'{x}of5' for x in range(1, 6)]:
-        raise ValueError(f'Illegal mode given {mode}')
-
     if mode.startswith('rerun'):
         print('Implement this rerunning thing')
         return
 
-    name = top_refinement if top_refinement is not None else 'vanilla'
-    if run_name is not None:
+    name = top_refinement
+    if run_name is not '':
         name += '_' + run_name
 
-    results_dir = 'results/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
-    output_dir = 'output/{}_{}/'.format(mode + datetime.now().strftime('_%m_%d_%H'), name)
+    folder_name = '{}_{}_{}_{}'.format(mode, datetime.now().strftime('%m_%H_%d'), '_'.join(top_ranker_args), name)
+    results_dir = f'results/{folder_name}/'
+    output_dir = f'output/{folder_name}/'
 
-    print('Running mode {} with refinement method {}'.format(mode, top_refinement))
+    print('Running mode {} with refinement method {} and top ranker {}'
+          .format(mode, top_refinement, ' '.join(top_ranker_args)))
 
     word2vec_pkl = output_dir + 'word_embedding_model.pkl'
     ensure_dirs(output_dir)
@@ -162,19 +163,16 @@ def run_all_competitions(mode, top_refinement, run_name, source='raifer', print_
     with open(word2vec_pkl, 'wb') as f:
         pickle.dump(word_embedding_model, f)
 
-    if mode == '2of2':
-        runnner_2of2(output_dir, word2vec_pkl)
+    assert mode.endswith('of5')
+    num_of_bots = int(mode[0])
+    if source == 'paper':
+        kwargs = {'positions_file': positions_file_paper}
+    elif source == 'raifer':
+        kwargs = {'trec_file': trec_file_raifer}
+    else:
+        raise ValueError(f'Illegal source given {source}')
 
-    elif mode.endswith('of5'):
-        num_of_bots = int(mode[0])
-        if source == 'paper':
-            run_all_combinations(output_dir, results_dir, word2vec_pkl, num_of_bots, top_refinement, print_interval,
-                                 positions_file=positions_file_paper)
-        elif source == 'raifer':
-            run_all_combinations(output_dir, results_dir, word2vec_pkl, num_of_bots, top_refinement, print_interval,
-                                 trec_file=trec_file_raifer)
-        else:
-            print(f'Illegal source given {source}')
+    run_all_queries(output_dir, results_dir, top_ranker_args, num_of_bots, top_refinement, word2vec_pkl, **kwargs)
 
     os.remove(word2vec_pkl)
 
@@ -187,22 +185,24 @@ def main():
     # avoid_reruns = avoid_reruns == 'Yes'
 
     run_name = input('Insert run name\n')
-    if len(run_name) == 0:
-        run_name = None
 
     results_dir = 'results/'
-    # modes = [f'{i + 1}of5' for i in range(5)]
     modes = ['1of5']
-    top_refinement_methods = [None, 'acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets', 'everything']
+    top_refinement_methods = ['vanilla', 'acceleration', 'highest_rated_inferiors', 'everything']
+    rankers_args = [('demotion',)] + [('harmonic', beta) for beta in ['0.5', '2']] + \
+                   [('weighted', '0.5')]
 
     args = []
     for mode in modes:
         for method in top_refinement_methods:
-            folder_name = (method if (method is not None) else 'vanilla') + \
-                          (f'_{run_name}' if run_name is not None else '')
-            # if not any(re.match(mode + '.*' + folder_name, file) is not None for file in os.listdir(results_dir)):
-            if all(re.match(mode + '.*' + folder_name, file) is None for file in os.listdir(results_dir)):
-                args.append((mode, method, run_name))
+            for top_pair_ranker in rankers_args:
+                folder_name = method
+                if len(run_name) > 0:
+                    folder_name += '_' + run_name
+                reg_exp = mode + '.*' + '_'.join(top_pair_ranker) + '_' + folder_name
+                if all(re.match(reg_exp, file) is None for
+                       file in os.listdir(results_dir)):
+                    args.append((mode, method, top_pair_ranker, run_name))
 
     with Pool() as p:
         p.starmap(run_all_competitions, args)
