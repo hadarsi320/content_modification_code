@@ -9,6 +9,7 @@ from os import listdir
 
 import gensim
 import javaobj
+import pickle
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
@@ -375,17 +376,24 @@ def get_query_text(queries_file, current_qid):
     raise Exception('No query with qid={} in file {}'.format(current_qid, queries_file))
 
 
-def get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b):
-    learning_data_path = learning_data_dir + label_aggregation_method + '/' + label_aggregation_method + '_features'
-    if not label_aggregation_method == 'demotion':
-        learning_data_path += f'_{label_aggregation_b}'
+def get_learning_data_path(learning_data_dir, ranker_args):
+    learning_data_path = learning_data_dir + ranker_args[0] + '/' + ranker_args[0] + '_features'
+    if len(ranker_args) > 1:
+        learning_data_path += f'_{ranker_args[1]}'
     return learning_data_path
 
 
-def get_model_name(label_aggregation_method: str, label_aggregation_b: float, svm_rank_c: float):
-    model_name = f'svm_rank_model_{label_aggregation_method}_' + \
-                 (f'b={label_aggregation_b}_' if label_aggregation_method != 'demotion' else '') + \
-                 f'c={svm_rank_c}.dat'
+def get_model_name(ranker):
+    if len(ranker) == 1:
+        model_name = 'svm_rank_model_{}'.format(*ranker)
+
+    elif len(ranker) == 2:
+        model_name = 'svm_rank_model_{}_b={}'.format(*ranker)
+
+    else:
+        raise ValueError(f'Ranker must be compromised of either 1 of 2 parameters, {len(ranker)} were passed '
+                         f'({ranker})')
+
     return model_name
 
 
@@ -503,7 +511,10 @@ def get_query_ids(file):
 
 
 def load_word_embedding_model(model_file):
-    return gensim.models.KeyedVectors.load_word2vec_format(model_file, binary=True, limit=700000)
+    if os.path.exists('word2vec_model.pkl'):
+        return pickle.load(open('word2vec_model.pkl', 'rb'))
+    else:
+        return gensim.models.KeyedVectors.load_word2vec_format(model_file, binary=True, limit=700000)
 
 
 def read_trec_dir(trec_dir, **kwargs):
