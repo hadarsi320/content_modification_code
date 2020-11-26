@@ -12,6 +12,7 @@ from lxml import etree
 from nltk import sent_tokenize
 
 from create_bot_features import update_text_doc, run_reranking
+from dataset_creator import generate_pair_ranker_learning_dataset
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
     ensure_dirs, get_learning_data_path, get_doc_id, create_trec_file, create_index, create_documents_workingset, \
@@ -94,13 +95,11 @@ def create_initial_trectext_file(trectext_file, output_dir, qid, bots, only_bots
     return new_trectext_file
 
 
-def generate_learning_dataset(output_dir, label_aggregation_method, seo_qrels, coherency_qrels, feature_fname):
-    command = 'python dataset_creator.py ' + output_dir + ' ' + label_aggregation_method + ' ' + seo_qrels + ' ' + \
-              coherency_qrels + ' ' + feature_fname
-    run_and_print(command, 'Dataset Creator')
+def generate_learning_dataset(output_dir, label_strategy, seo_qrels, coherency_qrels, feature_fname):
+    generate_pair_ranker_learning_dataset(output_dir, label_strategy, seo_qrels, coherency_qrels, feature_fname)
 
 
-def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
+def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c=0.01):
     ensure_dirs(model_path)
     command = f'{svm_rank_scripts_dir}svm_rank_learn -c {svm_rank_c} {learning_data} {model_path}'
     run_and_print(command, 'pair ranker learn')
@@ -226,17 +225,15 @@ def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_inde
         f.write(f'{epoch}. {in_doc_id}\t{out_doc_id}\t{out_index}\t{in_index}\n')
 
 
-def create_pair_ranker(model_path, label_aggregation_method, label_aggregation_b, svm_rank_c,
-                       aggregated_data_dir, seo_qrels_file, coherency_qrels_file, unranked_features_file,
-                       svm_rank_scripts_dir):
+def create_pair_ranker(model_path, ranker_args, aggregated_data_dir, seo_qrels_file, coherency_qrels_file,
+                       unranked_features_file, svm_rank_scripts_dir):
     learning_data_dir = aggregated_data_dir + 'feature_sets/'
-    learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b)
+    learning_data_path = get_learning_data_path(learning_data_dir, ranker_args)
 
     if not exists(learning_data_path):
-        generate_learning_dataset(aggregated_data_dir, label_aggregation_method,
-                                  seo_qrels_file, coherency_qrels_file,
-                                  unranked_features_file)
-    create_model(svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
+        generate_learning_dataset(aggregated_data_dir, ranker_args[0], seo_qrels_file,
+                                  coherency_qrels_file, unranked_features_file)
+    create_model(svm_rank_scripts_dir, model_path, learning_data_path)
 
 
 def get_rankings(trec_file, bot_ids, qid, epoch):
@@ -250,19 +247,20 @@ def get_rankings(trec_file, bot_ids, qid, epoch):
 
     bots = {}
     students = {}
-    position = 0
+    # position = 0
     epoch = str(epoch).zfill(2)
     with open(trec_file, 'r') as f:
+        rank = 0
         for line in f:
             doc_id = line.split()[2]
             last_epoch, last_qid, pid = parse_doc_id(doc_id)
             if last_epoch != epoch or last_qid != qid:
                 continue
             if pid in bot_ids:
-                bots[pid] = position
+                bots[pid] = rank
             else:
-                students[pid] = position
-            position += 1
+                students[pid] = rank
+            rank += 1
     return bots, students
 
 
