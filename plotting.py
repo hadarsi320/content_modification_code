@@ -7,6 +7,8 @@ import numpy as np
 import shutil
 
 import re
+
+from deprecated import deprecated
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
@@ -315,7 +317,6 @@ def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=Fals
     max_rank = len(next(iter(competitors_dict.values())))
 
     bot_ranks = defaultdict(list)
-    # student_ranks = defaultdict(list)
 
     for competition in ranked_lists:
         bots = competition.split('_')[3].split(',')
@@ -326,7 +327,7 @@ def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=Fals
 
     if 'axes' in kwargs:
         axes = kwargs.pop('axes')
-        assert len(axes) == rounds
+        # assert len(axes) == rounds
         format_plot = False
     else:
         _, axes = plt.subplots(nrows=rounds, figsize=(8, 3 * rounds), sharey='col')
@@ -410,6 +411,7 @@ def plot_top_distribution(trec_dir, show=True, set_ylabel=True, **kwargs):
         plt.show()
 
 
+@deprecated(reason='This function needs to be updated, but it is mostly redundant')
 def plot_similarity_to_winner(comp_dirs_dict: dict, rounds: int, show=True, **kwargs):
     tmp_dir = 'plotting_tmp/'
     index = tmp_dir + 'index'
@@ -461,6 +463,26 @@ def plot_similarity_to_winner(comp_dirs_dict: dict, rounds: int, show=True, **kw
         plt.show()
 
 
+def compare_rank_distributions(comp_dirs, rounds):
+    fig, axes = plt.subplots(nrows=rounds, figsize=(10, 3 * rounds), squeeze=True, sharey='none')
+    for i, method in enumerate(comp_dirs):
+        competition_dir = comp_dirs[method]
+        pos = 'left' if i == 0 else 'right'
+        plot_rank_distribution(competition_dir, pos, axes=axes, show=False, set_ylabel=i == 0, method=method)
+
+    fig.suptitle('Rank Distribution of Students and Bots', fontsize=18)
+    for i, axis in enumerate(axes):
+        axis.legend()
+        axis.set_title(f'Round {i + 1}')
+        axis.set_xlabel('Rank')
+        axis.set_ylabel('Rank Distribution')
+    plt.tight_layout(rect=(0.0, 0.05, 1.0, 0.95))
+
+    # plt.savefig(plots_dir + '/Rank Distribution ' + plot_name)
+    plt.show()
+    plt.close()
+
+
 def plot_trm_comparisons(modes, tr_methods, plot_name, run_name=None, performance_comparison=False,
                          average_top_duration=False, rank_distribution=False, similarity_to_winner=False, **kwargs):
     plots_dir = './plots'
@@ -503,23 +525,7 @@ def plot_trm_comparisons(modes, tr_methods, plot_name, run_name=None, performanc
     if rank_distribution:
         assert len(tr_methods) == 2
         for mode in modes:
-            fig, axes = plt.subplots(nrows=rounds, figsize=(10, 3 * rounds), squeeze=True, sharey='none')
-            for i, method in enumerate(tr_methods):
-                competition_dir = comp_dirs[mode][method]
-                pos = 'left' if i == 0 else 'right'
-                plot_rank_distribution(competition_dir, pos, axes=axes, show=False, set_ylabel=i == 0, method=method)
-
-            fig.suptitle('Rank Distribution of Students and Bots', fontsize=18)
-            for i, axis in enumerate(axes):
-                axis.legend()
-                axis.set_title(f'Round {i+1}')
-                axis.set_xlabel('Rank')
-                axis.set_ylabel('Rank Distribution')
-            plt.tight_layout(rect=(0.0, 0.05, 1.0, 0.95))
-
-            # plt.savefig(plots_dir + '/Rank Distribution ' + plot_name)
-            plt.show()
-            plt.close()
+            compare_rank_distributions(comp_dirs[mode], rounds)
 
     if similarity_to_winner:
         for mode in comp_dirs:
