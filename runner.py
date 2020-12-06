@@ -101,7 +101,7 @@ def get_bots(num_of_bots, total_players, **kwargs):
     return mode, bots_list
 
 
-def run_all_queries(output_dir, results_dir, top_ranker_args, num_of_bots, top_refinement, pickle_file,
+def run_all_queries(output_dir, results_dir, num_of_bots, top_refinement, pickle_file,
                     print_interval=15, total_players=5, **kwargs):
     error_dir = output_dir + 'errors/'
     mode, bots_list = get_bots(num_of_bots, total_players, **kwargs)
@@ -110,7 +110,7 @@ def run_all_queries(output_dir, results_dir, top_ranker_args, num_of_bots, top_r
     for qid in bots_list:
         for bots in bots_list[qid]:
             run_description = f'output_dir={output_dir} qid={qid} bots={",".join(bots)} ' \
-                      f'top_refinement={top_refinement} top_ranker={"_".join(top_ranker_args)}'
+                      f'top_refinement={top_refinement}'
             if iteration == 1 or iteration % print_interval == 0:
                 print(f'{iteration}. {run_description}')
 
@@ -118,7 +118,7 @@ def run_all_queries(output_dir, results_dir, top_ranker_args, num_of_bots, top_r
             sys.stdout = open(os.devnull, 'w')
             try:
                 competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_dump=pickle_file,
-                                  top_refinement=top_refinement, top_ranker_args=top_ranker_args, mute=True)
+                                  top_refinement=top_refinement, mute=True)
                 sys.stdout = stdout
             except Exception as e:
                 sys.stdout = stdout
@@ -133,7 +133,7 @@ def run_all_queries(output_dir, results_dir, top_ranker_args, num_of_bots, top_r
             iteration += 1
 
 
-def run_all_competitions(mode, top_refinement, top_ranker_args, run_name, source='raifer',
+def run_all_competitions(mode, top_refinement, run_name, source='raifer',
                          positions_file_paper='./data/paper_data/documents.positions',
                          trec_file_raifer='data/trec_file_original_sorted.txt',
                          embedding_model_file='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'):
@@ -150,12 +150,11 @@ def run_all_competitions(mode, top_refinement, top_ranker_args, run_name, source
     if run_name is not '':
         name += '_' + run_name
 
-    folder_name = '{}_{}_{}_{}'.format(mode, datetime.now().strftime('%m_%d'), '_'.join(top_ranker_args), name)
+    folder_name = '_'.join((mode, datetime.now().strftime('%m_%d'), name))
     results_dir = f'results/{folder_name}/'
     output_dir = f'output/{folder_name}/'
 
-    print('Running mode {} with refinement method {} and top ranker {}'
-          .format(mode, top_refinement, ' '.join(top_ranker_args)))
+    print('Running mode {} with refinement method {}'.format(mode, top_refinement))
 
     word2vec_pkl = output_dir + 'word_embedding_model.pkl'
     ensure_dirs(output_dir)
@@ -172,7 +171,7 @@ def run_all_competitions(mode, top_refinement, top_ranker_args, run_name, source
     else:
         raise ValueError(f'Illegal source given {source}')
 
-    run_all_queries(output_dir, results_dir, top_ranker_args, num_of_bots, top_refinement, word2vec_pkl, **kwargs)
+    run_all_queries(output_dir, results_dir, num_of_bots, top_refinement, word2vec_pkl, **kwargs)
 
     os.remove(word2vec_pkl)
 
@@ -189,20 +188,16 @@ def main():
     results_dir = 'results/'
     modes = ['1of5']
     top_refinement_methods = ['vanilla', 'acceleration', 'highest_rated_inferiors', 'everything']
-    rankers_args = [('demotion',)] + [('harmonic', beta) for beta in ['0.5', '2']] + \
-                   [('weighted', '0.5')]
 
     args = []
     for mode in modes:
         for method in top_refinement_methods:
-            for top_pair_ranker in rankers_args:
-                folder_name = method
-                if len(run_name) > 0:
-                    folder_name += '_' + run_name
-                reg_exp = mode + '.*' + '_'.join(top_pair_ranker) + '_' + folder_name
-                if all(re.match(reg_exp, file) is None for
-                       file in os.listdir(results_dir)):
-                    args.append((mode, method, top_pair_ranker, run_name))
+            folder_name = method
+            if len(run_name) > 0:
+                folder_name += '_' + run_name
+            reg_exp = mode + '.*' + '_' + folder_name
+            if all(re.match(reg_exp, file) is None for file in os.listdir(results_dir)):
+                args.append((mode, method, run_name))
 
     with Pool() as p:
         p.starmap(run_all_competitions, args)
