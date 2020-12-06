@@ -162,30 +162,25 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             ranking_file = generate_predictions(ranker, svm_rank_scripts_dir, predictions_dir, features_file)
 
             # Find highest ranked pair
-            prediction = get_highest_ranked_pair(features_file, ranking_file)
-            if prediction is None:
-                new_docs[next_doc_id] = doc_texts[bot_doc_id]
-                logger.info('Bot {} cant replace any sentence'.format(bot_id))
-                continue
-            else:
-                rep_doc_id, out_index, in_index = prediction
+            rep_doc_id, out_index, in_index, features = get_highest_ranked_pair(features_file, ranking_file)
 
             old_doc = doc_texts[bot_doc_id]
             new_doc = generate_updated_document(doc_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
                                                 out_index=out_index, in_index=in_index)
 
-            # TODO consider doing a validity check exclusively for documents in first place
-            if bot_rank == 0:
-                # reconsider replacement
-                replacement_valid = replacement_validation(qid, old_doc, new_doc, rep_val_dir, base_index, swig_path,
-                                                           indri_path, document_rank_model, scripts_dir, stopwords_file,
-                                                           queries_text_file, ranklib_jar)
-            else:
-                replacement_valid = True
+            # TODO consider how to do a replacement validation without using lambdata ranker
+            # if bot_rank == 0:
+            #     # reconsider replacement
+            #     replacement_valid = replacement_validation(qid, old_doc, new_doc, rep_val_dir, base_index, swig_path,
+            #                                                indri_path, document_rank_model, scripts_dir, stopwords_file,
+            #                                                queries_text_file, ranklib_jar)
+            # else:
+            #     replacement_valid = True
 
+            replacement_valid = True
             if replacement_valid:
                 # Replace sentence
-                record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index)
+                record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index, features)
                 new_docs[next_doc_id] = new_doc
             else:
                 # Keep document from last round

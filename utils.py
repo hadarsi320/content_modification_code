@@ -10,6 +10,8 @@ from os import listdir
 import gensim
 import javaobj
 import pickle
+
+import re
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
@@ -85,7 +87,7 @@ def read_competition_trec_file(trec_file):
 
 def read_positions_file(positions_file):
     qid_list = get_query_ids(positions_file)
-    stats = {qid: {epoch: [None]*5 for epoch in range(1, 5)} for qid in qid_list}
+    stats = {qid: {epoch: [None] * 5 for epoch in range(1, 5)} for qid in qid_list}
     with open(positions_file, 'r') as f:
         for line in f:
             doc_id = line.split()[2]
@@ -432,7 +434,7 @@ def create_documents_workingset(output_file, competitor_list, qid, epoch=None, *
     ensure_dirs(output_file)
 
     if 'total_rounds' in kwargs:
-        rounds = range(1, kwargs.pop('total_rounds')+1)
+        rounds = range(1, kwargs.pop('total_rounds') + 1)
     else:
         rounds = [epoch]
 
@@ -487,13 +489,13 @@ def normalize_dict_len(dictionary):
 
 def get_next_doc_id(doc_id):
     epoch, qid, pid = parse_doc_id(doc_id)
-    epoch = int(epoch)+1
+    epoch = int(epoch) + 1
     return get_doc_id(epoch, qid, pid)
 
 
 def get_next_qrid(qrid):
     epoch, qid = parse_qrid(qrid)
-    return get_qrid(qid, int(epoch)+1)
+    return get_qrid(qid, int(epoch) + 1)
 
 
 def get_query_ids(file):
@@ -570,3 +572,11 @@ def get_num_rounds(trec_file):
 
 def format_name(name):
     return ' '.join(name.split('_')).title()
+
+
+def parse_feature_line(line):
+    features = []
+    for item in line.split():
+        if re.match('\d+:\d+', item):
+            features.append(item.split(':')[1])
+    return features

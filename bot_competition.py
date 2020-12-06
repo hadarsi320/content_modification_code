@@ -16,7 +16,7 @@ from dataset_creator import generate_pair_ranker_learning_dataset
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
     ensure_dirs, get_learning_data_path, get_doc_id, create_trec_file, create_index, create_documents_workingset, \
-    read_trec_file
+    read_trec_file, parse_feature_line
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
@@ -113,7 +113,7 @@ def generate_predictions(model_path, svm_rank_scripts_dir, predictions_dir, feat
     return predictions_file
 
 
-def get_highest_ranked_pair(features_file, predictions_file, threshold=None):
+def get_highest_ranked_pair(features_file, predictions_file):
     """
     :param features_file: The features file, holds a line for every
     :param predictions_file: A file that holds a score for every line in the features file
@@ -125,13 +125,12 @@ def get_highest_ranked_pair(features_file, predictions_file, threshold=None):
     with open(predictions_file, 'r') as f:
         scores = [float(line) for line in f if len(line) > 0]
 
-    max_pair, score = max(zip(pairs, scores), key=lambda x: x[1])
+    prediction, _ = max(zip(pairs, scores), key=lambda x: x[1])
 
-    if threshold is not None and score < threshold:
-        return None
-
+    features, max_pair = prediction.split(' # ')
+    features = parse_feature_line(features)
     rep_doc_id, out_index, in_index = max_pair.split('_')
-    return rep_doc_id, int(out_index), int(in_index)
+    return rep_doc_id, int(out_index), int(in_index), features
 
 
 @deprecated(reason='This version uses the sentences from the raw dataset file, which are cleaned and shouldnt be used')
@@ -219,10 +218,11 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
     logger.info('Recorded document similarity')
 
 
-def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_index, in_index):
+def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_index, in_index, features):
     ensure_dirs(replacements_file)
     with open(replacements_file, 'a') as f:
-        f.write(f'{epoch}. {in_doc_id}\t{out_doc_id}\t{out_index}\t{in_index}\n')
+        f.write(epoch + '. ' + '\t'.join([in_doc_id, out_doc_id, out_index, in_index, features]) + '\n')
+        # f.write(f'{epoch}. {in_doc_id}\t{out_doc_id}\t{out_index}\t{in_index}\t{features}\n')
 
 
 def create_pair_ranker(model_path, ranker_args, aggregated_data_dir, seo_qrels_file, coherency_qrels_file,
