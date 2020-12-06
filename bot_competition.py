@@ -120,7 +120,7 @@ def get_highest_ranked_pair(features_file, predictions_file):
     :return: (replacement_doc_id, out_index, in_index)
     """
     with open(features_file, 'r') as f:
-        pairs = [line.rstrip('\n').split('# ')[1] for line in f if len(line) > 0]
+        pairs = [line.rstrip('\n') for line in f if len(line) > 0]
 
     with open(predictions_file, 'r') as f:
         scores = [float(line) for line in f if len(line) > 0]
@@ -221,7 +221,9 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
 def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_index, in_index, features):
     ensure_dirs(replacements_file)
     with open(replacements_file, 'a') as f:
-        f.write(epoch + '. ' + '\t'.join([in_doc_id, out_doc_id, out_index, in_index, features]) + '\n')
+        line = str(epoch) + '. ' +\
+               '\t'.join([str(item) for item in [in_doc_id, out_doc_id, out_index, in_index, ','.join(features)]]) + '\n'
+        f.write(line)
         # f.write(f'{epoch}. {in_doc_id}\t{out_doc_id}\t{out_index}\t{in_index}\t{features}\n')
 
 

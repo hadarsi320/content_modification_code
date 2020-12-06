@@ -109,8 +109,7 @@ def run_all_queries(output_dir, results_dir, num_of_bots, top_refinement, pickle
     iteration = 1
     for qid in bots_list:
         for bots in bots_list[qid]:
-            run_description = f'output_dir={output_dir} qid={qid} bots={",".join(bots)} ' \
-                      f'top_refinement={top_refinement}'
+            run_description = f'output_dir={output_dir} qid={qid} bots={",".join(bots)} top_refinement={top_refinement}'
             if iteration == 1 or iteration % print_interval == 0:
                 print(f'{iteration}. {run_description}')
 
@@ -126,7 +125,7 @@ def run_all_queries(output_dir, results_dir, num_of_bots, top_refinement, pickle
                 log_error(error_dir, run_description, e)
 
             ensure_dirs(results_dir)
-            for directory in ['trec_files', 'trectext_files', 'errors']:
+            for directory in ['trec_files', 'trectext_files', 'errors', 'replacements']:
                 if os.path.exists(f'{output_dir}/{directory}'):
                     command = f'cp -r {output_dir}/{directory} {results_dir}'
                     run_bash_command(command)

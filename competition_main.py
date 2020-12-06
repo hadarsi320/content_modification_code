@@ -287,7 +287,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
                               10, scripts_dir, stopwords_file, queries_text_file, queries_xml_file,
                               ranklib_jar, rank_model, pair_ranker, top_ranker, word_embedding_model)
     else:
-        replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
+        replacements_file = output_dir + 'replacements/replacements_' + '_'.join([qid, ','.join(bots)])
         if os.path.exists(replacements_file):
             os.remove(replacements_file)
         competitors = get_competitors(qid=qid, trec_file=(trec_file if mode == 'raifer'
@@ -300,11 +300,11 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
         if mode == 'raifer':
             trectext_file = trectext_file_raifer
             kwargs = dict(trec_file=trec_file)
-            rounds = 3
+            rounds = 7
         else:
             trectext_file = trectext_file_paper
             kwargs = dict(positions_file=positions_file)
-            rounds = 8
+            rounds = 3
 
         run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
                                 document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir,
