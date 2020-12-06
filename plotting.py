@@ -535,7 +535,7 @@ def main():
     # run_names = ['rep_val', 'rep_val_v2', 'rep_val_v3']
 
     modes = ['1of5']
-    tr_methods = ['highest_rated_inferiors', 'acceleration']
+    tr_methods = ['highest_rated_inferiors', 'acceleration', 'everything']
     runs = ['rep_val_v3']
     for run in runs:
         for method in tr_methods:
