@@ -150,7 +150,7 @@ def run_all_competitions(mode, top_refinement, top_ranker_args, run_name, source
     if run_name is not '':
         name += '_' + run_name
 
-    folder_name = '{}_{}_{}_{}'.format(mode, datetime.now().strftime('%m_%H_%d'), '_'.join(top_ranker_args), name)
+    folder_name = '{}_{}_{}_{}'.format(mode, datetime.now().strftime('%m_%d'), '_'.join(top_ranker_args), name)
     results_dir = f'results/{folder_name}/'
     output_dir = f'output/{folder_name}/'
 

@@ -306,11 +306,13 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
         if mode == 'raifer':
             trectext_file = trectext_file_raifer
             kwargs = dict(trec_file=trec_file)
+            rounds = 3
         else:
             trectext_file = trectext_file_paper
             kwargs = dict(positions_file=positions_file)
+            rounds = 8
 
-        run_general_competition(qid, competitors, bots, 3, top_refinement, trectext_file, output_dir,
+        run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
                                 document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir,
                                 trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
                                 clueweb_index, competition_index, replacements_file,
