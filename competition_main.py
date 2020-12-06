@@ -4,7 +4,6 @@ import pickle
 import shutil
 import sys
 from optparse import OptionParser
-from os.path import exists
 from time import time
 
 from deprecated import deprecated
@@ -253,7 +252,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
     logger.info("Running %s" % ' '.join(sys.argv))
 
     pair_ranker = svm_models_dir + get_model_name(pair_ranker_args)
-    if not exists(pair_ranker):
+    if not os.path.exists(pair_ranker):
         create_pair_ranker(pair_ranker, pair_ranker_args, aggregated_data_dir,
                            seo_qrels_file, coherency_qrels_file, unranked_features_file,
                            svm_rank_scripts_dir)
@@ -261,7 +260,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
     if 'top_ranker_args' in kwargs:
         top_ranker_args = kwargs.pop('top_ranker_args')
         top_ranker = svm_models_dir + get_model_name(top_ranker_args)
-        if not exists(top_ranker):
+        if not os.path.exists(top_ranker):
             create_pair_ranker(top_ranker, top_ranker_args, aggregated_data_dir,
                                seo_qrels_file, coherency_qrels_file, unranked_features_file,
                                svm_rank_scripts_dir)
@@ -283,7 +282,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
         replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
         similarity_file = output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(bots))
         for file in [replacements_file, similarity_file]:
-            if exists(file):
+            if os.path.exists(file):
                 os.remove(file)
 
         run_2_bot_competition(qid, bots, trectext_file, trec_file, output_dir, clueweb_index,
@@ -294,7 +293,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
                               ranklib_jar, rank_model, pair_ranker, top_ranker, word_embedding_model)
     else:
         replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
-        if exists(replacements_file):
+        if os.path.exists(replacements_file):
             os.remove(replacements_file)
         competitors = get_competitors(qid=qid, trec_file=(trec_file if mode == 'raifer'
                                                           else positions_file))
@@ -329,7 +328,6 @@ if __name__ == '__main__':
     parser.add_option('--top_refinement')
     parser.add_option('--output_dir')
     parser.add_option('--word2vec_dump')
-    parser.add_option('--top_ranker_args')
     (options, args) = parser.parse_args()
 
     arguments_dict = {}
