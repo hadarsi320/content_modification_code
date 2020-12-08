@@ -12,6 +12,8 @@ import javaobj
 import pickle
 
 import re
+
+import numpy as np
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
@@ -537,8 +539,9 @@ def read_trec_dir(trec_dir, **kwargs):
                 continue
 
         trec_path = trec_dir + '/' + trec_file
-        ranked_lists[trec_file] = read_competition_trec_file(trec_path)
-        competitors_lists[trec_file] = get_competitors(trec_path)
+        name = '_'.join(trec_file.split('_')[-2:])
+        ranked_lists[name] = read_competition_trec_file(trec_path)
+        competitors_lists[name] = get_competitors(trec_path)
 
     return ranked_lists, competitors_lists
 
@@ -580,3 +583,24 @@ def parse_feature_line(line):
         if re.match('\d+:\d+', item):
             features.append(item.split(':')[1])
     return features
+
+
+def read_features_dir(features_dir):
+    features_dict = defaultdict(dict)
+
+    for file in os.listdir(features_dir):
+        name = '_'.join(file.split('_')[-2:])
+        with open(f'{features_dir}/{file}') as f:
+            for line in f:
+                doc_id = line.split('\t')[0].split()[1]
+                features = list_to_np(line.split('\t')[-1].split(','))[:-1]
+                features_dict[name][doc_id] = features
+    return features_dict
+
+
+def list_to_np(lst):
+    return np.array([float(item) for item in lst])
+
+
+def get_next_epoch(epoch):
+    return str(int(epoch) + 1).zfill(2)

@@ -221,9 +221,8 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
 def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_index, in_index, features):
     ensure_dirs(replacements_file)
     with open(replacements_file, 'a') as f:
-        line = str(epoch) + '. ' +\
-               '\t'.join([str(item) for item in [in_doc_id, out_doc_id, out_index, in_index, ','.join(features)]]) + '\n'
-        f.write(line)
+        items = [str(item) for item in [epoch, in_doc_id, out_doc_id, out_index, in_index, ','.join(features)]]
+        f.write('\t'.join(items) + '\n')
         # f.write(f'{epoch}. {in_doc_id}\t{out_doc_id}\t{out_index}\t{in_index}\t{features}\n')
 
 
