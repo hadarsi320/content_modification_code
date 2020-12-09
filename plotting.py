@@ -6,9 +6,11 @@ from collections import defaultdict, Counter
 from os import listdir
 
 import numpy as np
+import scipy.stats
 from deprecated import deprecated
 from matplotlib import pyplot as plt
 from tqdm import tqdm
+from typing import Dict
 
 from bot_competition import generate_document_tfidf_files
 from data_analysis import compute_average_rank, compute_average_promotion, cumpute_atd
@@ -480,7 +482,7 @@ def compare_rank_distributions(comp_dirs, rounds):
     plt.close()
 
 
-def separate_features_dict(features_dict, ranked_lists):
+def separate_features_dict(features_dict, ranked_lists) -> Dict[str, np.ndarray]:
     res = defaultdict(list)
     for comp_id in features_dict:
         for doc_id in features_dict[comp_id]:
@@ -494,20 +496,38 @@ def separate_features_dict(features_dict, ranked_lists):
                     res['TRF fail'].append(features_dict[comp_id][doc_id])
             else:
                 res['General'].append(features_dict[comp_id][doc_id])
+
+    res = {key: np.array(res[key]) for key in res}
     return res
 
 
-def plot_feature_values(competition_dir, name, show=False, seperate=None):
+def plot_feature_values(competition_dir, name, show=False, seperate=False, ttest=False):
     feature_names = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
                      "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
                      "CosineToWinnerCentroidOutVec", "CosineToWinnerCentroidIn", "CosineToWinnerCentroidOut",
                      "SimilarityToPrev", "SimilarityToRefSentence", "SimilarityToPred", "SimilarityToPrevRef"]
-    num_features = len(feature_names)
 
     ranked_lists, competitors_dict = read_trec_dir(competition_dir + '/trec_files/')
     features_dict = read_features_dir(f'{competition_dir}/replacements')
+    stat_indices = []
+
     if seperate:
         features = separate_features_dict(features_dict, ranked_lists)
+
+        if ttest:
+            for i, feature_name in enumerate(feature_names):
+                features_success = [vec[i] for vec in features['TRF success']]
+                features_fail = [vec[i] for vec in features['TRF fail']]
+                statistic, pvalue = scipy.stats.ttest_ind(a=features_success, b=features_fail, equal_var=False)
+                if pvalue <= 0.05:
+                    print(f'T Test on {feature_name:>30}: statistic value {statistic:.3f} pvalue {pvalue:.3f}')
+                    stat_indices.append(i)
+
+            for key in features:
+                # features[key] = [vec[stat_indices] for vec in features[key]]
+                features[key] = features[key][:, stat_indices]
+            feature_names = [feature_names[i] for i in stat_indices]
+
     else:
         features = {'': [features_dict[comp][doc] for comp in features_dict for doc in features_dict[comp]]}
 
@@ -516,12 +536,15 @@ def plot_feature_values(competition_dir, name, show=False, seperate=None):
         plt.subplots_adjust(bottom=0.5)
 
     for key in features:
-        plt.scatter(x=np.arange(num_features), y=(np.average(features[key], axis=0)),
+        plt.scatter(x=np.arange(features[key].shape[1]), y=(np.average(features[key], axis=0)),
                     label=f'{name} {key}'.strip(), marker='_', linewidths=3)
-    plt.xticks(range(num_features), feature_names, rotation='vertical')
+    plt.xticks(range(len(feature_names)), feature_names, rotation='vertical')
 
     if show:
-        plt.title(f'Feature Values {name}')
+        if ttest:
+            plt.title(f'Statistically Different Feature Values {name}')
+        else:
+            plt.title(f'Feature Values {name}')
         plt.legend()
         plt.show()
 
@@ -597,8 +620,12 @@ def main():
     #                      performance_comparison=False, rank_distribution=False, similarity_to_winner=False,
     #                      feature_values=True)
 
-    plot_feature_values('results/1of5_12_06_acceleration_feature-analysis/', 'Acceleration',
-                        show=True, seperate=True)
+    competition_dirs = {'Acceleration': 'results/1of5_12_06_acceleration_feature-analysis',
+                        'Everything': 'results/1of5_12_06_everything_feature-analysis',
+                        'HRI': 'results/1of5_12_06_highest_rated_inferiors_feature-analysis'}
+    for name, comp_dir in competition_dirs.items():
+        print(f'\n\t\t{name}:')
+        plot_feature_values(comp_dir, name, show=True, seperate=True, ttest=True)
 
 
 if __name__ == '__main__':
