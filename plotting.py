@@ -491,9 +491,9 @@ def separate_features_dict(features_dict, ranked_lists) -> Dict[str, np.ndarray]
             next_rank = ranked_lists[comp_id][get_next_epoch(epoch)].index(pid)
             if rank == 0:
                 if next_rank <= rank:
-                    res['TRF success'].append(features_dict[comp_id][doc_id])
+                    res['Top success'].append(features_dict[comp_id][doc_id])
                 else:
-                    res['TRF fail'].append(features_dict[comp_id][doc_id])
+                    res['Top fail'].append(features_dict[comp_id][doc_id])
             else:
                 res['General'].append(features_dict[comp_id][doc_id])
 
@@ -501,7 +501,7 @@ def separate_features_dict(features_dict, ranked_lists) -> Dict[str, np.ndarray]
     return res
 
 
-def plot_feature_values(competition_dir, name, show=False, seperate=False, ttest=False):
+def plot_feature_values(competition_dir, name, show=False, seperate=False, ttest=False, alpha=0.05):
     feature_names = ["FractionOfQueryWordsIn", "FractionOfQueryWordsOut", "CosineToCentroidIn", "CosineToCentroidInVec",
                      "CosineToCentroidOut", "CosineToCentroidOutVec", "CosineToWinnerCentroidInVec",
                      "CosineToWinnerCentroidOutVec", "CosineToWinnerCentroidIn", "CosineToWinnerCentroidOut",
@@ -516,16 +516,16 @@ def plot_feature_values(competition_dir, name, show=False, seperate=False, ttest
 
         if ttest:
             for i, feature_name in enumerate(feature_names):
-                features_success = [vec[i] for vec in features['TRF success']]
-                features_fail = [vec[i] for vec in features['TRF fail']]
+                features_success = [vec[i] for vec in features['Top success']]
+                features_fail = [vec[i] for vec in features['Top fail']]
                 statistic, pvalue = scipy.stats.ttest_ind(a=features_success, b=features_fail, equal_var=False)
-                if pvalue <= 0.05:
+                if pvalue <= alpha:
                     print(f'T Test on {feature_name:>30}: statistic value {statistic:.3f} pvalue {pvalue:.3f}')
                     stat_indices.append(i)
 
-            for key in features:
-                # features[key] = [vec[stat_indices] for vec in features[key]]
-                features[key] = features[key][:, stat_indices]
+            # for key in features:
+            #     features[key] = features[key][:, stat_indices]
+            features = {key: features[key][:, stat_indices] for key in features}
             feature_names = [feature_names[i] for i in stat_indices]
 
     else:
