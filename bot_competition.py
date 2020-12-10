@@ -1,18 +1,22 @@
 import logging
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from os.path import exists, basename, splitext
+from random import random
 
 import numpy as np
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-from create_bot_features import update_text_doc
+from create_bot_features import update_text_doc, run_reranking
+from dataset_creator import generate_pair_ranker_learning_dataset
 from gen_utils import run_and_print
 from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    ensure_dirs, get_learning_data_path, get_doc_id
+    ensure_dirs, get_learning_data_path, get_doc_id, create_trec_file, create_index, create_documents_workingset, \
+    read_trec_file, parse_feature_line
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
@@ -91,13 +95,11 @@ def create_initial_trectext_file(trectext_file, output_dir, qid, bots, only_bots
     return new_trectext_file
 
 
-def generate_learning_dataset(output_dir, label_aggregation_method, seo_qrels, coherency_qrels, feature_fname):
-    command = 'python dataset_creator.py ' + output_dir + ' ' + label_aggregation_method + ' ' + seo_qrels + ' ' + \
-              coherency_qrels + ' ' + feature_fname
-    run_and_print(command, 'Dataset Creator')
+def generate_learning_dataset(output_dir, label_strategy, seo_qrels, coherency_qrels, feature_fname):
+    generate_pair_ranker_learning_dataset(output_dir, label_strategy, seo_qrels, coherency_qrels, feature_fname)
 
 
-def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c):
+def create_model(svm_rank_scripts_dir, model_path, learning_data, svm_rank_c=0.01):
     ensure_dirs(model_path)
     command = f'{svm_rank_scripts_dir}svm_rank_learn -c {svm_rank_c} {learning_data} {model_path}'
     run_and_print(command, 'pair ranker learn')
@@ -111,25 +113,24 @@ def generate_predictions(model_path, svm_rank_scripts_dir, predictions_dir, feat
     return predictions_file
 
 
-def get_highest_ranked_pair(features_file, predictions_file, threshold):
+def get_highest_ranked_pair(features_file, predictions_file):
     """
     :param features_file: The features file, holds a line for every
     :param predictions_file: A file that holds a score for every line in the features file
     :return: (replacement_doc_id, out_index, in_index)
     """
     with open(features_file, 'r') as f:
-        pairs = [line.rstrip('\n').split('# ')[1] for line in f if len(line) > 0]
+        pairs = [line.rstrip('\n') for line in f if len(line) > 0]
 
     with open(predictions_file, 'r') as f:
         scores = [float(line) for line in f if len(line) > 0]
 
-    max_pair, score = max(zip(pairs, scores), key=lambda x: x[1])
+    prediction, _ = max(zip(pairs, scores), key=lambda x: x[1])
 
-    if threshold is not None and score < threshold:
-        return None
-
+    features, max_pair = prediction.split(' # ')
+    features = parse_feature_line(features)
     rep_doc_id, out_index, in_index = max_pair.split('_')
-    return rep_doc_id, int(out_index), int(in_index)
+    return rep_doc_id, int(out_index), int(in_index), features
 
 
 @deprecated(reason='This version uses the sentences from the raw dataset file, which are cleaned and shouldnt be used')
@@ -217,23 +218,23 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
     logger.info('Recorded document similarity')
 
 
-def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_index, in_index):
+def record_replacement(replacements_file, epoch, in_doc_id, out_doc_id, out_index, in_index, features):
     ensure_dirs(replacements_file)
     with open(replacements_file, 'a') as f:
-        f.write(f'{epoch}. {in_doc_id}\t{out_doc_id}\t{out_index}\t{in_index}\n')
+        items = [str(item) for item in [epoch, in_doc_id, out_doc_id, out_index, in_index, ','.join(features)]]
+        f.write('\t'.join(items) + '\n')
+        # f.write(f'{epoch}. {in_doc_id}\t{out_doc_id}\t{out_index}\t{in_index}\t{features}\n')
 
 
-def create_pair_ranker(model_path, label_aggregation_method, label_aggregation_b, svm_rank_c,
-                       aggregated_data_dir, seo_qrels_file, coherency_qrels_file, unranked_features_file,
-                       svm_rank_scripts_dir):
+def create_pair_ranker(model_path, ranker_args, aggregated_data_dir, seo_qrels_file, coherency_qrels_file,
+                       unranked_features_file, svm_rank_scripts_dir):
     learning_data_dir = aggregated_data_dir + 'feature_sets/'
-    learning_data_path = get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b)
+    learning_data_path = get_learning_data_path(learning_data_dir, ranker_args)
 
     if not exists(learning_data_path):
-        generate_learning_dataset(aggregated_data_dir, label_aggregation_method,
-                                  seo_qrels_file, coherency_qrels_file,
-                                  unranked_features_file)
-    create_model(svm_rank_scripts_dir, model_path, learning_data_path, svm_rank_c)
+        generate_learning_dataset(aggregated_data_dir, ranker_args[0], seo_qrels_file,
+                                  coherency_qrels_file, unranked_features_file)
+    create_model(svm_rank_scripts_dir, model_path, learning_data_path)
 
 
 def get_rankings(trec_file, bot_ids, qid, epoch):
@@ -247,19 +248,20 @@ def get_rankings(trec_file, bot_ids, qid, epoch):
 
     bots = {}
     students = {}
-    position = 0
+    # position = 0
     epoch = str(epoch).zfill(2)
     with open(trec_file, 'r') as f:
+        rank = 0
         for line in f:
             doc_id = line.split()[2]
             last_epoch, last_qid, pid = parse_doc_id(doc_id)
             if last_epoch != epoch or last_qid != qid:
                 continue
             if pid in bot_ids:
-                bots[pid] = position
+                bots[pid] = rank
             else:
-                students[pid] = position
-            position += 1
+                students[pid] = rank
+            rank += 1
     return bots, students
 
 
@@ -308,8 +310,13 @@ def get_last_top_document(ranked_list, qid):
     return last_top_doc_id
 
 
-def get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets):
-    if top_refinement == 'acceleration':
+def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refinement):
+    if rank > 0:
+        epoch_str = str(epoch).zfill(2)
+        top_docs_index = min(3, rank)
+        target_documents = ranked_lists[epoch_str][qid][:top_docs_index]
+
+    elif top_refinement == 'acceleration':
         fastest_rising = find_fastest_climbing_document(ranked_lists, qid)
         target_documents = [get_doc_id(epoch, qid, fastest_rising)] if fastest_rising is not None \
             else None
@@ -327,7 +334,9 @@ def get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets)
     elif top_refinement == 'everything':
         target_documents = []
         for method in ['acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets']:
-            targets = get_target_documents(method, qid, epoch, ranked_lists, past_targets)
+            targets = get_target_documents(rank, qid, epoch, ranked_lists, past_targets, method)
+            if targets is None:
+                continue
             for target in targets:
                 if target not in target_documents:
                     target_documents.append(target)
@@ -336,3 +345,42 @@ def get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets)
         target_documents = None
 
     return target_documents
+
+
+def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_path, indri_path, document_rank_model,
+                           scripts_dir, stopwords_file, queries_text_file, ranklib_jar):
+    ensure_dirs(output_dir)
+    document_workingset_file = output_dir + 'document_ws'
+    doc_tfidf_dir = output_dir + 'document_tfidf/'
+    trectext_file = output_dir + 'trectext_file'
+    trec_file = output_dir + 'trec_file'
+    val_index = output_dir + 'rec_index'
+    epoch = '0'
+    next_epoch = '1'
+    qrid = get_qrid(qid, epoch)
+    competitors = ['old', 'new']
+
+    ranked_list = {qid: {epoch: [get_doc_id(epoch, qid, pid) for pid in competitors]}}
+    create_trec_file(trec_file, ranked_list, name='replacement_validation')
+
+    trectext_dict = {get_doc_id(next_epoch, qid, 'old'): old_doc, get_doc_id(next_epoch, qid, 'new'): new_doc}
+    create_trectext_file(trectext_dict, trectext_file)
+
+    create_index(trectext_file, new_index_name=val_index, indri_path=indri_path)
+    create_documents_workingset(document_workingset_file, competitors, qid, next_epoch)
+    generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
+                                  swig_path=swig_path, base_index=base_index, new_index=val_index)
+
+    reranked_trec_file = run_reranking(qrid, trec_file, base_index, val_index, swig_path,
+                                       scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
+                                       document_rank_model, output_dir=output_dir)
+    reranked_list = read_trec_file(reranked_trec_file)
+    top_doc_id = reranked_list[next_epoch.zfill(2)][qid][0]
+    top_player = parse_doc_id(top_doc_id)[2]
+
+    shutil.rmtree(output_dir)
+
+    res = top_player == 'new'
+    # a way of simulating the results we would receive had we had a rank model which was only right about 3/4 of the time.
+    # return res if random() < 3/4 else not res
+    return res

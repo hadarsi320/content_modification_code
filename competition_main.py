@@ -4,14 +4,13 @@ import pickle
 import shutil
 import sys
 from optparse import OptionParser
-from os.path import exists
 from time import time
 
 from deprecated import deprecated
 
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_target_documents, generate_predictions, get_highest_ranked_pair, generate_updated_document, \
-    update_trec_file, generate_document_tfidf_files, record_doc_similarity, record_replacement
+    update_trec_file, generate_document_tfidf_files, record_doc_similarity, record_replacement, replacement_validation
 from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
 from utils import get_doc_id, update_trectext_file, complete_sim_file, create_index, create_documents_workingset, \
@@ -20,27 +19,6 @@ from utils import get_model_name, get_qrid, read_trec_file, load_trectext_file
 
 import gen_utils
 import numpy as np
-
-svm_models_dir = 'rank_svm_models/'
-aggregated_data_dir = 'data/learning_dataset/'
-svm_rank_scripts_dir = 'scripts/'
-seo_qrels_file = 'data/qrels_seo_bot.txt'
-coherency_qrels_file = 'data/coherency_aggregated_labels.txt'
-unranked_features_file = 'data/features_bot_sorted.txt'
-trec_file = 'data/trec_file_original_sorted.txt'
-trectext_file_raifer = 'data/documents.trectext'
-trectext_file_paper = 'data/paper_data/documents.trectext'
-positions_file = 'data/paper_data/documents.positions'
-rank_model = 'rank_models/model_lambdatamart'
-ranklib_jar = 'scripts/RankLib.jar'
-queries_text_file = 'data/working_comp_queries_expanded.txt'
-queries_xml_file = 'data/queries_seo_exp.xml'
-scripts_dir = 'scripts/'
-stopwords_file = 'data/stopwords_list'
-indri_path = '/lv_local/home/hadarsi/indri/'
-clueweb_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
-swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
-embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
 
 
 @deprecated("This function is most likely outdated")
@@ -74,7 +52,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         winner_doc_id, loser_doc_id = ranked_lists[str(epoch).zfill(2)][qid]
 
         # creating features
-        cant_append = create_bot_features(qrid=qrid, ref_index=1, top_docs_index=1, ranked_lists=ranked_lists,
+        cant_append = create_bot_features(qrid=qrid, ref_index=1, ranked_lists=ranked_lists,
                                           doc_texts=doc_texts, output_dir=output_dir,
                                           word_embed_model=word_embedding_model, raw_ds_file=raw_ds_file,
                                           doc_tfidf_dir=doc_tfidf_dir, base_index=base_index, new_index=comp_index,
@@ -120,12 +98,12 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
-def run_general_competition(qid, competitors, bots, rounds, top_refinement, threshold, trectext_file, output_dir,
+def run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                             replacements_file, svm_rank_scripts_dir, scripts_dir, stopwords_file,
-                            queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_rank_model,
-                            word_embedding_model, **kwargs):
+                            queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_ranker,
+                            top_ranker, word_embedding_model, rep_val_dir, **kwargs):
     logger = logging.getLogger(sys.argv[0])
     original_texts = load_trectext_file(trectext_file, qid)
 
@@ -158,24 +136,16 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, thre
 
             bot_doc_id = get_doc_id(epoch, qid, bot_id)
             next_doc_id = get_doc_id(epoch + 1, qid, bot_id)
-            ref_index = bot_rankings[bot_id]
+            bot_rank = bot_rankings[bot_id]
 
-            if ref_index == 0:
-                target_documents = get_target_documents(top_refinement, qid, epoch, ranked_lists, past_targets)
-
-            else:
-                epoch_str = str(epoch).zfill(2)
-                top_docs_index = min(3, ref_index)
-                target_documents = ranked_lists[epoch_str][qid][:top_docs_index]
-
+            target_documents = get_target_documents(bot_rank, qid, epoch, ranked_lists, past_targets, top_refinement)
             past_targets[qid] = target_documents
             if target_documents is not None:
                 # Creating features
-                cant_replace = create_bot_features(qrid=qrid, ref_index=ref_index, target_docs=target_documents,
+                cant_replace = create_bot_features(qrid=qrid, ref_index=bot_rank, target_docs=target_documents,
                                                    ranked_lists=ranked_lists, doc_texts=doc_texts,
                                                    output_dir=output_dir, word_embed_model=word_embedding_model,
-                                                   raw_ds_file=raw_ds_file,
-                                                   doc_tfidf_dir=doc_tfidf_dir,
+                                                   raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir,
                                                    documents_workingset_file=document_workingset_file,
                                                    base_index=base_index, new_index=comp_index, swig_path=swig_path,
                                                    queries_file=queries_xml_file, final_features_file=features_file)
@@ -188,21 +158,33 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, thre
                 continue
 
             # Rank pairs
-            ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir, features_file)
+            ranker = top_ranker if bot_rank == 0 else pair_ranker
+            ranking_file = generate_predictions(ranker, svm_rank_scripts_dir, predictions_dir, features_file)
 
             # Find highest ranked pair
-            prediction = get_highest_ranked_pair(features_file, ranking_file, threshold)
-            if prediction is None:
-                new_docs[next_doc_id] = doc_texts[bot_doc_id]
-                logger.info('Bot {} cant replace any sentence'.format(bot_id))
-                continue
-            else:
-                rep_doc_id, out_index, in_index = prediction
+            rep_doc_id, out_index, in_index, features = get_highest_ranked_pair(features_file, ranking_file)
 
-            # Replace sentence
-            record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index)
-            new_docs[next_doc_id] = generate_updated_document(doc_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
-                                                              out_index=out_index, in_index=in_index)
+            # old_doc = doc_texts[bot_doc_id]
+            new_doc = generate_updated_document(doc_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
+                                                out_index=out_index, in_index=in_index)
+
+            # TODO consider how to do a replacement validation without using lambdata ranker
+            # if bot_rank == 0:
+            #     # reconsider replacement
+            #     replacement_valid = replacement_validation(qid, old_doc, new_doc, rep_val_dir, base_index, swig_path,
+            #                                                indri_path, document_rank_model, scripts_dir, stopwords_file,
+            #                                                queries_text_file, ranklib_jar)
+            # else:
+            #     replacement_valid = True
+
+            replacement_valid = True
+            if replacement_valid:
+                # Replace sentence
+                record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index, features)
+                new_docs[next_doc_id] = new_doc
+            else:
+                # Keep document from last round
+                new_docs[next_doc_id] = doc_texts[bot_doc_id]
 
         # updating the trectext file
         update_trectext_file(comp_trectext_file, doc_texts, new_docs)
@@ -222,14 +204,33 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, thre
     shutil.rmtree(comp_index)
 
 
-def competition_setup(mode, qid, bots, top_refinement, threshold=None, output_dir='output/tmp/', mute=False, **kwargs):
-    label_aggregation_method = 'harmonic'
-    label_aggregation_b = 1
-    svm_rank_c = 0.01
-    total_rounds = 10
+def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='output/tmp/', mute=False, **kwargs):
+    svm_models_dir = 'rank_svm_models/'
+    aggregated_data_dir = 'data/learning_dataset/'
+    svm_rank_scripts_dir = 'scripts/'
+    seo_qrels_file = 'data/qrels_seo_bot.txt'
+    coherency_qrels_file = 'data/coherency_aggregated_labels.txt'
+    unranked_features_file = 'data/features_bot_sorted.txt'
+    trec_file = 'data/trec_file_original_sorted.txt'
+    trectext_file_raifer = 'data/documents.trectext'
+    trectext_file_paper = 'data/paper_data/documents.trectext'
+    positions_file = 'data/paper_data/documents.positions'
+    rank_model = 'rank_models/model_lambdatamart'
+    ranklib_jar = 'scripts/RankLib.jar'
+    queries_text_file = 'data/working_comp_queries_expanded.txt'
+    queries_xml_file = 'data/queries_seo_exp.xml'
+    scripts_dir = 'scripts/'
+    stopwords_file = 'data/stopwords_list'
+    indri_path = '/lv_local/home/hadarsi/indri/'
+    clueweb_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
+    swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
+    embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
+
+    pair_ranker_args = ('harmonic', 1)
 
     ensure_dirs(output_dir)
     document_workingset_file = output_dir + 'document_ws.txt'
+    rep_val_dir = output_dir + 'replacement_evaluation/'
     final_features_dir = output_dir + 'final_features/'
     doc_tfidf_dir = output_dir + 'document_tfidf/'
     trectext_dir = output_dir + 'trectext_files/'
@@ -245,12 +246,21 @@ def competition_setup(mode, qid, bots, top_refinement, threshold=None, output_di
     logging.root.setLevel(level=logging.CRITICAL + 1 if mute else logging.INFO)
     logger.info("Running %s" % ' '.join(sys.argv))
 
-    svm_rank_model = svm_models_dir + get_model_name(label_aggregation_method, label_aggregation_b, svm_rank_c)
-    if not exists(svm_rank_model):
-        create_pair_ranker(svm_rank_model, label_aggregation_method,
-                           label_aggregation_b, svm_rank_c, aggregated_data_dir,
+    pair_ranker = svm_models_dir + get_model_name(pair_ranker_args)
+    if not os.path.exists(pair_ranker):
+        create_pair_ranker(pair_ranker, pair_ranker_args, aggregated_data_dir,
                            seo_qrels_file, coherency_qrels_file, unranked_features_file,
                            svm_rank_scripts_dir)
+
+    if 'top_ranker_args' in kwargs:
+        top_ranker_args = kwargs.pop('top_ranker_args')
+        top_ranker = svm_models_dir + get_model_name(top_ranker_args)
+        if not os.path.exists(top_ranker):
+            create_pair_ranker(top_ranker, top_ranker_args, aggregated_data_dir,
+                               seo_qrels_file, coherency_qrels_file, unranked_features_file,
+                               svm_rank_scripts_dir)
+    else:
+        top_ranker = pair_ranker
 
     # load word2vec model
     if 'word2vec_dump' in kwargs:
@@ -267,19 +277,18 @@ def competition_setup(mode, qid, bots, top_refinement, threshold=None, output_di
         replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
         similarity_file = output_dir + 'similarity_results/similarity_{}_{}.txt'.format(qid, ','.join(bots))
         for file in [replacements_file, similarity_file]:
-            if exists(file):
+            if os.path.exists(file):
                 os.remove(file)
 
         run_2_bot_competition(qid, bots, trectext_file, trec_file, output_dir, clueweb_index,
                               competition_index, document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir,
                               trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, swig_path,
                               indri_path, replacements_file, similarity_file, svm_rank_scripts_dir,
-                              total_rounds, scripts_dir, stopwords_file,
-                              queries_text_file, queries_xml_file, ranklib_jar,
-                              rank_model, svm_rank_model, word_embedding_model)
+                              10, scripts_dir, stopwords_file, queries_text_file, queries_xml_file,
+                              ranklib_jar, rank_model, pair_ranker, top_ranker, word_embedding_model)
     else:
-        replacements_file = output_dir + 'replacements/replacements_{}_{}'.format(qid, ','.join(bots))
-        if exists(replacements_file):
+        replacements_file = output_dir + 'replacements/replacements_' + '_'.join([qid, ','.join(bots)])
+        if os.path.exists(replacements_file):
             os.remove(replacements_file)
         competitors = get_competitors(qid=qid, trec_file=(trec_file if mode == 'raifer'
                                                           else positions_file))
@@ -290,22 +299,20 @@ def competition_setup(mode, qid, bots, top_refinement, threshold=None, output_di
 
         if mode == 'raifer':
             trectext_file = trectext_file_raifer
-            run_general_competition(qid, competitors, bots, 7, top_refinement, threshold, trectext_file,
-                                    output_dir, document_workingset_file, indri_path, swig_path,
-                                    doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir,
-                                    final_features_dir, clueweb_index, competition_index, replacements_file,
-                                    svm_rank_scripts_dir, scripts_dir,stopwords_file, queries_text_file,
-                                    queries_xml_file, ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
-                                    trec_file=trec_file)
-        elif mode == 'paper':
+            kwargs = dict(trec_file=trec_file)
+            rounds = 7
+        else:
             trectext_file = trectext_file_paper
-            run_general_competition(qid, competitors, bots, 3, top_refinement, threshold, trectext_file, output_dir,
-                                    document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir,
-                                    trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
-                                    clueweb_index, competition_index, replacements_file,
-                                    svm_rank_scripts_dir, scripts_dir, stopwords_file, queries_text_file,
-                                    queries_xml_file, ranklib_jar, rank_model, svm_rank_model, word_embedding_model,
-                                    positions_file=positions_file)
+            kwargs = dict(positions_file=positions_file)
+            rounds = 3
+
+        run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
+                                document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir,
+                                trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
+                                clueweb_index, competition_index, replacements_file,
+                                svm_rank_scripts_dir, scripts_dir, stopwords_file, queries_text_file,
+                                queries_xml_file, ranklib_jar, rank_model, pair_ranker, top_ranker,
+                                word_embedding_model, rep_val_dir, **kwargs)
 
 
 if __name__ == '__main__':
@@ -313,7 +320,7 @@ if __name__ == '__main__':
     parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])
     parser.add_option('--qid')
     parser.add_option('--bots')
-    parser.add_option('--top_refinement', choices=['acceleration', 'past_top', 'highest_rated_inferiors'])
+    parser.add_option('--top_refinement')
     parser.add_option('--output_dir')
     parser.add_option('--word2vec_dump')
     (options, args) = parser.parse_args()
@@ -323,6 +330,8 @@ if __name__ == '__main__':
         arguments_dict['output_dir'] = options.output_dir
     if options.word2vec_dump is not None:
         arguments_dict['word2vec_dump'] = options.word2vec_dump
+    if options.top_ranker_args is not None:
+        arguments_dict['top_ranker_args'] = options.top_ranker_args.split('_')
 
     start = time()
     competition_setup(options.mode, options.qid.zfill(3), options.bots.split(','), options.top_refinement,

@@ -9,6 +9,11 @@ from os import listdir
 
 import gensim
 import javaobj
+import pickle
+
+import re
+
+import numpy as np
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
@@ -23,9 +28,9 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     """
     Creates a feature file via a given index and a given working set file
     """
-    run_and_print("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
-    if not os.path.exists(features_dir):
-        os.makedirs(features_dir)
+    if os.path.exists(features_dir):
+        run_and_print("rm -r " + features_dir)  # 'Why delete this directory and then check if it exists?'
+    os.makedirs(features_dir)
     ensure_dirs(new_features_file)
 
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar LTRFeatures {base_index_path} ' \
@@ -47,7 +52,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
 
 
 def read_trec_file(trec_file, current_round=None, current_qid=None, competitor_list=None):
-    stats = defaultdict(dict)
+    ranked_list = defaultdict(dict)
     with open(trec_file) as file:
         for line in file:
             doc_id = line.split()[2]
@@ -56,10 +61,10 @@ def read_trec_file(trec_file, current_round=None, current_qid=None, competitor_l
                     (current_qid and current_qid != qid) or \
                     (competitor_list and pid not in competitor_list):
                 continue
-            if qid not in stats[epoch]:
-                stats[epoch][qid] = []
-            stats[epoch][qid].append(doc_id)
-    return dict(stats)
+            if qid not in ranked_list[epoch]:
+                ranked_list[epoch][qid] = []
+            ranked_list[epoch][qid].append(doc_id)
+    return dict(ranked_list)
 
 
 def read_raw_trec_file(trec_file):
@@ -84,7 +89,7 @@ def read_competition_trec_file(trec_file):
 
 def read_positions_file(positions_file):
     qid_list = get_query_ids(positions_file)
-    stats = {qid: {epoch: [None]*5 for epoch in range(1, 5)} for qid in qid_list}
+    stats = {qid: {epoch: [None] * 5 for epoch in range(1, 5)} for qid in qid_list}
     with open(positions_file, 'r') as f:
         for line in f:
             doc_id = line.split()[2]
@@ -126,6 +131,18 @@ def create_trectext_file(document_texts, trectext_file, working_set_file=None):
                     f.write(query.zfill(3) + ' Q0 ' + docid + ' ' + str(i) + ' -' + str(i) + ' indri\n')
                     i += 1
     return trectext_file
+
+
+def create_trec_file(trec_file, ranked_list, scores=None, name=None):
+    ensure_dirs(trec_file)
+    with open(trec_file, 'w') as f:
+        for qid in ranked_list:
+            for epoch in ranked_list[qid]:
+                for doc_id in ranked_list[qid][epoch]:
+                    line = get_qrid(qid, epoch) + ' Q0 ' + doc_id + ' 0 ' + \
+                           (scores[qid][epoch] if scores is not None else '0') + \
+                           (' ' + name if name is not None else '') + '\n'
+                    f.write(line)
 
 
 def update_trectext_file(trectext_file, old_documents, new_documents):
@@ -352,7 +369,7 @@ def read_queries_file(queries_file, current_qrid=None):
 def get_query_text(queries_file, current_qid):
     with open(queries_file) as file:
         for line in file:
-            if "<number>" in line:
+            if '<number>' in line:
                 qrid = line.replace('<number>', '').replace('</number>', "").split("_")[0].rstrip() \
                     .replace("\t", "").replace(" ", "")
                 _, qid = parse_qrid(qrid)
@@ -363,17 +380,24 @@ def get_query_text(queries_file, current_qid):
     raise Exception('No query with qid={} in file {}'.format(current_qid, queries_file))
 
 
-def get_learning_data_path(learning_data_dir, label_aggregation_method, label_aggregation_b):
-    learning_data_path = learning_data_dir + label_aggregation_method + '/' + label_aggregation_method + '_features'
-    if not label_aggregation_method == 'demotion':
-        learning_data_path += f'_{label_aggregation_b}'
+def get_learning_data_path(learning_data_dir, ranker_args):
+    learning_data_path = learning_data_dir + ranker_args[0] + '/' + ranker_args[0] + '_features'
+    if len(ranker_args) > 1:
+        learning_data_path += f'_{ranker_args[1]}'
     return learning_data_path
 
 
-def get_model_name(label_aggregation_method: str, label_aggregation_b: float, svm_rank_c: float):
-    model_name = f'svm_rank_model_{label_aggregation_method}_' + \
-                 (f'b={label_aggregation_b}_' if label_aggregation_method != 'demotion' else '') + \
-                 f'c={svm_rank_c}.dat'
+def get_model_name(ranker):
+    if len(ranker) == 1:
+        model_name = 'svm_rank_model_{}'.format(*ranker)
+
+    elif len(ranker) == 2:
+        model_name = 'svm_rank_model_{}_b={}'.format(*ranker)
+
+    else:
+        raise ValueError(f'Ranker must be compromised of either 1 of 2 parameters, {len(ranker)} were passed '
+                         f'({ranker})')
+
     return model_name
 
 
@@ -410,11 +434,12 @@ def generate_pair_name(pair):
 
 def create_documents_workingset(output_file, competitor_list, qid, epoch=None, **kwargs):
     ensure_dirs(output_file)
+
     if 'total_rounds' in kwargs:
-        total_rounds = kwargs.pop('total_rounds')
-        rounds = range(1, total_rounds+1)
+        rounds = range(1, kwargs.pop('total_rounds') + 1)
     else:
         rounds = [epoch]
+
     with open(output_file, 'w') as f:
         for epoch in rounds:
             for competitor in competitor_list:
@@ -466,13 +491,13 @@ def normalize_dict_len(dictionary):
 
 def get_next_doc_id(doc_id):
     epoch, qid, pid = parse_doc_id(doc_id)
-    epoch = int(epoch)+1
+    epoch = int(epoch) + 1
     return get_doc_id(epoch, qid, pid)
 
 
 def get_next_qrid(qrid):
     epoch, qid = parse_qrid(qrid)
-    return get_qrid(qid, int(epoch)+1)
+    return get_qrid(qid, int(epoch) + 1)
 
 
 def get_query_ids(file):
@@ -490,7 +515,10 @@ def get_query_ids(file):
 
 
 def load_word_embedding_model(model_file):
-    return gensim.models.KeyedVectors.load_word2vec_format(model_file, binary=True, limit=700000)
+    if os.path.exists('word2vec_model.pkl'):
+        return pickle.load(open('word2vec_model.pkl', 'rb'))
+    else:
+        return gensim.models.KeyedVectors.load_word2vec_format(model_file, binary=True, limit=700000)
 
 
 def read_trec_dir(trec_dir, **kwargs):
@@ -511,8 +539,9 @@ def read_trec_dir(trec_dir, **kwargs):
                 continue
 
         trec_path = trec_dir + '/' + trec_file
-        ranked_lists[trec_file] = read_competition_trec_file(trec_path)
-        competitors_lists[trec_file] = get_competitors(trec_path)
+        name = '_'.join(trec_file.split('_')[-2:])
+        ranked_lists[name] = read_competition_trec_file(trec_path)
+        competitors_lists[name] = get_competitors(trec_path)
 
     return ranked_lists, competitors_lists
 
@@ -546,3 +575,32 @@ def get_num_rounds(trec_file):
 
 def format_name(name):
     return ' '.join(name.split('_')).title()
+
+
+def parse_feature_line(line):
+    features = []
+    for item in line.split():
+        if re.match('\d+:\d+', item):
+            features.append(item.split(':')[1])
+    return features
+
+
+def read_features_dir(features_dir):
+    features_dict = defaultdict(dict)
+
+    for file in os.listdir(features_dir):
+        name = '_'.join(file.split('_')[-2:])
+        with open(f'{features_dir}/{file}') as f:
+            for line in f:
+                doc_id = line.split('\t')[0].split()[1]
+                features = list_to_np(line.split('\t')[-1].split(','))[:-1]
+                features_dict[name][doc_id] = features
+    return features_dict
+
+
+def list_to_np(lst):
+    return np.array([float(item) for item in lst])
+
+
+def get_next_epoch(epoch):
+    return str(int(epoch) + 1).zfill(2)
