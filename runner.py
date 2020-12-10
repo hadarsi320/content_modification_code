@@ -171,7 +171,7 @@ def run_all_competitions(mode, top_refinement, run_name, source='raifer',
         raise ValueError(f'Illegal source given {source}')
 
     run_all_queries(output_dir, results_dir, num_of_bots, top_refinement, word2vec_pkl, **kwargs)
-
+    print(f'\t\tFinished running {name} with mode {mode} and TRM {top_refinement}')
     os.remove(word2vec_pkl)
 
 
