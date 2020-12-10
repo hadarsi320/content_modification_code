@@ -52,7 +52,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         winner_doc_id, loser_doc_id = ranked_lists[str(epoch).zfill(2)][qid]
 
         # creating features
-        cant_append = create_bot_features(qrid=qrid, ref_index=1, top_docs_index=1, ranked_lists=ranked_lists,
+        cant_append = create_bot_features(qrid=qrid, ref_index=1, ranked_lists=ranked_lists,
                                           doc_texts=doc_texts, output_dir=output_dir,
                                           word_embed_model=word_embedding_model, raw_ds_file=raw_ds_file,
                                           doc_tfidf_dir=doc_tfidf_dir, base_index=base_index, new_index=comp_index,
@@ -164,7 +164,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             # Find highest ranked pair
             rep_doc_id, out_index, in_index, features = get_highest_ranked_pair(features_file, ranking_file)
 
-            old_doc = doc_texts[bot_doc_id]
+            # old_doc = doc_texts[bot_doc_id]
             new_doc = generate_updated_document(doc_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
                                                 out_index=out_index, in_index=in_index)
 
