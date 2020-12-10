@@ -426,6 +426,7 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
     logger.info("ranking procedure completed")
     return final
 
+
 def create_bot_features(qrid, ref_index, ranked_lists, doc_texts, target_docs, output_dir, word_embed_model,
                         base_index, new_index, queries_file, swig_path, doc_tfidf_dir, raw_ds_file,
                         documents_workingset_file, final_features_file, sentences_tfidf_dir='sentences_tfidf_dir/',
@@ -435,8 +436,7 @@ def create_bot_features(qrid, ref_index, ranked_lists, doc_texts, target_docs, o
     workingset_file = output_dir + workingset_file
 
     epoch, qid = parse_qrid(qrid)
-    # create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, target_docs, epoch=epoch, qid=qid, **kwargs)
-    create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, target_docs, epoch=epoch, qid=qid)
+    create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, target_docs, epoch=epoch, qid=qid)  # **qwargs)
     if is_file_empty(raw_ds_file):
         return True
 
