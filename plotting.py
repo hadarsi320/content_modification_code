@@ -318,7 +318,7 @@ def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=Fals
     bot_ranks = defaultdict(list)
 
     for competition in ranked_lists:
-        bots = competition.split('_')[3].split(',')
+        bots = competition.split('_')[1].split(',')
         for epoch in ranked_lists[competition]:
             for i, pid in enumerate(ranked_lists[competition][epoch]):
                 if pid in bots:
@@ -613,19 +613,21 @@ def plot_trm_comparisons(modes, tr_methods, plot_name, run_name=None, performanc
 def main():
     # modes = [f'{x + 1}of5' for x in range(5)]
 
-    # modes = ['1of5']
+    modes = ['1of5']
     # tr_methods = ['vanilla', 'highest_rated_inferiors']  # , 'acceleration', 'everything']
-    # run = 'feature-analysis'
-    # plot_trm_comparisons(modes, tr_methods, run_name=run, rounds=8, plot_name=None,
-    #                      performance_comparison=False, rank_distribution=False, similarity_to_winner=False,
-    #                      feature_values=True)
+    tr_methods = ['highest_rated_inferiors', 'acceleration', 'everything']
+    runs = ['feature-analysis', 'modified-features']
+    for run in runs:
+        for method in tr_methods:
+            plot_trm_comparisons(modes, ['vanilla', method], run_name=run, rounds=8, plot_name=None,
+                                 performance_comparison=False, rank_distribution=True, feature_values=False)
 
-    competition_dirs = {'Acceleration': 'results/1of5_12_06_acceleration_feature-analysis',
-                        'Everything': 'results/1of5_12_06_everything_feature-analysis',
-                        'HRI': 'results/1of5_12_06_highest_rated_inferiors_feature-analysis'}
-    for name, comp_dir in competition_dirs.items():
-        print(f'\n\t\t{name}:')
-        plot_feature_values(comp_dir, name, show=True, seperate=True, ttest=True)
+    # competition_dirs = {'Acceleration': 'results/1of5_12_06_acceleration_feature-analysis',
+    #                     'Everything': 'results/1of5_12_06_everything_feature-analysis',
+    #                     'HRI': 'results/1of5_12_06_highest_rated_inferiors_feature-analysis'}
+    # for name, comp_dir in competition_dirs.items():
+    #     print(f'\n\t\t{name}:')
+    #     plot_feature_values(comp_dir, name, show=True, seperate=True, ttest=True)
 
 
 if __name__ == '__main__':
