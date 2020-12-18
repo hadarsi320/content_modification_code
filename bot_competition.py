@@ -4,7 +4,6 @@ import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from os.path import exists, basename, splitext
-from random import random
 
 import numpy as np
 from deprecated import deprecated
@@ -14,9 +13,9 @@ from nltk import sent_tokenize
 from create_bot_features import update_text_doc, run_reranking
 from dataset_creator import generate_pair_ranker_learning_dataset
 from gen_utils import run_and_print
-from utils import get_qrid, create_trectext_file, parse_doc_id, \
-    ensure_dirs, get_learning_data_path, get_doc_id, create_trec_file, create_index, create_documents_workingset, \
-    read_trec_file, parse_feature_line
+from readers import TrecReader
+from utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, get_doc_id, \
+    create_trec_file, create_index, create_documents_workingset, parse_feature_line
 from vector_functionality import embedding_similarity, document_tfidf_similarity
 
 
@@ -356,7 +355,7 @@ def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_p
     trec_file = output_dir + 'trec_file'
     val_index = output_dir + 'rec_index'
     epoch = '0'
-    next_epoch = '1'
+    next_epoch = '01'
     qrid = get_qrid(qid, epoch)
     competitors = ['old', 'new']
 
@@ -374,8 +373,8 @@ def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_p
     reranked_trec_file = run_reranking(qrid, trec_file, base_index, val_index, swig_path,
                                        scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
                                        document_rank_model, output_dir=output_dir)
-    reranked_list = read_trec_file(reranked_trec_file)
-    top_doc_id = reranked_list[next_epoch.zfill(2)][qid][0]
+    reranked_list = TrecReader(reranked_trec_file)
+    top_doc_id = reranked_list[next_epoch][qid][0]
     top_player = parse_doc_id(top_doc_id)[2]
 
     shutil.rmtree(output_dir)

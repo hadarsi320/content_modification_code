@@ -10,10 +10,10 @@ from nltk import sent_tokenize
 
 import utils
 from gen_utils import run_and_print
+from readers import TrecReader
 from utils import clean_texts, get_java_object, create_trectext_file, run_model, create_features_file_diff, \
-    read_raw_trec_file, create_trec_eval_file, order_trec_file, retrieve_scores, \
-    get_query_text, parse_qrid, create_index_to_query_dict, generate_pair_name, ensure_dirs, tokenize_document, \
-    is_file_empty, get_next_doc_id, get_next_qrid
+    create_trec_eval_file, order_trec_file, retrieve_scores, get_query_text, parse_qrid, create_index_to_query_dict,\
+    generate_pair_name, ensure_dirs, tokenize_document, is_file_empty, get_next_doc_id, get_next_qrid
 from vector_functionality import query_term_freq, embedding_similarity, calculate_similarity_to_docs_centroid_tf_idf, \
     document_centroid, calculate_semantic_similarity_to_top_docs, get_text_centroid, add_dict, cosine_similarity
 
@@ -38,17 +38,12 @@ def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, copy_doc
         os.makedirs(output_dir)
 
     with open(output_file, 'w') as output:
-        for epoch in ranked_lists:
+        for epoch in ranked_lists.epochs:
             if 'epoch' in kwargs and epoch != kwargs['epoch']:
                 continue
             for qid in ranked_lists[epoch]:
                 if 'qid' in kwargs and qid != kwargs['qid']:
                     continue
-
-                # if 'top_docs_index' in kwargs:
-                #     copy_docs = ranked_lists[epoch][qid][:kwargs['top_docs_index']]
-                # elif 'target_docs' in kwargs:
-                #     copy_docs = kwargs['target_docs']
 
                 ref_doc = ranked_lists[epoch][qid][ref_index]
                 pairs = create_sentence_pairs(copy_docs, ref_doc, doc_texts)
@@ -381,10 +376,10 @@ def create_new_trectext(doc, texts, new_text, new_trectext_name):
     create_trectext_file(text_copy, new_trectext_name, "ws_debug")
 
 
-def create_reranking_ws(qrid, ranked_lists, file_name):
+def create_reranking_ws(qrid, raw_ranked_lists, file_name):
     next_qrid = get_next_qrid(qrid)
     with open(file_name, 'w') as out:
-        for i, doc_id in enumerate(ranked_lists[qrid]):
+        for i, doc_id in enumerate(raw_ranked_lists[qrid]):
             next_doc_id = get_next_doc_id(doc_id)
             out.write(next_qrid + " Q0 " + next_doc_id + " 0 " + str(i + 1) + " pairs_seo\n")
 
@@ -402,8 +397,8 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
     reranking_ws = output_dir + reranking_ws_name
     score_file = output_dir + score_file_name
 
-    ranked_lists = read_raw_trec_file(trec_file)
-    create_reranking_ws(qrid, ranked_lists, reranking_ws)
+    raw_ranked_lists = TrecReader(trec_file, raw=True)
+    create_reranking_ws(qrid, raw_ranked_lists, reranking_ws)
     logger.info("creating features")
     features_file = create_features_file_diff(full_feature_dir, base_index, new_index, feature_file, reranking_ws,
                                               scripts_dir, swig_path, stopwords_file, queries_text_file)
@@ -436,7 +431,7 @@ def create_bot_features(qrid, ref_index, ranked_lists, doc_texts, target_docs, o
     workingset_file = output_dir + workingset_file
 
     epoch, qid = parse_qrid(qrid)
-    create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, target_docs, epoch=epoch, qid=qid)  # **qwargs)
+    create_raw_dataset(ranked_lists, doc_texts, raw_ds_file, ref_index, target_docs, epoch=epoch, qid=qid)
     if is_file_empty(raw_ds_file):
         return True
 

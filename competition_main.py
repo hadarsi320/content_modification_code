@@ -13,9 +13,10 @@ from bot_competition import create_pair_ranker, create_initial_trectext_file, cr
     update_trec_file, generate_document_tfidf_files, record_doc_similarity, record_replacement, replacement_validation
 from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
+from readers import TrecReader
 from utils import get_doc_id, update_trectext_file, complete_sim_file, create_index, create_documents_workingset, \
     get_next_doc_id, load_word_embedding_model, get_competitors, ensure_dirs
-from utils import get_model_name, get_qrid, read_trec_file, read_trectext_file
+from utils import get_model_name, get_qrid, read_trectext_file
 
 import gen_utils
 import numpy as np
@@ -119,7 +120,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     for epoch in range(1, rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
         qrid = get_qrid(qid, epoch)
-        ranked_lists = read_trec_file(comp_trec_file)
+        ranked_lists = TrecReader(comp_trec_file)
         doc_texts = read_trectext_file(comp_trectext_file)
         bot_rankings, student_rankings = get_rankings(comp_trec_file, bots, qid, epoch)
 
@@ -316,31 +317,33 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
 
 
 if __name__ == '__main__':
-    parser = OptionParser()
-    parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])
-    parser.add_option('--qid')
-    parser.add_option('--bots')
-    parser.add_option('--top_refinement')
-    parser.add_option('--output_dir')
-    parser.add_option('--word2vec_dump')
-    (options, args) = parser.parse_args()
+    competition_setup(mode='raifer', qid='002', bots=['44'], top_refinement='vanilla')
 
-    arguments_dict = {}
-    if options.output_dir is not None:
-        arguments_dict['output_dir'] = options.output_dir
-    if options.word2vec_dump is not None:
-        arguments_dict['word2vec_dump'] = options.word2vec_dump
-    if options.top_ranker_args is not None:
-        arguments_dict['top_ranker_args'] = options.top_ranker_args.split('_')
-
-    start = time()
-    competition_setup(options.mode, options.qid.zfill(3), options.bots.split(','), options.top_refinement,
-                      **arguments_dict)
-
-    print('\n\n\n')
-    print(f'Total Time {time() - start}')
-    timings = gen_utils.timings
-    results = [(key, len(timings[key]), np.average(timings[key]), np.var(timings[key])) for key in timings]
-    for key, length, ave, var in sorted(results, key=lambda x: x[2]):
-        print('key: {} | len: {} | average value: {} | variance: {}'
-              .format(key, length, ave, var))
+    # parser = OptionParser()
+    # parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])
+    # parser.add_option('--qid')
+    # parser.add_option('--bots')
+    # parser.add_option('--top_refinement')
+    # parser.add_option('--output_dir')
+    # parser.add_option('--word2vec_dump')
+    # (options, args) = parser.parse_args()
+    #
+    # arguments_dict = {}
+    # if options.output_dir is not None:
+    #     arguments_dict['output_dir'] = options.output_dir
+    # if options.word2vec_dump is not None:
+    #     arguments_dict['word2vec_dump'] = options.word2vec_dump
+    # if options.top_ranker_args is not None:
+    #     arguments_dict['top_ranker_args'] = options.top_ranker_args.split('_')
+    #
+    # start = time()
+    # competition_setup(options.mode, options.qid.zfill(3), options.bots.split(','), options.top_refinement,
+    #                   **arguments_dict)
+    #
+    # print('\n\n\n')
+    # print(f'Total Time {time() - start}')
+    # timings = gen_utils.timings
+    # results = [(key, len(timings[key]), np.average(timings[key]), np.var(timings[key])) for key in timings]
+    # for key, length, ave, var in sorted(results, key=lambda x: x[2]):
+    #     print('key: {} | len: {} | average value: {} | variance: {}'
+    #           .format(key, length, ave, var))
