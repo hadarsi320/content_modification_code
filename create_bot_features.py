@@ -38,7 +38,7 @@ def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, copy_doc
         os.makedirs(output_dir)
 
     with open(output_file, 'w') as output:
-        for epoch in ranked_lists.epochs:
+        for epoch in ranked_lists.get_epochs():
             if 'epoch' in kwargs and epoch != kwargs['epoch']:
                 continue
             for qid in ranked_lists[epoch]:
@@ -150,16 +150,11 @@ def create_features(qrid, ranked_lists, doc_texts, ref_index, target_docs, doc_t
     past_winners_semantic_centroid_vector = past_winners_centroid(past_winners, doc_texts, word_embed_model, True)
     past_winners_tfidf_centroid_vector = get_past_winners_tfidf_centroid(past_winners, doc_tfidf_vectors_dir)
 
-    # if 'top_docs_index' in kwargs:
-    #     copy_docs = ranked_lists[epoch][qid][:kwargs['top_docs_index']]
-    # elif 'target_docs' in kwargs:
-    #     copy_docs = kwargs['target_docs']
     top_doc_upgrade = ref_index == 0
     ref_doc = ranked_lists[epoch][qid][ref_index]
-    ref_sentences = sent_tokenize(doc_texts[ref_doc])  # doc_texts[ref_doc].split('\n')
+    ref_sentences = sent_tokenize(doc_texts[ref_doc])
     top_docs_tfidf_centroid = document_centroid([get_java_object(doc_tfidf_vectors_dir + doc) for doc in target_docs])
     for pair in relevant_pairs:
-        # Sentences have been cleaned
         sentence_in = relevant_pairs[pair]["in"]
         sentence_out = relevant_pairs[pair]["out"]
         in_vec = get_text_centroid(sentence_in, word_embed_model, True)

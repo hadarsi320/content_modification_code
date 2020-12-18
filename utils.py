@@ -183,7 +183,6 @@ def create_index(trectext_file, new_index_name, indri_path):
     command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trectext_file} -corpus.class={corpus_class} ' \
               f'-index={new_index_name} -memory={memory} -stemmer.name={stemmer}'
     run_and_print(command, command_name='IndriBuildIndex')
-    return new_index_name
 
 
 def merge_indices(merged_index, new_index_name, base_index, home_path, indri_path):
@@ -433,13 +432,13 @@ def generate_pair_name(pair):
     return pair.split("$")[1].split("_")[0] + "_" + out_ + "_" + in_
 
 
-def create_documents_workingset(output_file, competitor_list, qid, epoch=None, **kwargs):
+def create_documents_workingset(output_file, competitor_list, qid, **kwargs):
     ensure_dirs(output_file)
 
     if 'total_rounds' in kwargs:
         rounds = range(1, kwargs.pop('total_rounds') + 1)
     else:
-        rounds = [epoch]
+        rounds = [kwargs.pop('epoch')]
 
     with open(output_file, 'w') as f:
         for epoch in rounds:
