@@ -51,29 +51,47 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     return new_features_file
 
 
-def read_trec_file(trec_file, current_round=None, current_qid=None, competitor_list=None):
-    ranked_list = defaultdict(dict)
-    with open(trec_file) as file:
-        for line in file:
-            doc_id = line.split()[2]
-            epoch, qid, pid = parse_doc_id(doc_id)
-            if (current_round and int(epoch) > int(current_round)) or \
-                    (current_qid and current_qid != qid) or \
-                    (competitor_list and pid not in competitor_list):
-                continue
-            if qid not in ranked_list[epoch]:
-                ranked_list[epoch][qid] = []
-            ranked_list[epoch][qid].append(doc_id)
-    return dict(ranked_list)
+def read_trectext_file(filename, qid=None):
+    parser = etree.XMLParser(recover=True)
+    tree = ET.parse(filename, parser=parser)
+    root = tree.getroot()
+    docs = {}
+    for doc in root:
+        epoch = last_qid = pid = None
+        for att in doc:
+            if att.tag == "DOCNO":
+                doc_id = fix_format(att.text)
+                epoch, last_qid, pid = parse_doc_id(doc_id)
+                if qid and last_qid != qid:
+                    break
+            else:
+                docs[get_doc_id(epoch, last_qid, pid.replace('_', ''))] = att.text
+    return docs
+
+
+# def read_trec_file(trec_file, current_round=None, current_qid=None, competitor_list=None):
+#     ranked_list = defaultdict(dict)
+#     with open(trec_file) as file:
+#         for line in file:
+#             doc_id = line.split()[2]
+#             epoch, qid, pid = parse_doc_id(doc_id)
+#             if (current_round and int(epoch) > int(current_round)) or \
+#                     (current_qid and current_qid != qid) or \
+#                     (competitor_list and pid not in competitor_list):
+#                 continue
+#             if qid not in ranked_list[epoch]:
+#                 ranked_list[epoch][qid] = []
+#             ranked_list[epoch][qid].append(doc_id)
+#     return dict(ranked_list)
 
 
 def read_raw_trec_file(trec_file):
     stats = defaultdict(list)
     with open(trec_file) as file:
         for line in file:
-            last_qrid = line.split()[0]
+            qrid = line.split()[0]
             doc_id = line.split()[2]
-            stats[last_qrid].append(doc_id)
+            stats[qrid].append(doc_id)
     return dict(stats)
 
 
@@ -267,26 +285,9 @@ def parse_qrid(qrid):
 
 
 def fix_format(doc_id):
-    epoch, qid, pid = parse_doc_id(doc_id)
-    return get_doc_id(epoch, qid, pid)
-
-
-def load_trectext_file(filename, qid=None):
-    parser = etree.XMLParser(recover=True)
-    tree = ET.parse(filename, parser=parser)
-    root = tree.getroot()
-    docs = {}
-    for doc in root:
-        epoch = last_qid = pid = None
-        for att in doc:
-            if att.tag == "DOCNO":
-                doc_id = fix_format(att.text)
-                epoch, last_qid, pid = parse_doc_id(doc_id)
-                if qid and last_qid != qid:
-                    break
-            else:
-                docs[get_doc_id(epoch, last_qid, pid.replace('_', ''))] = att.text
-    return docs
+    # epoch, qid, pid = parse_doc_id(doc_id)
+    # return get_doc_id(epoch, qid, pid)
+    return get_doc_id(*parse_doc_id(doc_id))
 
 
 def get_java_object(obj_file):
@@ -475,10 +476,6 @@ def complete_sim_file(similarity_file, total_rounds):
         for i in range(total_rounds - lines + 1):
             # replace this with actual similarity
             f.write('{}\t{}\t{}\n'.format(lines + i, 1, 1))
-
-
-def xor(a, b):
-    return bool(a) != bool(b)
 
 
 def normalize_dict_len(dictionary):

@@ -464,18 +464,19 @@ def plot_similarity_to_winner(comp_dirs_dict: dict, rounds: int, show=True, **kw
 
 def compare_rank_distributions(comp_dirs, rounds):
     fig, axes = plt.subplots(nrows=rounds, figsize=(10, 3 * rounds), squeeze=True, sharey='none')
+    # plt.tight_layout(pad=10)
     for i, method in enumerate(comp_dirs):
         competition_dir = comp_dirs[method]
         pos = 'left' if i == 0 else 'right'
         plot_rank_distribution(competition_dir, pos, axes=axes, show=False, set_ylabel=i == 0, method=method)
 
-    fig.suptitle('Rank Distribution of Students and Bots', fontsize=18)
+    # fig.suptitle('Rank Distribution of Students and Bots', fontsize=18, y=.99)
+    fig.suptitle('Rank Distribution Post Feature Removal', fontsize=18, y=.99)
     for i, axis in enumerate(axes):
         axis.legend()
         axis.set_title(f'Round {i + 1}')
         axis.set_xlabel('Rank')
         axis.set_ylabel('Rank Distribution')
-    plt.tight_layout(rect=(0.0, 0.05, 1.0, 0.95))
 
     # plt.savefig(plots_dir + '/Rank Distribution ' + plot_name)
     plt.show()
@@ -615,8 +616,9 @@ def main():
 
     modes = ['1of5']
     # tr_methods = ['vanilla', 'highest_rated_inferiors']  # , 'acceleration', 'everything']
-    tr_methods = ['highest_rated_inferiors', 'acceleration', 'everything']
-    runs = ['feature-analysis', 'modified-features']
+    tr_methods = ['highest_rated_inferiors']
+    # runs = ['feature-analysis', 'modified-features']
+    runs = ['modified-features']
     for run in runs:
         for method in tr_methods:
             plot_trm_comparisons(modes, ['vanilla', method], run_name=run, rounds=8, plot_name=None,
@@ -627,7 +629,7 @@ def main():
     #                     'HRI': 'results/1of5_12_06_highest_rated_inferiors_feature-analysis'}
     # for name, comp_dir in competition_dirs.items():
     #     print(f'\n\t\t{name}:')
-    #     plot_feature_values(comp_dir, name, show=True, seperate=True, ttest=True)
+    #     plot_feature_values(comp_dir, name, show=True, seperate=True, ttest=False)
 
 
 if __name__ == '__main__':
