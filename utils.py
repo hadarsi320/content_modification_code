@@ -1,5 +1,7 @@
 import logging
 import os
+import pickle
+import re
 import shutil
 import sys
 import xml.etree.ElementTree as ET
@@ -9,16 +11,19 @@ from os import listdir
 
 import gensim
 import javaobj
-import pickle
-
-import re
-
 import numpy as np
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
 from gen_utils import run_bash_command, run_command, run_and_print
+
+VANILLA = 0
+ACCELERATION = 1
+PAST_TOP = 2
+HIGHEST_RATED_INFERIORS = 3
+PAST_TARGETS = 4
+EVERYTHING = 5
 
 lock = Lock()
 
@@ -330,8 +335,8 @@ def clean_texts(text):
     text = text.replace(")", "")
     # my additions
     text = text.replace("\t", " ") \
-        .strip()
-    return text.lower()
+        .strip().lower()
+    return text
 
 
 def transform_query_text(queries_raw_text):
@@ -432,17 +437,28 @@ def generate_pair_name(pair):
     return pair.split("$")[1].split("_")[0] + "_" + out_ + "_" + in_
 
 
-def create_documents_workingset(output_file, competitor_list, qid, **kwargs):
+def create_documents_workingset(output_file, **kwargs):
     ensure_dirs(output_file)
 
-    if 'total_rounds' in kwargs:
-        rounds = range(1, kwargs.pop('total_rounds') + 1)
-    else:
-        rounds = [kwargs.pop('epoch')]
+    if 'ranked_lists' in kwargs:
+        ranked_lists = kwargs.pop('ranked_lists')
+        if 'epoch' in kwargs:
+            epochs = kwargs.pop('epoch')
+        else:
+            epochs = ranked_lists.get_epochs()
 
-    with open(output_file, 'w') as f:
-        for epoch in rounds:
-            for competitor in competitor_list:
+        with open(output_file, 'w') as f:
+            for epoch in epochs:
+                for qid in ranked_lists.get_queries():
+                    for doc_id in ranked_lists[epoch][qid]:
+                        line = get_qrid(qid, epoch) + ' Q0 ' + doc_id + ' 0 0 indri\n'
+                        f.write(line)
+
+    else:
+        qid = kwargs.pop('qid')
+        epoch = kwargs.pop('epoch')
+        with open(output_file, 'w') as f:
+            for competitor in kwargs['competitors']:
                 line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
                 f.write(line)
 
@@ -600,3 +616,13 @@ def list_to_np(lst):
 
 def get_next_epoch(epoch):
     return str(int(epoch) + 1).zfill(2)
+
+
+def count_occurrences(text, terms, opposite=False):
+    text = clean_texts(text)
+    terms = [clean_texts(string) for string in terms]
+    if opposite:
+        res = sum(1 for word in text.split() if word not in terms)
+    else:
+        res = sum(1 for word in text.split() if word in terms)
+    return res

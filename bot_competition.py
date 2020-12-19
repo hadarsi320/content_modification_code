@@ -10,13 +10,15 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
+import readers
 from create_bot_features import update_text_doc, run_reranking
 from dataset_creator import generate_pair_ranker_learning_dataset
 from gen_utils import run_and_print
 from readers import TrecReader
 from utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, get_doc_id, \
-    create_trec_file, create_index, create_documents_workingset, parse_feature_line
-from vector_functionality import embedding_similarity, document_tfidf_similarity
+    create_trec_file, create_index, create_documents_workingset, parse_feature_line, VANILLA, ACCELERATION, PAST_TOP, \
+    HIGHEST_RATED_INFERIORS, PAST_TARGETS, EVERYTHING
+from vector_functionality import embedding_similarity, tfidf_similarity
 
 
 def create_initial_trec_file(output_dir, qid, bots, only_bots, **kwargs):
@@ -208,7 +210,7 @@ def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedd
             recent_texts.append(doc_texts[document])
     assert len(recent_documents) == 2
 
-    tfidf_sim = document_tfidf_similarity(*[document_tfidf_dir + doc for doc in recent_documents])
+    tfidf_sim = tfidf_similarity(*[document_tfidf_dir + doc for doc in recent_documents])
     embedding_sim = embedding_similarity(*recent_texts, word_embedding_model)
     with open(similarity_file, 'a') as f:
         if current_epoch == 1:
@@ -264,16 +266,18 @@ def get_rankings(trec_file, bot_ids, qid, epoch):
     return bots, students
 
 
-def find_fastest_climbing_document(ranked_list, qid, past=1):
-    if len(ranked_list) <= past:
+def find_accelerating_document(ranked_list: readers.TrecReader, qid, c_epoch, past=1):
+    if ranked_list.get_num_epochs() <= past:
         return None
 
     past_rank_change = defaultdict(list)
-    pid_list = [parse_doc_id(doc_id)[2] for doc_id in next(iter(ranked_list.values()))[qid]]
+    pid_list = ranked_list.get_player_ids(qid)
+    epochs = ranked_list.get_epochs()
+    e_index = epochs.index(c_epoch)
 
     for pid in pid_list:
         last_rank = None
-        for epoch in sorted(ranked_list)[-(past + 1):]:
+        for epoch in epochs[(e_index-past):(e_index+1)]:
             rank = ranked_list[epoch][qid].index(get_doc_id(epoch, qid, pid))
             if last_rank is not None:
                 past_rank_change[pid].append(last_rank - rank)
@@ -282,7 +286,7 @@ def find_fastest_climbing_document(ranked_list, qid, past=1):
     average_rank_change = {pid: np.average(past_rank_change[pid]) for pid in pid_list}
     ordered_rising_documents = sorted(past_rank_change, key=lambda x: average_rank_change[x], reverse=True)
 
-    last_epoch = sorted(ranked_list)[-1]
+    last_epoch = max(epochs)
     fastest_rising_doc = ordered_rising_documents[0]
     if ranked_list[last_epoch][qid].index(get_doc_id(last_epoch, qid, fastest_rising_doc)) == 0:
         # we do not want to return the document that is ranked first as that is us
@@ -315,24 +319,27 @@ def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refin
         top_docs_index = min(3, rank)
         target_documents = ranked_lists[epoch_str][qid][:top_docs_index]
 
-    elif top_refinement == 'acceleration':
-        fastest_rising = find_fastest_climbing_document(ranked_lists, qid)
-        target_documents = [get_doc_id(epoch, qid, fastest_rising)] if fastest_rising is not None \
+    elif top_refinement == VANILLA:
+        target_documents = None
+
+    elif top_refinement == ACCELERATION:
+        accelerating_doc = find_accelerating_document(ranked_lists, qid, epoch)
+        target_documents = [get_doc_id(epoch, qid, accelerating_doc)] if accelerating_doc is not None \
             else None
 
-    elif top_refinement == 'past_top':
+    elif top_refinement == PAST_TOP:
         past_top = get_last_top_document(ranked_lists, qid)
         target_documents = [past_top] if past_top is not None else None
 
-    elif top_refinement == 'highest_rated_inferiors':
+    elif top_refinement == HIGHEST_RATED_INFERIORS:
         target_documents = ranked_lists[str(epoch).zfill(2)][qid][1:3]
 
-    elif top_refinement == 'past_targets' and qid in past_targets:
+    elif top_refinement == PAST_TARGETS and qid in past_targets:
         target_documents = past_targets[qid]
 
-    elif top_refinement == 'everything':
+    elif top_refinement == EVERYTHING:
         target_documents = []
-        for method in ['acceleration', 'past_top', 'highest_rated_inferiors', 'past_targets']:
+        for method in [ACCELERATION, PAST_TOP, HIGHEST_RATED_INFERIORS, PAST_TARGETS]:
             targets = get_target_documents(rank, qid, epoch, ranked_lists, past_targets, method)
             if targets is None:
                 continue
@@ -341,7 +348,7 @@ def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refin
                     target_documents.append(target)
 
     else:
-        target_documents = None
+        raise(ValueError('Illegal top refinement method given'))
 
     return target_documents
 
@@ -366,7 +373,7 @@ def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_p
     create_trectext_file(trectext_dict, trectext_file)
 
     create_index(trectext_file, new_index_name=val_index, indri_path=indri_path)
-    create_documents_workingset(document_workingset_file, competitors, qid, next_epoch)
+    create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epoch=next_epoch)
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=val_index)
 

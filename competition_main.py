@@ -3,11 +3,10 @@ import os
 import pickle
 import shutil
 import sys
-from optparse import OptionParser
-from time import time
 
 from deprecated import deprecated
 
+import utils
 from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_target_documents, generate_predictions, get_highest_ranked_pair, generate_updated_document, \
     update_trec_file, generate_document_tfidf_files, record_doc_similarity, record_replacement, replacement_validation
@@ -15,8 +14,8 @@ from create_bot_features import create_bot_features
 from create_bot_features import run_reranking
 from readers import TrecReader
 from utils import get_doc_id, update_trectext_file, complete_sim_file, create_index, create_documents_workingset, \
-    get_next_doc_id, load_word_embedding_model, get_competitors, ensure_dirs
-from utils import get_model_name, get_qrid, read_trectext_file
+    get_next_doc_id, load_word_embedding_model, get_competitors, ensure_dirs,  get_model_name, get_qrid,\
+    read_trectext_file
 
 import gen_utils
 import numpy as np
@@ -112,7 +111,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, bots=bots, only_bots=False, **kwargs)
 
     create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-    create_documents_workingset(document_workingset_file, competitors, qid, epoch=1)
+    create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epoch=1)
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
 
@@ -192,7 +191,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
 
         # updating the index, workingset file and tfidf files
         create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-        create_documents_workingset(document_workingset_file, competitors, qid, epoch=epoch + 1)
+        create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epoch=epoch + 1)
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
 
@@ -317,7 +316,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
 
 
 if __name__ == '__main__':
-    competition_setup(mode='raifer', qid='002', bots=['44'], top_refinement='vanilla')
+    competition_setup(mode='raifer', qid='002', bots=['44'], top_refinement=utils.ACCELERATION)
 
     # parser = OptionParser()
     # parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])

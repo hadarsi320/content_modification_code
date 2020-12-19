@@ -15,9 +15,9 @@ from typing import Dict
 from bot_competition import generate_document_tfidf_files
 from data_analysis import compute_average_rank, compute_average_promotion, cumpute_atd
 from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file, read_trec_dir, \
-    get_competitors, create_index, create_documents_workingset, read_trec_file, \
-    format_name, read_features_dir, parse_doc_id, get_next_epoch
-from vector_functionality import document_tfidf_similarity
+    get_competitors, create_index, create_documents_workingset, format_name, read_features_dir, parse_doc_id,\
+    get_next_epoch
+from vector_functionality import tfidf_similarity
 
 COLORS = {'green': '#32a852', 'red': '#de1620', 'blue': '#1669de', 'orange': '#f28e02', 'purple': '#8202f2',
           'sky': '#0acef5'}
@@ -406,58 +406,6 @@ def plot_top_distribution(trec_dir, show=True, set_ylabel=True, **kwargs):
         if set_ylabel:
             axis.set_ylabel('Distribution')
 
-    if show:
-        plt.show()
-
-
-@deprecated(reason='This function needs to be updated, but it is mostly redundant')
-def plot_similarity_to_winner(comp_dirs_dict: dict, rounds: int, show=True, **kwargs):
-    tmp_dir = 'plotting_tmp/'
-    index = tmp_dir + 'index'
-    doc_ws_file = tmp_dir + 'doc_ws_file.txt'
-    tfidf_dir = tmp_dir + 'tfidf/'
-
-    top_similarity = {method: defaultdict(list) for method in comp_dirs_dict}
-    for method, comp_dir in comp_dirs_dict.items():
-        trectext_dir = comp_dir + '/trectext_files/'
-
-        for file in tqdm(os.listdir(trectext_dir)):
-            qid = file.split('_')[1]
-            bots = file.split('_')[2].split('.')[0].split(',')
-            trec_file = f'{comp_dir}/trec_files/trec_file_{qid}_{",".join(bots)}'
-            competitors = get_competitors(trec_file)
-            ranked_list = read_trec_file(trec_file)
-
-            stdout = sys.stdout
-            sys.stdout = open(os.devnull, 'w')
-            create_index(trectext_dir + file, new_index_name=index, indri_path=indri_path)
-            create_documents_workingset(doc_ws_file, competitors, qid, total_rounds=rounds)
-            generate_document_tfidf_files(doc_ws_file, output_dir=tfidf_dir,
-                                          swig_path=swig_path, base_index=clueweb_index, new_index=index)
-            sys.stdout = stdout
-
-            for epoch in ranked_list:
-                top_document = tfidf_dir + ranked_list[epoch][qid][0]
-                for bot in bots:
-                    bot_document = tfidf_dir + f'ROUND-{epoch}-{qid}-{bot}'
-                    top_similarity[method][epoch].append(document_tfidf_similarity(top_document, bot_document))
-
-            shutil.rmtree(tmp_dir)
-
-    results = {method:
-                   {epoch:
-                        np.mean(top_similarity[method][epoch])
-                    for epoch in top_similarity[method]}
-               for method in top_similarity}
-    for method in results:
-        plt.plot(range(1, rounds + 1), results[method].values(), label=format_name(method))
-    plt.legend()
-    plt.title('Similarity of Bot Documents to Winning Document')
-    plt.xlabel('Round')
-    plt.ylabel('Average Similarity')
-
-    if 'savefig' in kwargs:
-        plt.savefig(kwargs.pop('savefig'))
     if show:
         plt.show()
 

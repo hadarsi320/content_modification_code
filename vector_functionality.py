@@ -106,7 +106,7 @@ def embedding_similarity(s1, s2, model, stemmer=None):
     return cosine_similarity(centroid1, centroid2)
 
 
-def document_tfidf_similarity(f1, f2):
+def tfidf_similarity(f1, f2):
     f1_dict = get_java_object(f1)
     f2_dict = get_java_object(f2)
     return dict_cosine_similarity(f1_dict, f2_dict)

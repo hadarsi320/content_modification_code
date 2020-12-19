@@ -52,6 +52,17 @@ class TrecReader:
     def get_queries(self):
         return sorted(self.__queries)
 
+    def get_num_epochs(self):
+        return len(self.__epochs)
+
+    def get_num_queries(self):
+        return len(self.__queries)
+
+    def get_player_ids(self, qid):
+        epoch = next(iter(self.__epochs))
+        player_ids = [parse_doc_id(doc_id)[2] for doc_id in self.__ranked_list[epoch][qid]]
+        return player_ids
+
 
 if __name__ == '__main__':
     trec = TrecReader('data/trec_file_original_sorted.txt')
