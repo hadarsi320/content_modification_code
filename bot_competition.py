@@ -266,19 +266,19 @@ def get_rankings(trec_file, bot_ids, qid, epoch):
     return bots, students
 
 
-def find_accelerating_document(ranked_list: readers.TrecReader, qid, c_epoch, past=1):
-    if ranked_list.get_num_epochs() <= past:
+def find_accelerating_document(trec_reader: readers.TrecReader, qid, c_epoch, past=1):
+    if len(list(epoch for epoch in trec_reader.get_epochs() if epoch <= c_epoch)) <= past:
         return None
 
     past_rank_change = defaultdict(list)
-    pid_list = ranked_list.get_player_ids(qid)
-    epochs = ranked_list.get_epochs()
+    pid_list = trec_reader.get_player_ids(qid)
+    epochs = trec_reader.get_epochs()
     e_index = epochs.index(c_epoch)
 
     for pid in pid_list:
         last_rank = None
         for epoch in epochs[(e_index-past):(e_index+1)]:
-            rank = ranked_list[epoch][qid].index(get_doc_id(epoch, qid, pid))
+            rank = trec_reader[epoch][qid].index(get_doc_id(epoch, qid, pid))
             if last_rank is not None:
                 past_rank_change[pid].append(last_rank - rank)
             last_rank = rank
@@ -288,7 +288,7 @@ def find_accelerating_document(ranked_list: readers.TrecReader, qid, c_epoch, pa
 
     last_epoch = max(epochs)
     fastest_rising_doc = ordered_rising_documents[0]
-    if ranked_list[last_epoch][qid].index(get_doc_id(last_epoch, qid, fastest_rising_doc)) == 0:
+    if trec_reader[last_epoch][qid].index(get_doc_id(last_epoch, qid, fastest_rising_doc)) == 0:
         # we do not want to return the document that is ranked first as that is us
         fastest_rising_doc = ordered_rising_documents[1]
 
