@@ -622,7 +622,11 @@ def count_occurrences(text, terms, opposite=False):
     text = clean_texts(text)
     terms = [clean_texts(string) for string in terms]
     if opposite:
-        res = sum(1 for word in text.split() if word not in terms)
+        res = sum(word not in terms for word in text.split())
     else:
-        res = sum(1 for word in text.split() if word in terms)
+        res = sum(word in terms for word in text.split())
     return res
+
+
+def get_terms(text):
+    return set(clean_texts(text).split())
