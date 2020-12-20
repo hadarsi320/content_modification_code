@@ -93,7 +93,7 @@ def get_text_centroid(text, model, stemmer=False):
     return sum_vector / denom
 
 
-def calculate_similarity_to_docs_centroid_tf_idf(text_tfidf_fname, top_docs_tfidf):
+def similarity_to_centroid_tf_idf(text_tfidf_fname, top_docs_tfidf):
     summary_tfidf = get_java_object(text_tfidf_fname)
     return dict_cosine_similarity(summary_tfidf, top_docs_tfidf)
 
@@ -125,9 +125,9 @@ def get_semantic_docs_centroid(doc_texts, doc_names, model, stemmer=None):
     return sum_vector / len(doc_names)
 
 
-def calculate_semantic_similarity_to_top_docs(text, top_docs, doc_texts, model, stemmer=None):
+def similarity_to_centroid_semantic(text, doc_texts, docs, model, stemmer=None):
     summary_vector = get_text_centroid(clean_texts(text), model, stemmer)
-    top_docs_centroid_vector = get_semantic_docs_centroid(doc_texts, top_docs, model, stemmer)
+    top_docs_centroid_vector = get_semantic_docs_centroid(doc_texts, docs, model, stemmer)
     return cosine_similarity(summary_vector, top_docs_centroid_vector)
 
 
@@ -137,11 +137,18 @@ def normalize_dict(dict, n):
     return dict
 
 
-def document_centroid(document_vectors):
+def document_centroid(doc_tfidf_dir, doc_ids):
+    document_vectors = [get_java_object(doc_tfidf_dir + doc_id) for doc_id in doc_ids]
     centroid = {}
     for doc in document_vectors:
         centroid = add_dict(centroid, doc)
     return normalize_dict(centroid, len(document_vectors))
+
+# def document_centroid(document_vectors):
+#     centroid = {}
+#     for doc in document_vectors:
+#         centroid = add_dict(centroid, doc)
+#     return normalize_dict(centroid, len(document_vectors))
 
 
 def add_dict(d1, d2):
