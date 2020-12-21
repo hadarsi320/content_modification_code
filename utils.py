@@ -372,6 +372,10 @@ def read_queries_file(queries_file, current_qrid=None):
 
 
 def get_query_text(queries_file, current_qid):
+    """
+    queries_file: an xml file containing all of the queries
+    current_qid: the id of the query to be returned
+    """
     with open(queries_file) as file:
         for line in file:
             if '<number>' in line:
@@ -442,25 +446,31 @@ def create_documents_workingset(output_file, **kwargs):
 
     if 'ranked_lists' in kwargs:
         ranked_lists = kwargs.pop('ranked_lists')
-        if 'epoch' in kwargs:
-            epochs = kwargs.pop('epoch')
+        if 'epochs' in kwargs:
+            epochs = kwargs.pop('epochs')
         else:
             epochs = ranked_lists.get_epochs()
 
+        if 'qid_list' in kwargs:
+            qid_list = kwargs.pop('qid-list')
+        else:
+            qid_list = ranked_lists.get_queries()
+
         with open(output_file, 'w') as f:
             for epoch in epochs:
-                for qid in ranked_lists.get_queries():
+                for qid in qid_list:
                     for doc_id in ranked_lists[epoch][qid]:
                         line = get_qrid(qid, epoch) + ' Q0 ' + doc_id + ' 0 0 indri\n'
                         f.write(line)
 
     else:
         qid = kwargs.pop('qid')
-        epoch = kwargs.pop('epoch')
+        epochs = kwargs.pop('epochs')
         with open(output_file, 'w') as f:
-            for competitor in kwargs['competitors']:
-                line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
-                f.write(line)
+            for epoch in epochs:
+                for competitor in kwargs['competitors']:
+                    line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
+                    f.write(line)
 
 
 def ensure_dirs(*files):
@@ -614,7 +624,7 @@ def list_to_np(lst):
     return np.array([float(item) for item in lst])
 
 
-def get_next_epoch(epoch):
+def get_next_epoch(epoch) -> str:
     return str(int(epoch) + 1).zfill(2)
 
 
@@ -630,3 +640,38 @@ def count_occurrences(text, terms, opposite=False):
 
 def get_terms(text):
     return set(clean_texts(text).split())
+
+
+def find_accelerating_player(trec_reader, qid, c_epoch, past=1):
+    c_epoch = str(c_epoch).zfill(2)
+    # look only at the relevant epochs
+    epochs = [epoch for epoch in trec_reader.get_epochs() if epoch <= c_epoch]
+
+    if len(epochs) <= past:
+        return None
+
+    past_rank_change = defaultdict(list)
+    pid_list = trec_reader.get_player_ids(qid)
+    past_epochs = epochs[-(past+1):]
+
+    for pid in pid_list:
+        last_rank = None
+        for epoch in past_epochs:
+            rank = trec_reader[epoch][qid].index(get_doc_id(epoch, qid, pid))
+            if last_rank is not None:
+                past_rank_change[pid].append(last_rank - rank)
+            last_rank = rank
+
+    average_rank_change = {pid: np.average(past_rank_change[pid]) for pid in pid_list}
+    ordered_rising_players = sorted(past_rank_change, key=lambda x: average_rank_change[x], reverse=True)
+
+    last_epoch = max(epochs)
+    fastest_rising_pid = ordered_rising_players[0]
+    if trec_reader[last_epoch][qid].index(get_doc_id(last_epoch, qid, fastest_rising_pid)) == 0:
+        # we do not want to return the document that is ranked first as that is us
+        fastest_rising_pid = ordered_rising_players[1]
+
+    if average_rank_change[fastest_rising_pid] > 0:
+        return fastest_rising_pid
+    else:
+        return None

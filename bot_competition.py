@@ -1,23 +1,21 @@
 import logging
-import shutil
 import sys
 import xml.etree.ElementTree as ET
-from collections import defaultdict
+from copy import deepcopy
 from os.path import exists, basename, splitext
 
-import numpy as np
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-import readers
-from create_bot_features import update_text_doc, run_reranking
+import alternations
+import utils
+from create_bot_features import update_text_doc
 from dataset_creator import generate_pair_ranker_learning_dataset
 from gen_utils import run_and_print
-from readers import TrecReader
 from utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, get_doc_id, \
-    create_trec_file, create_index, create_documents_workingset, parse_feature_line, VANILLA, ACCELERATION, PAST_TOP, \
-    HIGHEST_RATED_INFERIORS, PAST_TARGETS, EVERYTHING
+    parse_feature_line, VANILLA, ACCELERATION, PAST_TOP, \
+    HIGHEST_RATED_INFERIORS, PAST_TARGETS, EVERYTHING, find_accelerating_player
 from vector_functionality import embedding_similarity, tfidf_similarity
 
 
@@ -266,38 +264,6 @@ def get_rankings(trec_file, bot_ids, qid, epoch):
     return bots, students
 
 
-def find_accelerating_document(trec_reader: readers.TrecReader, qid, c_epoch, past=1):
-    if len(list(epoch for epoch in trec_reader.get_epochs() if epoch <= c_epoch)) <= past:
-        return None
-
-    past_rank_change = defaultdict(list)
-    pid_list = trec_reader.get_player_ids(qid)
-    epochs = trec_reader.get_epochs()
-    e_index = epochs.index(c_epoch)
-
-    for pid in pid_list:
-        last_rank = None
-        for epoch in epochs[(e_index-past):(e_index+1)]:
-            rank = trec_reader[epoch][qid].index(get_doc_id(epoch, qid, pid))
-            if last_rank is not None:
-                past_rank_change[pid].append(last_rank - rank)
-            last_rank = rank
-
-    average_rank_change = {pid: np.average(past_rank_change[pid]) for pid in pid_list}
-    ordered_rising_documents = sorted(past_rank_change, key=lambda x: average_rank_change[x], reverse=True)
-
-    last_epoch = max(epochs)
-    fastest_rising_doc = ordered_rising_documents[0]
-    if trec_reader[last_epoch][qid].index(get_doc_id(last_epoch, qid, fastest_rising_doc)) == 0:
-        # we do not want to return the document that is ranked first as that is us
-        fastest_rising_doc = ordered_rising_documents[1]
-
-    if average_rank_change[fastest_rising_doc] > 0:
-        return fastest_rising_doc
-    else:
-        return None
-
-
 def get_last_top_document(ranked_list, qid):
     if len(ranked_list) == 1:
         return None
@@ -323,7 +289,7 @@ def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refin
         target_documents = None
 
     elif top_refinement == ACCELERATION:
-        accelerating_doc = find_accelerating_document(ranked_lists, qid, epoch)
+        accelerating_doc = find_accelerating_player(ranked_lists, qid, epoch)
         target_documents = [get_doc_id(epoch, qid, accelerating_doc)] if accelerating_doc is not None \
             else None
 
@@ -348,45 +314,79 @@ def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refin
                     target_documents.append(target)
 
     else:
-        raise(ValueError('Illegal top refinement method given'))
+        raise (ValueError('Illegal top refinement method given'))
 
     return target_documents
 
 
-def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_path, indri_path, document_rank_model,
-                           scripts_dir, stopwords_file, queries_text_file, ranklib_jar):
-    ensure_dirs(output_dir)
-    document_workingset_file = output_dir + 'document_ws'
-    doc_tfidf_dir = output_dir + 'document_tfidf/'
-    trectext_file = output_dir + 'trectext_file'
-    trec_file = output_dir + 'trec_file'
-    val_index = output_dir + 'rec_index'
-    epoch = '0'
-    next_epoch = '01'
-    qrid = get_qrid(qid, epoch)
-    competitors = ['old', 'new']
+def replacement_validation(next_doc_id, new_text, qid, epoch, queries_file, trec_reader, trec_texts,
+                           alternation_classifier, word_embedding_model, stopwords_file, output_dir, base_index,
+                           indri_path, swig_path, rep_index_fname='rep_val_index', trectext_fname='trectext_file',
+                           document_workingset_fname='doc_ws', doc_tfidf_dname='doc_tfidf'):
+    document_workingset_file = output_dir + document_workingset_fname
+    doc_tfidf_dir = output_dir + doc_tfidf_dname + '/'
+    trectext_file = output_dir + trectext_fname
+    rep_index = output_dir + rep_index_fname
 
-    ranked_list = {qid: {epoch: [get_doc_id(epoch, qid, pid) for pid in competitors]}}
-    create_trec_file(trec_file, ranked_list, name='replacement_validation')
+    next_epoch = epoch + 1
 
-    trectext_dict = {get_doc_id(next_epoch, qid, 'old'): old_doc, get_doc_id(next_epoch, qid, 'new'): new_doc}
-    create_trectext_file(trectext_dict, trectext_file)
+    trec_texts = deepcopy(trec_texts)
+    trec_texts[next_doc_id] = new_text
 
-    create_index(trectext_file, new_index_name=val_index, indri_path=indri_path)
-    create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epoch=next_epoch)
+    trec_reader = deepcopy(trec_reader)
+    trec_reader.add_epoch({qid: [next_doc_id]})
+
+    stopwords = open(stopwords_file).read().split('\n')[:-1]
+    query = utils.get_query_text(queries_file, qid)
+
+    utils.ensure_dirs(output_dir)
+    utils.create_trectext_file(trec_texts, trectext_file)
+    utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
+    utils.create_documents_workingset(
+        document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                  swig_path=swig_path, base_index=base_index, new_index=val_index)
+                                  swig_path=swig_path, base_index=base_index, new_index=rep_index)
 
-    reranked_trec_file = run_reranking(qrid, trec_file, base_index, val_index, swig_path,
-                                       scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
-                                       document_rank_model, output_dir=output_dir)
-    reranked_list = TrecReader(reranked_trec_file)
-    top_doc_id = reranked_list[next_epoch][qid][0]
-    top_player = parse_doc_id(top_doc_id)[2]
+    x = alternations.create_features(
+        qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords)
+    y = alternation_classifier.predict(x.reshape((1, -1)))
+    return y == 1
 
-    shutil.rmtree(output_dir)
 
-    res = top_player == 'new'
-    # a way of simulating the results we would receive had we had a rank model which was only right about 3/4 of the time.
-    # return res if random() < 3/4 else not res
-    return res
+# def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_path, indri_path, document_rank_model,
+#                            scripts_dir, stopwords_file, queries_text_file, ranklib_jar):
+#     ensure_dirs(output_dir)
+#     document_workingset_file = output_dir + 'document_ws'
+#     doc_tfidf_dir = output_dir + 'document_tfidf/'
+#     trectext_file = output_dir + 'trectext_file'
+#     trec_file = output_dir + 'trec_file'
+#     val_index = output_dir + 'rec_index'
+#     epoch = '0'
+#     next_epoch = '01'
+#     qrid = get_qrid(qid, epoch)
+#     competitors = ['old', 'new']
+#
+#     ranked_list = {qid: {epoch: [get_doc_id(epoch, qid, pid) for pid in competitors]}}
+#     create_trec_file(trec_file, ranked_list, name='replacement_validation')
+#
+#     trectext_dict = {get_doc_id(next_epoch, qid, 'old'): old_doc, get_doc_id(next_epoch, qid, 'new'): new_doc}
+#     create_trectext_file(trectext_dict, trectext_file)
+#
+#     create_index(trectext_file, new_index_name=val_index, indri_path=indri_path)
+#     create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epoch=next_epoch)
+#     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
+#                                   swig_path=swig_path, base_index=base_index, new_index=val_index)
+#
+#     reranked_trec_file = run_reranking(qrid, trec_file, base_index, val_index, swig_path,
+#                                        scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
+#                                        document_rank_model, output_dir=output_dir)
+#     reranked_list = TrecReader(reranked_trec_file)
+#     top_doc_id = reranked_list[next_epoch][qid][0]
+#     top_player = parse_doc_id(top_doc_id)[2]
+#
+#     shutil.rmtree(output_dir)
+#
+#     res = top_player == 'new'
+#     # a way of simulating the results we would receive had we had a rank model which was only right about 3/4 of the time.
+#     # return res if random() < 3/4 else not res
+#     return res
