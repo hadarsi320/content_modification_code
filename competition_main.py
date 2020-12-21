@@ -21,7 +21,7 @@ import gen_utils
 import numpy as np
 
 
-@deprecated("This function is most likely outdated")
+@deprecated("This function is outdated and is incompatible with many of the current ")
 def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, output_dir, base_index, comp_index,
                           document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
                           predictions_dir, final_features_dir, swig_path, indri_path, replacements_file,
@@ -103,7 +103,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                             replacements_file, svm_rank_scripts_dir, scripts_dir, stopwords_file,
                             queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_ranker,
-                            top_ranker, word_embedding_model, rep_val_dir, **kwargs):
+                            top_ranker, word_embedding_model, alternation_classifier, rep_val_dir, **kwargs):
     logger = logging.getLogger(sys.argv[0])
     original_texts = read_trectext_file(trectext_file, qid)
 
@@ -111,7 +111,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, bots=bots, only_bots=False, **kwargs)
 
     create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-    create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epoch=1)
+    create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epochs=[1])
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
 
@@ -119,8 +119,8 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     for epoch in range(1, rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
         qrid = get_qrid(qid, epoch)
-        ranked_lists = TrecReader(comp_trec_file)
-        doc_texts = read_trectext_file(comp_trectext_file)
+        trec_reader = TrecReader(comp_trec_file)
+        trec_texts = read_trectext_file(comp_trectext_file)
         bot_rankings, student_rankings = get_rankings(comp_trec_file, bots, qid, epoch)
 
         new_docs = {}
@@ -138,12 +138,12 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             next_doc_id = get_doc_id(epoch + 1, qid, bot_id)
             bot_rank = bot_rankings[bot_id]
 
-            target_documents = get_target_documents(bot_rank, qid, epoch, ranked_lists, past_targets, top_refinement)
+            target_documents = get_target_documents(bot_rank, qid, epoch, trec_reader, past_targets, top_refinement)
             past_targets[qid] = target_documents
             if target_documents is not None:
                 # Creating features
                 cant_replace = create_bot_features(qrid=qrid, ref_index=bot_rank, target_docs=target_documents,
-                                                   ranked_lists=ranked_lists, doc_texts=doc_texts,
+                                                   ranked_lists=trec_reader, doc_texts=trec_texts,
                                                    output_dir=output_dir, word_embed_model=word_embedding_model,
                                                    raw_ds_file=raw_ds_file, doc_tfidf_dir=doc_tfidf_dir,
                                                    documents_workingset_file=document_workingset_file,
@@ -153,7 +153,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
                 cant_replace = True
 
             if cant_replace:
-                new_docs[next_doc_id] = doc_texts[bot_doc_id]
+                new_docs[next_doc_id] = trec_texts[bot_doc_id]
                 logger.info('Bot {} cant replace any sentence'.format(bot_id))
                 continue
 
@@ -164,34 +164,32 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             # Find highest ranked pair
             rep_doc_id, out_index, in_index, features = get_highest_ranked_pair(features_file, ranking_file)
 
-            # old_doc = doc_texts[bot_doc_id]
-            new_doc = generate_updated_document(doc_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
+            new_doc = generate_updated_document(trec_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
                                                 out_index=out_index, in_index=in_index)
 
-            # TODO consider how to do a replacement validation without using lambdata ranker
-            # if bot_rank == 0:
-            #     # reconsider replacement
-            #     replacement_valid = replacement_validation(qid, old_doc, new_doc, rep_val_dir, base_index, swig_path,
-            #                                                indri_path, document_rank_model, scripts_dir, stopwords_file,
-            #                                                queries_text_file, ranklib_jar)
-            # else:
-            #     replacement_valid = True
+            if bot_rank == 0:
+                # reconsider replacement
+                replacement_valid = replacement_validation(next_doc_id, new_doc, qid, epoch, queries_xml_file,
+                                                           trec_reader, trec_texts, alternation_classifier,
+                                                           word_embedding_model, stopwords_file, rep_val_dir,
+                                                           base_index, indri_path, swig_path)
+            else:
+                replacement_valid = True
 
-            replacement_valid = True
             if replacement_valid:
                 # Replace sentence
                 record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index, features)
                 new_docs[next_doc_id] = new_doc
             else:
                 # Keep document from last round
-                new_docs[next_doc_id] = doc_texts[bot_doc_id]
+                new_docs[next_doc_id] = trec_texts[bot_doc_id]
 
         # updating the trectext file
-        update_trectext_file(comp_trectext_file, doc_texts, new_docs)
+        update_trectext_file(comp_trectext_file, trec_texts, new_docs)
 
         # updating the index, workingset file and tfidf files
         create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-        create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epoch=epoch + 1)
+        create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epochs=[epoch + 1])
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
 
@@ -205,26 +203,27 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
 
 
 def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='output/tmp/', mute=False, **kwargs):
-    svm_models_dir = 'rank_svm_models/'
-    aggregated_data_dir = 'data/learning_dataset/'
-    svm_rank_scripts_dir = 'scripts/'
-    seo_qrels_file = 'data/qrels_seo_bot.txt'
+    embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
+    clueweb_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
+    alternation_classifier_file = 'classifiers/alteration_classifier.pkl'
+    swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
     coherency_qrels_file = 'data/coherency_aggregated_labels.txt'
+    queries_text_file = 'data/working_comp_queries_expanded.txt'
+    trectext_file_paper = 'data/paper_data/documents.trectext'
     unranked_features_file = 'data/features_bot_sorted.txt'
+    positions_file = 'data/paper_data/documents.positions'
     trec_file = 'data/trec_file_original_sorted.txt'
     trectext_file_raifer = 'data/documents.trectext'
-    trectext_file_paper = 'data/paper_data/documents.trectext'
-    positions_file = 'data/paper_data/documents.positions'
+    aggregated_data_dir = 'data/learning_dataset/'
     rank_model = 'rank_models/model_lambdatamart'
-    ranklib_jar = 'scripts/RankLib.jar'
-    queries_text_file = 'data/working_comp_queries_expanded.txt'
     queries_xml_file = 'data/queries_seo_exp.xml'
-    scripts_dir = 'scripts/'
-    stopwords_file = 'data/stopwords_list'
     indri_path = '/lv_local/home/hadarsi/indri/'
-    clueweb_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
-    swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
-    embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
+    seo_qrels_file = 'data/qrels_seo_bot.txt'
+    stopwords_file = 'data/stopwords_list'
+    ranklib_jar = 'scripts/RankLib.jar'
+    svm_rank_scripts_dir = 'scripts/'
+    svm_models_dir = 'rank_models/'
+    scripts_dir = 'scripts/'
 
     pair_ranker_args = ('harmonic', 1)
 
@@ -238,7 +237,8 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
     reranking_dir = output_dir + 'reranking/'
     raw_ds_dir = output_dir + 'raw_datasets/'
     trec_dir = output_dir + 'trec_files/'
-    competition_index = output_dir + 'index_' + qid + '_' + ','.join(bots)
+    # competition_index = output_dir + 'index_' + qid + '_' + ','.join(bots)
+    competition_index = output_dir + 'index'
 
     program = os.path.basename(sys.argv[0])
     logger = logging.getLogger(program)
@@ -270,6 +270,8 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
     else:
         word_embedding_model = load_word_embedding_model(embedding_model_file)
         logger.info('Loaded word Embedding Model from file')
+
+    alternation_classifier = pickle.load(open('classifiers/alteration_classifier.pkl', 'rb'))
 
     if mode == '2of2':
         trectext_file = trectext_file_raifer
@@ -312,7 +314,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
                                 clueweb_index, competition_index, replacements_file,
                                 svm_rank_scripts_dir, scripts_dir, stopwords_file, queries_text_file,
                                 queries_xml_file, ranklib_jar, rank_model, pair_ranker, top_ranker,
-                                word_embedding_model, rep_val_dir, **kwargs)
+                                word_embedding_model, alternation_classifier, rep_val_dir, **kwargs)
 
 
 if __name__ == '__main__':
