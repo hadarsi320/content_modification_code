@@ -10,11 +10,12 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.pipeline import Pipeline
 
 import bot_competition
 import readers
 import utils
-from bot_competition import find_accelerating_document
+from utils import find_accelerating_player
 from vector_functionality import tfidf_similarity, embedding_similarity
 
 
@@ -44,7 +45,7 @@ def term_analysis(old_text, new_text, rival_text, target_terms):
     return res
 
 
-def create_features(qid, epoch, trec_texts, trec_reader, doc_tfidf_dir, word_embedding_model, stopwords, query):
+def create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords):
     def tfidf_sim(x, y):
         return tfidf_similarity(doc_tfidf_dir + x, doc_tfidf_dir + y)
 
@@ -58,8 +59,9 @@ def create_features(qid, epoch, trec_texts, trec_reader, doc_tfidf_dir, word_emb
     old_doc_id = trec_reader[epoch][qid][0]
     new_doc_id = utils.get_next_doc_id(old_doc_id)
     features = []
-    # features = [tfidf_sim(old_doc_id, new_doc_id),
-    #             embed_sim(old_doc_id, new_doc_id)]
+
+    # features.append(tfidf_sim(old_doc_id, new_doc_id))
+    # features.append(embed_sim(old_doc_id, new_doc_id))
 
     # rival_doc_ids = [trec_reader[epoch][qid][i] for i in range(1, 3)]
     # rivals_tfidf_centroid = document_centroid(doc_tfidf_dir, rival_doc_ids)
@@ -74,7 +76,7 @@ def create_features(qid, epoch, trec_texts, trec_reader, doc_tfidf_dir, word_emb
     #     features.append(tfidf_sim(rival_doc_id, new_doc_id))
     #     features.append(embed_sim(rival_doc_id, new_doc_id))
 
-    accel_pid = find_accelerating_document(trec_reader, qid, epoch)
+    accel_pid = find_accelerating_player(trec_reader, qid, epoch)
     if accel_pid is not None:
         accel_doc_id = utils.get_doc_id(epoch, qid, accel_pid)
         features.append(tfidf_sim(accel_doc_id, new_doc_id))
@@ -86,40 +88,46 @@ def create_features(qid, epoch, trec_texts, trec_reader, doc_tfidf_dir, word_emb
     features.append(count_terms(new_doc_id, query_words))
     features.append(count_terms(new_doc_id, stopwords + query_words, True))
 
-    return features
+    return np.array(features)
 
 
-def cross_validate(models, X, Y):
-    X, X_test, Y, Y_test = train_test_split(X, Y, random_state=42)
-
-    kf = KFold(shuffle=True, random_state=54, n_splits=10)
-    results = {}
-    for model in models:
-        train_acc = []
-        val_acc = []
-        for train_indices, val_indices in kf.split(X):
-            X_train, X_val = X[train_indices], X[val_indices]
-            Y_train, Y_val = Y[train_indices], Y[val_indices]
-
-            scaler = StandardScaler()
-            scaler.fit(X_train)
-            X_train = scaler.transform(X_train)
-            X_val = scaler.transform(X_val)
-
-            model.fit(X_train, Y_train)
-            train_acc.append(model.score(X_train, Y_train))
-            val_acc.append(model.score(X_val, Y_val))
-
-        scaler = StandardScaler()
-        scaler.fit(X)
-        X_scaled = scaler.transform(X)
-        X_test_scaled = scaler.transform(X_test)
-        model.fit(X_scaled, Y)
-        test_acc = model.score(X_test_scaled, Y_test)
-
-        results[str(model)] = np.average(train_acc), np.average(val_acc), test_acc
-
-    return results
+# def cross_validate(models, X, Y):
+#     X, X_test, Y, Y_test = train_test_split(X, Y, random_state=42)
+#
+#     kf = KFold(shuffle=True, random_state=54, n_splits=10)
+#     results = {}
+#     for model in models:
+#
+#         train_acc = []
+#         val_acc = []
+#         for train_indices, val_indices in kf.split(X):
+#             X_train, X_val = X[train_indices], X[val_indices]
+#             Y_train, Y_val = Y[train_indices], Y[val_indices]
+#
+#             # scaler = StandardScaler()
+#             # scaler.fit(X_train)
+#             # X_train = scaler.transform(X_train)
+#             # X_val = scaler.transform(X_val)
+#             #
+#             # model.fit(X_train, Y_train)
+#             # train_acc.append(model.score(X_train, Y_train))
+#             # val_acc.append(model.score(X_val, Y_val))
+#
+#             pipeline = Pipeline([('scaler', StandardScaler()), ('classifier', model)])
+#             pipeline.fit(X_train, Y_train)
+#             train_acc.append(pipeline.score(X_train, Y_train))
+#             val_acc.append(pipeline.score(X_val, Y_val))
+#
+#         scaler = StandardScaler()
+#         scaler.fit(X)
+#         X_scaled = scaler.transform(X)
+#         X_test_scaled = scaler.transform(X_test)
+#         model.fit(X_scaled, Y)
+#         test_acc = model.score(X_test_scaled, Y_test)
+#
+#         results[str(model)] = np.average(train_acc), np.average(val_acc), test_acc
+#
+#     return results
 
 
 def generate_learning_dataset():
@@ -161,8 +169,8 @@ def generate_learning_dataset():
             query = utils.get_query_text(queries_file, qid)
 
             # create x
-            X.append(create_features(qid, epoch, trec_texts, trec_reader, doc_tfidf_dir, word_embedding_model,
-                                     stopwords, query))
+            X.append(create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model,
+                                     stopwords))
 
             # Create Y
             next_rank = trec_reader[next_epoch][qid].index(next_doc_id)
@@ -183,14 +191,10 @@ def test_models(models, X, Y):
             X_train, X_test = X[train_indices], X[test_indices]
             Y_train, Y_test = Y[train_indices], Y[test_indices]
 
-            scaler = StandardScaler()
-            scaler.fit(X_train)
-            X_train = scaler.transform(X_train)
-            X_test = scaler.transform(X_test)
-
-            model.fit(X_train, Y_train)
-            train_acc.append(model.score(X_train, Y_train))
-            test_acc.append(model.score(X_test, Y_test))
+            pipeline = Pipeline([('scaler', StandardScaler()), ('classifier', model)])
+            pipeline.fit(X_train, Y_train)
+            train_acc.append(pipeline.score(X_train, Y_train))
+            test_acc.append(pipeline.score(X_test, X_test))
 
         results[str(model)] = np.average(train_acc), np.average(test_acc)
 
@@ -217,38 +221,34 @@ def run_kfold_cross_val(X, Y, model, n_splits=10):
     return np.average(test_acc)
 
 
-class AlterationClassifier:
-    def __init__(self, model=RandomForestClassifier):
-        self.__model = model
-        self.__classifier = None
+def train_alteration_classifier(X, Y, model=RandomForestClassifier, model_params=None):
+    if model_params is not None:
+        accuracy_dict = {}
+        for i, kwargs in enumerate(model_params):
+            classifier = model(**kwargs)
+            accuracy_dict[i] = run_kfold_cross_val(X, Y, classifier)
 
-    def fit(self, X, Y, model_params=None):
-        if model_params is not None:
-            accuracy_dict = {}
-            for i, kwargs in enumerate(model_params):
-                classifier = self.__model(**kwargs)
-                accuracy_dict[i] = run_kfold_cross_val(X, Y, classifier)
+        max_index = max(accuracy_dict, key=lambda x: accuracy_dict[x])
+        max_kwargs = model_params[max_index]
 
-            max_index = max(accuracy_dict, key=lambda x: accuracy_dict[x])
-            max_kwargs = model_params[max_index]
-            self.__classifier = self.__model(**max_kwargs).fit(X, Y)
+    else:
+        max_kwargs = {}
 
-        else:
-            self.__classifier = self.__model().fit(X, Y)
-
-        return self
-
-    def predict(self, x):
-        return self.__classifier.predict(x)
+    classifier = Pipeline([('scaler', StandardScaler()),
+                           ('classifier', model(**max_kwargs))]).fit(X, Y)
+    return classifier
 
 
 def main():
+    classifiers_dir = 'classifiers/'
+    utils.ensure_dirs(classifiers_dir)
+
     X, Y = generate_learning_dataset()
     print('Features created')
 
     params = [{'max_depth': 5}, {'max_depth': 10}, {'max_depth':20}, {'max_depth': 50}, {'max_depth': None}, ]
-    alter_class = AlterationClassifier().fit(X, Y, model_params=params)
-    pickle.dump(alter_class, open('rank_models/alteration_classifier.pkl', 'wb'))
+    alter_classifier = train_alteration_classifier(X, Y, model_params=params)
+    pickle.dump(alter_classifier, open(f'{classifiers_dir}/alteration_classifier.pkl', 'wb'))
 
     # models = [Perceptron(), GaussianNB(), BernoulliNB(), SVC(kernel='linear'), SVC(kernel='poly'), SVC(kernel='rbf'),
     #           LogisticRegression(penalty='l1', solver='liblinear'), LogisticRegression(penalty='l2'),
