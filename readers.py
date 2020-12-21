@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+import utils
 from utils import parse_doc_id
 
 
@@ -40,8 +41,15 @@ class TrecReader:
                 self.__ranked_list[qrid].append(doc_id)
         self.__ranked_list = dict(self.__ranked_list)
 
-    def __getitem__(self, item):
-        return self.__ranked_list[item]
+    def __getitem__(self, epoch):
+        epoch = str(epoch).zfill(2)
+        return self.__ranked_list[epoch]
+
+    def add_epoch(self, ranked_lists: dict):
+        last_epoch = max(self.__epochs)
+        new_epoch = utils.get_next_epoch(last_epoch)
+        self.__ranked_list[new_epoch] = ranked_lists
+        self.__epochs.add(new_epoch)
 
     def __iter__(self):
         return iter(sorted(self.__epochs))
@@ -59,7 +67,7 @@ class TrecReader:
         return len(self.__queries)
 
     def get_player_ids(self, qid):
-        epoch = next(iter(self.__epochs))
+        epoch = min(self.__epochs)
         player_ids = [parse_doc_id(doc_id)[2] for doc_id in self.__ranked_list[epoch][qid]]
         return player_ids
 
