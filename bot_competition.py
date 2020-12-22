@@ -9,13 +9,14 @@ from lxml import etree
 from nltk import sent_tokenize
 
 import alternations
+import constants
 import utils
 from create_bot_features import update_text_doc
 from dataset_creator import generate_pair_ranker_learning_dataset
 from gen_utils import run_and_print
+from readers import TrecReader
 from utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, get_doc_id, \
-    parse_feature_line, VANILLA, ACCELERATION, PAST_TOP, \
-    HIGHEST_RATED_INFERIORS, PAST_TARGETS, EVERYTHING, find_accelerating_player
+    parse_feature_line, find_accelerating_player
 from vector_functionality import embedding_similarity, tfidf_similarity
 
 
@@ -264,14 +265,14 @@ def get_rankings(trec_file, bot_ids, qid, epoch):
     return bots, students
 
 
-def get_last_top_document(ranked_list, qid):
-    if len(ranked_list) == 1:
+def get_last_top_document(trec_reader: TrecReader, qid):
+    if trec_reader.get_num_epochs() == 1:
         return None
 
-    last_round, current_round = sorted(ranked_list)[-2:]
+    last_round, current_round = sorted(trec_reader)[-2:]
 
-    last_top_doc_id = ranked_list[last_round][qid][0]
-    current_top_doc_id = ranked_list[current_round][qid][0]
+    last_top_doc_id = trec_reader[last_round][qid][0]
+    current_top_doc_id = trec_reader[current_round][qid][0]
 
     if parse_doc_id(last_top_doc_id)[2] == parse_doc_id(current_top_doc_id)[2]:
         return None
@@ -285,27 +286,28 @@ def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refin
         top_docs_index = min(3, rank)
         target_documents = ranked_lists[epoch_str][qid][:top_docs_index]
 
-    elif top_refinement == VANILLA:
+    elif top_refinement == constants.VANILLA:
         target_documents = None
 
-    elif top_refinement == ACCELERATION:
+    elif top_refinement == constants.ACCELERATION:
         accelerating_doc = find_accelerating_player(ranked_lists, qid, epoch)
         target_documents = [get_doc_id(epoch, qid, accelerating_doc)] if accelerating_doc is not None \
             else None
 
-    elif top_refinement == PAST_TOP:
+    elif top_refinement == constants.PAST_TOP:
         past_top = get_last_top_document(ranked_lists, qid)
         target_documents = [past_top] if past_top is not None else None
 
-    elif top_refinement == HIGHEST_RATED_INFERIORS:
+    elif top_refinement == constants.HIGHEST_RATED_INFERIORS:
         target_documents = ranked_lists[str(epoch).zfill(2)][qid][1:3]
 
-    elif top_refinement == PAST_TARGETS and qid in past_targets:
+    elif top_refinement == constants.PAST_TARGETS and qid in past_targets:
         target_documents = past_targets[qid]
 
-    elif top_refinement == EVERYTHING:
+    elif top_refinement == constants.EVERYTHING:
         target_documents = []
-        for method in [ACCELERATION, PAST_TOP, HIGHEST_RATED_INFERIORS, PAST_TARGETS]:
+        methods = [constants.ACCELERATION, constants.PAST_TOP, constants.HIGHEST_RATED_INFERIORS, constants.PAST_TARGETS]
+        for method in methods:
             targets = get_target_documents(rank, qid, epoch, ranked_lists, past_targets, method)
             if targets is None:
                 continue

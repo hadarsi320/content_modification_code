@@ -1,0 +1,10 @@
+from multiprocessing import Lock
+
+VANILLA = 0
+ACCELERATION = 1
+PAST_TOP = 2
+HIGHEST_RATED_INFERIORS = 3
+PAST_TARGETS = 4
+EVERYTHING = 5
+
+lock = Lock()

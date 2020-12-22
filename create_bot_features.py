@@ -8,6 +8,7 @@ from copy import deepcopy
 import numpy as np
 from nltk import sent_tokenize
 
+import constants
 import utils
 from gen_utils import run_and_print
 from readers import TrecReader
@@ -295,12 +296,12 @@ def feature_creation(qrid, ranked_lists, doc_texts, ref_index, copy_docs, doc_tf
     create_features(qrid, ranked_lists, doc_texts, ref_index, copy_docs, doc_tfidf_vectors_dir,
                     sentence_tfidf_vectors_dir, query_text, output_feature_files_dir, raw_ds, word_embed_model)
 
-    utils.lock.acquire()
+    constants.lock.acquire()
     command = f"perl scripts/generateSentences.pl {output_feature_files_dir} {workingset_file}"
     run_and_print(command, 'generateSentences.pl')
     command = "mv features " + output_final_features_file
     run_and_print(command, 'move')
-    utils.lock.release()
+    constants.lock.release()
 
 
 def run_svm_rank_model(test_file, model_file, predictions_folder):

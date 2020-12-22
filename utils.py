@@ -6,7 +6,6 @@ import shutil
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
-from multiprocessing import Lock
 from os import listdir
 
 import gensim
@@ -16,16 +15,8 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
+import constants
 from gen_utils import run_bash_command, run_command, run_and_print
-
-VANILLA = 0
-ACCELERATION = 1
-PAST_TOP = 2
-HIGHEST_RATED_INFERIORS = 3
-PAST_TARGETS = 4
-EVERYTHING = 5
-
-lock = Lock()
 
 
 def create_features_file_diff(features_dir, base_index_path, new_index_path, new_features_file,
@@ -42,7 +33,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
               f'{new_index_path} {stopwords_file} {queries_text_file} {working_set_file} {features_dir}'
     run_and_print(command, command_name='LTRFeatures')
 
-    lock.acquire()
+    constants.lock.acquire()
     command = f"perl {scripts_path}generate.pl {features_dir} {working_set_file}"
     run_and_print(command, 'generate.pl')
 
@@ -51,7 +42,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
 
     command = "mv featureID " + os.path.dirname(new_features_file)
     run_and_print(command, 'move')
-    lock.release()
+    constants.lock.release()
 
     return new_features_file
 
