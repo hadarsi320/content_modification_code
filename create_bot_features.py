@@ -39,7 +39,7 @@ def create_raw_dataset(ranked_lists, doc_texts, output_file, ref_index, copy_doc
         os.makedirs(output_dir)
 
     with open(output_file, 'w') as output:
-        for epoch in ranked_lists.get_epochs():
+        for epoch in ranked_lists.epochs():
             if 'epoch' in kwargs and epoch != kwargs['epoch']:
                 continue
             for qid in ranked_lists[epoch]:
@@ -393,7 +393,7 @@ def run_reranking(qrid, trec_file, base_index, new_index, swig_path, scripts_dir
     reranking_ws = output_dir + reranking_ws_name
     score_file = output_dir + score_file_name
 
-    raw_ranked_lists = TrecReader(trec_file, raw=True)
+    raw_ranked_lists = TrecReader(trec_file=trec_file, raw=True)
     create_reranking_ws(qrid, raw_ranked_lists, reranking_ws)
     logger.info("creating features")
     features_file = create_features_file_diff(full_feature_dir, base_index, new_index, feature_file, reranking_ws,

@@ -440,12 +440,12 @@ def create_documents_workingset(output_file, **kwargs):
         if 'epochs' in kwargs:
             epochs = kwargs.pop('epochs')
         else:
-            epochs = ranked_lists.get_epochs()
+            epochs = ranked_lists.epochs()
 
         if 'qid_list' in kwargs:
             qid_list = kwargs.pop('qid-list')
         else:
-            qid_list = ranked_lists.get_queries()
+            qid_list = ranked_lists.queries()
 
         with open(output_file, 'w') as f:
             for epoch in epochs:
@@ -636,13 +636,13 @@ def get_terms(text):
 def find_accelerating_player(trec_reader, qid, c_epoch, past=1):
     c_epoch = str(c_epoch).zfill(2)
     # look only at the relevant epochs
-    epochs = [epoch for epoch in trec_reader.get_epochs() if epoch <= c_epoch]
+    epochs = [epoch for epoch in trec_reader.epochs() if epoch <= c_epoch]
 
     if len(epochs) <= past:
         return None
 
     past_rank_change = defaultdict(list)
-    pid_list = trec_reader.get_player_ids(qid)
+    pid_list = trec_reader.get_pids(qid)
     past_epochs = epochs[-(past+1):]
 
     for pid in pid_list:

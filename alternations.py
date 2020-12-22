@@ -145,7 +145,7 @@ def generate_learning_dataset():
     doc_tfidf_dir = local_dir + 'doc_tf_idf/'
     index = local_dir + 'index'
 
-    trec_reader = readers.TrecReader(trec_file)
+    trec_reader = readers.TrecReader(trec_file=trec_file)
     trec_texts = utils.read_trectext_file(trectext_file)
     stopwords = open(stopwords_file).read().split('\n')[:-1]
 
@@ -158,12 +158,12 @@ def generate_learning_dataset():
 
     X = []
     Y = []
-    for epoch in trec_reader.get_epochs():
+    for epoch in trec_reader.epochs():
         next_epoch = utils.get_next_epoch(epoch)
-        if next_epoch not in trec_reader.get_epochs():
+        if next_epoch not in trec_reader.epochs():
             break
 
-        for qid in trec_reader.get_queries():
+        for qid in trec_reader.queries():
             doc_id = trec_reader[epoch][qid][0]
             next_doc_id = utils.get_next_doc_id(doc_id)
             query = utils.get_query_text(queries_file, qid)

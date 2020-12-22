@@ -119,7 +119,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     for epoch in range(1, rounds + 1):
         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
         qrid = get_qrid(qid, epoch)
-        trec_reader = TrecReader(comp_trec_file)
+        trec_reader = TrecReader(trec_file=comp_trec_file)
         trec_texts = read_trectext_file(comp_trectext_file)
         bot_rankings, student_rankings = get_rankings(comp_trec_file, bots, qid, epoch)
 

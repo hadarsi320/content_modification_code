@@ -266,7 +266,7 @@ def get_rankings(trec_file, bot_ids, qid, epoch):
 
 
 def get_last_top_document(trec_reader: TrecReader, qid):
-    if trec_reader.get_num_epochs() == 1:
+    if trec_reader.num_epochs() == 1:
         return None
 
     last_round, current_round = sorted(trec_reader)[-2:]
