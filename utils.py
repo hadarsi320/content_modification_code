@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import pickle
 import re
@@ -619,13 +620,15 @@ def get_next_epoch(epoch) -> str:
     return str(int(epoch) + 1).zfill(2)
 
 
-def count_occurrences(text, terms, opposite=False):
-    text = clean_texts(text)
+def count_occurrences(text, terms, opposite=False, unique=False):
+    text_words = clean_texts(text).split()
+    if unique:
+        text_words = set(text_words)
     terms = [clean_texts(string) for string in terms]
     if opposite:
-        res = sum(word not in terms for word in text.split())
+        res = sum(word not in terms for word in text_words)
     else:
-        res = sum(word in terms for word in text.split())
+        res = sum(word in terms for word in text_words)
     return res
 
 
@@ -633,36 +636,59 @@ def get_terms(text):
     return set(clean_texts(text).split())
 
 
-def find_accelerating_player(trec_reader, qid, c_epoch, past=1):
-    c_epoch = str(c_epoch).zfill(2)
+def get_player_acceleration(last_epoch, qid, trec_reader, past=1, reverse=True):
     # look only at the relevant epochs
-    epochs = [epoch for epoch in trec_reader.epochs() if epoch <= c_epoch]
+    epochs = [epoch for epoch in trec_reader.epochs() if int(epoch) <= int(last_epoch)]
 
     if len(epochs) <= past:
         return None
 
-    past_rank_change = defaultdict(list)
     pid_list = trec_reader.get_pids(qid)
-    past_epochs = epochs[-(past+1):]
+    max_rank = len(pid_list)
+    player_ranks = {pid: get_player_ranks(last_epoch, qid, pid, trec_reader)[-(past+1):] for pid in pid_list}
+    player_rank_change = {pid: get_rank_change(player_ranks[pid], max_rank) for pid in pid_list}
 
-    for pid in pid_list:
-        last_rank = None
-        for epoch in past_epochs:
-            rank = trec_reader[epoch][qid].index(get_doc_id(epoch, qid, pid))
-            if last_rank is not None:
-                past_rank_change[pid].append(last_rank - rank)
-            last_rank = rank
-
-    average_rank_change = {pid: np.average(past_rank_change[pid]) for pid in pid_list}
-    ordered_rising_players = sorted(past_rank_change, key=lambda x: average_rank_change[x], reverse=True)
-
-    last_epoch = max(epochs)
-    fastest_rising_pid = ordered_rising_players[0]
-    if trec_reader[last_epoch][qid].index(get_doc_id(last_epoch, qid, fastest_rising_pid)) == 0:
-        # we do not want to return the document that is ranked first as that is us
-        fastest_rising_pid = ordered_rising_players[1]
-
-    if average_rank_change[fastest_rising_pid] > 0:
-        return fastest_rising_pid
-    else:
+    average_rank_change = {pid: np.average(player_rank_change[pid]) for pid in pid_list}
+    if all(item == 0 for item in average_rank_change):
+        # don't want to return anything if no one moved
         return None
+
+    ordered_pids = sorted(player_rank_change, key=lambda x: average_rank_change[x], reverse=reverse)
+    return ordered_pids
+
+
+def get_player_ranks(last_epoch, qid, pid, trec_reader):
+    ranks = []
+    for epoch in trec_reader:
+        if int(epoch) > int(last_epoch):
+            break
+        doc_id = get_doc_id(epoch, qid, pid)
+        ranks.append(trec_reader[epoch][qid].index(doc_id))
+    return ranks
+
+
+def get_rank_change(ranks, max_rank, scaled=False):
+    if scaled:
+        rank_change = []
+        last_rank = None
+        for rank in ranks:
+            if last_rank is not None:
+                if last_rank == rank:
+                    rank_change.append(0)
+                elif last_rank > rank:
+                    rank_change.append((last_rank - rank) / last_rank)
+                else:
+                    rank_change.append((last_rank - rank) / (max_rank - last_rank))
+
+            last_rank = rank
+    else:
+        rank_change = [ranks[i] - ranks[i+1] for i in range(len(ranks)-1)]
+    return rank_change
+
+
+def dsum(lst: list, base=2):
+    d_sum = 0.0
+    for i, item in enumerate(reversed(lst)):
+        d_sum += item / math.log(i + base, base)
+        # d_sum += item / math.pow(base, i)
+    return d_sum
