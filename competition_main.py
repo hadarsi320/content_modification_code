@@ -138,7 +138,8 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             next_doc_id = get_doc_id(epoch + 1, qid, bot_id)
             bot_rank = bot_rankings[bot_id]
 
-            target_documents = get_target_documents(bot_rank, qid, epoch, trec_reader, past_targets, top_refinement)
+            target_documents = get_target_documents(epoch, qid, bot_id, bot_rank, trec_reader, past_targets,
+                                                    top_refinement)
             past_targets[qid] = target_documents
             if target_documents is not None:
                 # Creating features

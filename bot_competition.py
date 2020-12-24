@@ -16,7 +16,7 @@ from dataset_creator import generate_pair_ranker_learning_dataset
 from gen_utils import run_and_print
 from readers import TrecReader
 from utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, get_doc_id, \
-    parse_feature_line, find_accelerating_player
+    parse_feature_line, get_player_acceleration
 from vector_functionality import embedding_similarity, tfidf_similarity
 
 
@@ -280,7 +280,7 @@ def get_last_top_document(trec_reader: TrecReader, qid):
     return last_top_doc_id
 
 
-def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refinement):
+def get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, top_refinement):
     if rank > 0:
         epoch_str = str(epoch).zfill(2)
         top_docs_index = min(3, rank)
@@ -290,9 +290,12 @@ def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refin
         target_documents = None
 
     elif top_refinement == constants.ACCELERATION:
-        accelerating_doc = find_accelerating_player(ranked_lists, qid, epoch)
-        target_documents = [get_doc_id(epoch, qid, accelerating_doc)] if accelerating_doc is not None \
-            else None
+        player_acceleration = get_player_acceleration(epoch, qid, ranked_lists)
+        if player_acceleration is None:
+            target_documents = None
+        else:
+            accel_player = player_acceleration[0] if player_acceleration[0] != pid else player_acceleration[1]
+            target_documents = [get_doc_id(epoch, qid, accel_player)]
 
     elif top_refinement == constants.PAST_TOP:
         past_top = get_last_top_document(ranked_lists, qid)
@@ -308,7 +311,7 @@ def get_target_documents(rank, qid, epoch, ranked_lists, past_targets, top_refin
         target_documents = []
         methods = [constants.ACCELERATION, constants.PAST_TOP, constants.HIGHEST_RATED_INFERIORS, constants.PAST_TARGETS]
         for method in methods:
-            targets = get_target_documents(rank, qid, epoch, ranked_lists, past_targets, method)
+            targets = get_target_documents(epoch, qid, ranked_lists, rank, past_targets, method, )
             if targets is None:
                 continue
             for target in targets:
