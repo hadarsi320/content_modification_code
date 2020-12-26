@@ -1,11 +1,11 @@
 import datetime
 import itertools
+import os
 import pickle
 import shutil
 from multiprocessing import Pool, Lock
 
 import numpy as np
-import os
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression, Perceptron
 from sklearn.model_selection import KFold
@@ -16,10 +16,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
+import utils.general_utils as utils
 from bot import bot_competition
-import utils
-from utils import utils, readers
-from vector_functionality import tfidf_similarity, embedding_similarity, similarity_to_centroid_tf_idf, \
+from utils import readers
+from utils.vector_utils import tfidf_similarity, embedding_similarity, similarity_to_centroid_tf_idf, \
     document_centroid, similarity_to_centroid_semantic
 
 
@@ -27,7 +27,10 @@ def term_difference(text_1, text_2, terms, opposite=False):
     return utils.count_occurrences(text_1, terms, opposite) - utils.count_occurrences(text_2, terms, opposite)
 
 
-def get_unique_term_difference(old_text, new_text, rival_text, target_terms):
+def get_term_statistics(old_text, new_text, rival_text, target_terms):
+    """
+    Inspired by Raifer's paper
+    """
     res = [0] * 4
     added_terms = utils.get_terms(new_text) - utils.get_terms(old_text)
     removed_terms = utils.get_terms(old_text) - utils.get_terms(new_text)
@@ -294,9 +297,11 @@ def train_alteration_classifier(X, Y, model=RandomForestClassifier, model_params
 
 
 def test_feature_setup(bool_vec, models, pickles_dir):
-    X, Y = generate_learning_dataset(bool_vec)
-    res = test_models(models, X, Y)
-    pickle.dump(res, open(f'{pickles_dir}/{bool_vec}.pkl', 'wb'))
+    if any(item != 0 for item in bool_vec):
+        X, Y = generate_learning_dataset(bool_vec)
+        res = test_models(models, X, Y)
+        pickle.dump(res, open(f'{pickles_dir}/{bool_vec}.pkl', 'wb'))
+        print(f'Finished running: {bool_vec}')
 
 
 def main():
@@ -316,13 +321,13 @@ def main():
               RandomForestClassifier(max_depth=5), RandomForestClassifier(max_depth=10),
               RandomForestClassifier(max_depth=None), ]
 
+    pickles_dir = 'pickles_v2/'
     bool_vec = list(itertools.product([0, 1], repeat=10))
-    utils.ensure_dirs('pickles/')
-    args = [(f, models, 'pickles/') for f in bool_vec]
+    utils.ensure_dirs(pickles_dir)
+    args = [(f, models, pickles_dir) for f in bool_vec]
     with Pool() as p:
         p.starmap(test_feature_setup, args)
     shutil.rmtree('tmp/')
-
 
     # results_dict = {feature_setups[i]: results[i] for i in range(len(feature_setups))}
     # pickle.dump(results_dict, open('features_dict.pkl', 'wb'))
