@@ -1,7 +1,7 @@
 from krovetzstemmer import Stemmer
 import numpy as np
 import math
-from utils import get_java_object, clean_texts
+from utils.general_utils import get_java_object, clean_texts
 
 
 def clean_sentence(sentence):

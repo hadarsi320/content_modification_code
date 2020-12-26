@@ -8,7 +8,7 @@ import numpy as np
 import scipy.stats
 from matplotlib import pyplot as plt
 
-import utils
+import utils.general_utils as utils
 from utils.data_statistics import compute_average_rank, compute_average_promotion, cumpute_atd
 from utils.readers import TrecReader
 # from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file, read_trec_dir, \

@@ -6,14 +6,14 @@ import sys
 
 from deprecated import deprecated
 
-import utils
+import utils.general_utils as utils
 from bot.bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_target_documents, generate_predictions, get_highest_ranked_pair, generate_updated_document, \
     update_trec_file, generate_document_tfidf_files, record_doc_similarity, record_replacement, replacement_validation
 from bot.create_bot_features import create_bot_features
 from bot.create_bot_features import run_reranking
 from utils.readers import TrecReader
-from utils.utils import get_doc_id, update_trectext_file, complete_sim_file, create_index, \
+from utils.general_utils import get_doc_id, update_trectext_file, complete_sim_file, create_index, \
     create_documents_workingset, \
     get_next_doc_id, load_word_embedding_model, get_competitors, ensure_dirs, get_model_name, get_qrid, \
     read_trectext_file
@@ -46,7 +46,7 @@ def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, o
         raw_ds_file = raw_ds_dir + 'raw_ds_out_{}_{}.txt'.format(qrid, ','.join(competitor_list))
         features_file = final_features_dir + 'features_{}_{}.dat'.format(qrid, ','.join(competitor_list))
 
-        ranked_lists = read_trec_file(comp_trec_file)
+        ranked_lists = utils.read_trec_file(comp_trec_file)
         winner_doc_id, loser_doc_id = ranked_lists[str(epoch).zfill(2)][qid]
 
         # creating features

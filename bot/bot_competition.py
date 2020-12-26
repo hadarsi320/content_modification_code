@@ -10,14 +10,14 @@ from nltk import sent_tokenize
 
 import alternations
 import constants
-import utils
+import utils.general_utils as utils
 from bot.create_bot_features import update_text_doc
 from dataset_creator import generate_pair_ranker_learning_dataset
 from utils.gen_utils import run_and_print
 from utils.readers import TrecReader
-from utils.utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, get_doc_id, \
+from utils.general_utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, get_doc_id, \
     parse_feature_line, get_player_acceleration
-from vector_functionality import embedding_similarity, tfidf_similarity
+from utils.vector_utils import embedding_similarity, tfidf_similarity
 
 
 def create_initial_trec_file(output_dir, qid, bots, only_bots, **kwargs):

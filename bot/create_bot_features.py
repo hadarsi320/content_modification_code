@@ -11,10 +11,10 @@ from nltk import sent_tokenize
 import constants
 from utils.gen_utils import run_and_print
 from utils.readers import TrecReader
-from utils import clean_texts, get_java_object, create_trectext_file, run_model, create_features_file_diff, \
+from utils.general_utils import clean_texts, get_java_object, create_trectext_file, run_model, create_features_file_diff, \
     create_trec_eval_file, order_trec_file, retrieve_scores, get_query_text, parse_qrid, create_index_to_query_dict,\
     generate_pair_name, ensure_dirs, tokenize_document, is_file_empty, get_next_doc_id, get_next_qrid
-from vector_functionality import query_term_freq, embedding_similarity, similarity_to_centroid_tf_idf, \
+from utils.vector_utils import query_term_freq, embedding_similarity, similarity_to_centroid_tf_idf, \
     document_centroid, similarity_to_centroid_semantic, get_text_centroid, add_dict, cosine_similarity
 
 

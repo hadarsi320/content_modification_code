@@ -3,7 +3,7 @@ from collections import defaultdict
 
 import os
 
-import utils
+import utils.general_utils as utils
 
 
 class TrecReader:

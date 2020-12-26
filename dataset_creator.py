@@ -1,4 +1,4 @@
-from utils.utils import ensure_dirs
+from utils.general_utils import ensure_dirs
 
 
 def read_labels(file):
