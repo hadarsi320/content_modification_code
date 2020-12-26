@@ -76,6 +76,38 @@ def is_reliable(pid, qid, last_epoch, trec_reader, scaled=False):
     return amount_superior >= 3
 
 
+def old_create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords):
+    def tfidf_sim(x, y):
+        return tfidf_similarity(doc_tfidf_dir + x, doc_tfidf_dir + y)
+
+    def embed_sim(x, y):
+        return embedding_similarity(trec_texts[x], trec_texts[y], word_embedding_model)
+
+    def count_terms(x, t, opposite=False):
+        return utils.count_occurrences(trec_texts[x], t, opposite)
+
+    query_words = query.split()
+    old_doc_id = trec_reader[epoch][qid][0]
+    new_doc_id = utils.get_next_doc_id(old_doc_id)
+    pid = utils.parse_doc_id(old_doc_id)[2]
+    features = []
+
+    player_accel = utils.get_player_accelerations(epoch, qid, trec_reader)
+    if player_accel is not None:
+        accel_pid = player_accel[0] if player_accel[0] != pid else player_accel[1]
+        accel_doc_id = utils.get_doc_id(epoch, qid, accel_pid)
+        features.append(tfidf_sim(accel_doc_id, new_doc_id))
+        features.append(embed_sim(accel_doc_id, new_doc_id))
+    else:
+        features += [0] * 2
+
+    features.append(count_terms(new_doc_id, stopwords))
+    features.append(count_terms(new_doc_id, query_words))
+    features.append(count_terms(new_doc_id, stopwords + query_words, True))
+
+    return np.array(features)
+
+
 def create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords,
                     feature_booleans):
     def tfidf_sim(x, y):
@@ -127,7 +159,7 @@ def create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, w
             features.append(embed_sim(rival_doc_id, new_doc_id))
 
     doc_pid = utils.parse_doc_id(old_doc_id)[2]
-    player_acceleration = utils.get_player_acceleration(epoch, qid, trec_reader)
+    player_acceleration = utils.get_player_accelerations(epoch, qid, trec_reader)
     if feature_booleans[6]:
         if player_acceleration is not None and player_acceleration[0] != doc_pid:
             accel_pid = player_acceleration[0]
@@ -143,6 +175,8 @@ def create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, w
             decel_doc_id = utils.get_doc_id(epoch, qid, decel_pid)
             features.append(tfidf_sim(decel_doc_id, new_doc_id))
             features.append(embed_sim(decel_doc_id, new_doc_id))
+        else:
+            features += [0] * 2
 
     if feature_booleans[8]:
         features.append(count_terms(new_doc_id, stopwords))
@@ -246,11 +280,10 @@ def generate_learning_dataset(feature_setup):
             Y.append(next_rank == 0)
 
     # shutil.rmtree(local_dir)
-    return np.array(X), np.array(Y)
+    return np.stack(X), np.stack(Y)
 
 
 def test_models(models, X, Y):
-    # results = cross_validate(models, X, Y)
     results = {}
     for model in models:
         results[str(model)] = run_kfold_cross_val(X, Y, model)
