@@ -6,17 +6,16 @@ import sys
 
 from deprecated import deprecated
 
-import utils.general_utils as utils
 from bot.bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_target_documents, generate_predictions, get_highest_ranked_pair, generate_updated_document, \
-    update_trec_file, generate_document_tfidf_files, record_doc_similarity, record_replacement, replacement_validation
+    update_trec_file, generate_document_tfidf_files, record_replacement, replacement_validation
 from bot.create_bot_features import create_bot_features
 from bot.create_bot_features import run_reranking
-from utils.readers import TrecReader
-from utils.general_utils import get_doc_id, update_trectext_file, complete_sim_file, create_index, \
+from utils.general_utils import get_doc_id, update_trectext_file, create_index, \
     create_documents_workingset, \
-    get_next_doc_id, load_word_embedding_model, get_competitors, ensure_dirs, get_model_name, get_qrid, \
+    load_word_embedding_model, get_competitors, ensure_dirs, get_model_name, get_qrid, \
     read_trectext_file
+from utils.readers import TrecReader
 
 
 @deprecated("This function is outdated and is incompatible with many of the current ")
@@ -39,7 +38,6 @@ from utils.general_utils import get_doc_id, update_trectext_file, complete_sim_f
 #                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
 #     record_doc_similarity(doc_texts, 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 #
-#     # TODO set the epoch to be 0 -> total_rounds
 #     for epoch in range(1, total_rounds + 1):
 #         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
 #         qrid = get_qrid(qid, epoch)
@@ -94,7 +92,6 @@ from utils.general_utils import get_doc_id, update_trectext_file, complete_sim_f
 #         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
 #                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
 #         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
-
 
 def run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
@@ -163,12 +160,13 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
             # Find highest ranked pair
             rep_doc_id, out_index, in_index, features = get_highest_ranked_pair(features_file, ranking_file)
 
+            old_doc = trec_texts[bot_doc_id]
             new_doc = generate_updated_document(trec_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
                                                 out_index=out_index, in_index=in_index)
 
             if bot_rank == 0:
                 # reconsider replacement
-                replacement_valid = replacement_validation(next_doc_id, new_doc, qid, epoch, queries_xml_file,
+                replacement_valid = replacement_validation(next_doc_id, old_doc, new_doc, qid, epoch, queries_xml_file,
                                                            trec_reader, trec_texts, alternation_classifier,
                                                            word_embedding_model, stopwords_file, rep_val_dir,
                                                            base_index, indri_path, swig_path)
@@ -317,7 +315,9 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
 
 
 if __name__ == '__main__':
-    competition_setup(mode='raifer', qid='002', bots=['44'], top_refinement=utils.ACCELERATION)
+    import constants
+
+    competition_setup(mode='raifer', qid='002', bots=['44'], top_refinement=constants.ACCELERATION)
 
     # parser = OptionParser()
     # parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])
