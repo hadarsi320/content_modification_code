@@ -20,80 +20,80 @@ from utils.general_utils import get_doc_id, update_trectext_file, complete_sim_f
 
 
 @deprecated("This function is outdated and is incompatible with many of the current ")
-def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, output_dir, base_index, comp_index,
-                          document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
-                          predictions_dir, final_features_dir, swig_path, indri_path, replacements_file,
-                          similarity_file, svm_rank_scripts_dir, total_rounds, scripts_dir, stopwords_file,
-                          queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_rank_model,
-                          word_embedding_model):
-    # initalizing the trec and trectext files specific to this competition
-    comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, trec_file=full_trec_file,
-                                              bots=competitor_list, only_bots=True)
-    comp_trectext_file = create_initial_trectext_file(output_dir=trectext_dir, qid=qid, trectext_file=trectext_file,
-                                                      bots=competitor_list, only_bots=True)
-
-    doc_texts = read_trectext_file(comp_trectext_file)
-    create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-    create_documents_workingset(document_workingset_file, competitor_list, qid, 1)
-    generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                  swig_path=swig_path, base_index=base_index, new_index=comp_index)
-    record_doc_similarity(doc_texts, 1, similarity_file, word_embedding_model, doc_tfidf_dir)
-
-    # TODO set the epoch to be 0 -> total_rounds
-    for epoch in range(1, total_rounds + 1):
-        print('\n{} Starting round {}\n'.format('#' * 8, epoch))
-        qrid = get_qrid(qid, epoch)
-        raw_ds_file = raw_ds_dir + 'raw_ds_out_{}_{}.txt'.format(qrid, ','.join(competitor_list))
-        features_file = final_features_dir + 'features_{}_{}.dat'.format(qrid, ','.join(competitor_list))
-
-        ranked_lists = utils.read_trec_file(comp_trec_file)
-        winner_doc_id, loser_doc_id = ranked_lists[str(epoch).zfill(2)][qid]
-
-        # creating features
-        cant_append = create_bot_features(qrid=qrid, ref_index=1, ranked_lists=ranked_lists,
-                                          doc_texts=doc_texts, output_dir=output_dir,
-                                          word_embed_model=word_embedding_model, raw_ds_file=raw_ds_file,
-                                          doc_tfidf_dir=doc_tfidf_dir, base_index=base_index, new_index=comp_index,
-                                          documents_workingset_file=document_workingset_file, swig_path=swig_path,
-                                          queries_file=queries_xml_file, final_features_file=features_file)
-        if cant_append:
-            complete_sim_file(similarity_file, total_rounds)
-            break
-
-        # ranking the pairs
-        ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir, features_file)
-
-        # creating the new document
-        rep_doc_id, out_index, in_index = get_highest_ranked_pair(features_file, ranking_file)
-        record_replacement(replacements_file, epoch, loser_doc_id, rep_doc_id, out_index, in_index)
-        updated_document = generate_updated_document(doc_texts, ref_doc_id=loser_doc_id, rep_doc_id=winner_doc_id,
-                                                     out_index=out_index, in_index=in_index)
-        winner_doc = doc_texts[winner_doc_id]
-
-        # updating the trectext file
-        new_docs = {get_next_doc_id(winner_doc_id): winner_doc,
-                    get_next_doc_id(loser_doc_id): updated_document}
-        update_trectext_file(comp_trectext_file, doc_texts, new_docs)
-
-        # updating the index
-        create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
-
-        # TODO use multiprocessing
-        # updating the trec file
-        reranked_trec_file = run_reranking(qrid, comp_trec_file, base_index, comp_index, swig_path,
-                                           scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
-                                           document_rank_model, output_dir=reranking_dir)
-        update_trec_file(comp_trec_file, reranked_trec_file)
-
-        # removing the reranking dir so that the ranking does not get reused by mistake
-        shutil.rmtree(reranking_dir)
-
-        # creating document tfidf vectors (+ recording doc similarity)
-        doc_texts = read_trectext_file(comp_trectext_file)
-        create_documents_workingset(document_workingset_file, competitor_list, qid, epoch + 1)
-        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                      swig_path=swig_path, base_index=base_index, new_index=comp_index)
-        record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
+# def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, output_dir, base_index, comp_index,
+#                           document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
+#                           predictions_dir, final_features_dir, swig_path, indri_path, replacements_file,
+#                           similarity_file, svm_rank_scripts_dir, total_rounds, scripts_dir, stopwords_file,
+#                           queries_text_file, queries_xml_file, ranklib_jar, document_rank_model, pair_rank_model,
+#                           word_embedding_model):
+#     # initalizing the trec and trectext files specific to this competition
+#     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, trec_file=full_trec_file,
+#                                               bots=competitor_list, only_bots=True)
+#     comp_trectext_file = create_initial_trectext_file(output_dir=trectext_dir, qid=qid, trectext_file=trectext_file,
+#                                                       bots=competitor_list, only_bots=True)
+#
+#     doc_texts = read_trectext_file(comp_trectext_file)
+#     create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
+#     create_documents_workingset(document_workingset_file, competitor_list, qid, 1)
+#     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
+#                                   swig_path=swig_path, base_index=base_index, new_index=comp_index)
+#     record_doc_similarity(doc_texts, 1, similarity_file, word_embedding_model, doc_tfidf_dir)
+#
+#     # TODO set the epoch to be 0 -> total_rounds
+#     for epoch in range(1, total_rounds + 1):
+#         print('\n{} Starting round {}\n'.format('#' * 8, epoch))
+#         qrid = get_qrid(qid, epoch)
+#         raw_ds_file = raw_ds_dir + 'raw_ds_out_{}_{}.txt'.format(qrid, ','.join(competitor_list))
+#         features_file = final_features_dir + 'features_{}_{}.dat'.format(qrid, ','.join(competitor_list))
+#
+#         ranked_lists = utils.read_trec_file(comp_trec_file)
+#         winner_doc_id, loser_doc_id = ranked_lists[str(epoch).zfill(2)][qid]
+#
+#         # creating features
+#         cant_append = create_bot_features(qrid=qrid, ref_index=1, ranked_lists=ranked_lists,
+#                                           doc_texts=doc_texts, output_dir=output_dir,
+#                                           word_embed_model=word_embedding_model, raw_ds_file=raw_ds_file,
+#                                           doc_tfidf_dir=doc_tfidf_dir, base_index=base_index, new_index=comp_index,
+#                                           documents_workingset_file=document_workingset_file, swig_path=swig_path,
+#                                           queries_file=queries_xml_file, final_features_file=features_file)
+#         if cant_append:
+#             complete_sim_file(similarity_file, total_rounds)
+#             break
+#
+#         # ranking the pairs
+#         ranking_file = generate_predictions(pair_rank_model, svm_rank_scripts_dir, predictions_dir, features_file)
+#
+#         # creating the new document
+#         rep_doc_id, out_index, in_index = get_highest_ranked_pair(features_file, ranking_file)
+#         record_replacement(replacements_file, epoch, loser_doc_id, rep_doc_id, out_index, in_index)
+#         updated_document = generate_updated_document(doc_texts, ref_doc_id=loser_doc_id, rep_doc_id=winner_doc_id,
+#                                                      out_index=out_index, in_index=in_index)
+#         winner_doc = doc_texts[winner_doc_id]
+#
+#         # updating the trectext file
+#         new_docs = {get_next_doc_id(winner_doc_id): winner_doc,
+#                     get_next_doc_id(loser_doc_id): updated_document}
+#         update_trectext_file(comp_trectext_file, doc_texts, new_docs)
+#
+#         # updating the index
+#         create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
+#
+#         # TODO use multiprocessing
+#         # updating the trec file
+#         reranked_trec_file = run_reranking(qrid, comp_trec_file, base_index, comp_index, swig_path,
+#                                            scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
+#                                            document_rank_model, output_dir=reranking_dir)
+#         update_trec_file(comp_trec_file, reranked_trec_file)
+#
+#         # removing the reranking dir so that the ranking does not get reused by mistake
+#         shutil.rmtree(reranking_dir)
+#
+#         # creating document tfidf vectors (+ recording doc similarity)
+#         doc_texts = read_trectext_file(comp_trectext_file)
+#         create_documents_workingset(document_workingset_file, competitor_list, qid, epoch + 1)
+#         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
+#                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
+#         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
 
 def run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
