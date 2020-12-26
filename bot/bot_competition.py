@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 from copy import deepcopy
 from os.path import exists, basename, splitext
 
+import numpy as np
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
@@ -16,7 +17,7 @@ from dataset_creator import generate_pair_ranker_learning_dataset
 from utils.gen_utils import run_and_print
 from utils.readers import TrecReader
 from utils.general_utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, get_doc_id, \
-    parse_feature_line, get_player_acceleration
+    parse_feature_line, get_player_accelerations
 from utils.vector_utils import embedding_similarity, tfidf_similarity
 
 
@@ -290,7 +291,7 @@ def get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, top_
         target_documents = None
 
     elif top_refinement == constants.ACCELERATION:
-        player_acceleration = get_player_acceleration(epoch, qid, ranked_lists)
+        player_acceleration = get_player_accelerations(epoch, qid, ranked_lists)
         if player_acceleration is None:
             target_documents = None
         else:
@@ -324,7 +325,7 @@ def get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, top_
     return target_documents
 
 
-def replacement_validation(next_doc_id, new_text, qid, epoch, queries_file, trec_reader, trec_texts,
+def replacement_validation(next_doc_id, old_text, new_text, qid, epoch, queries_file, trec_reader, trec_texts,
                            alternation_classifier, word_embedding_model, stopwords_file, output_dir, base_index,
                            indri_path, swig_path, rep_index_fname='rep_val_index', trectext_fname='trectext_file',
                            document_workingset_fname='doc_ws', doc_tfidf_dname='doc_tfidf'):
@@ -336,26 +337,29 @@ def replacement_validation(next_doc_id, new_text, qid, epoch, queries_file, trec
     next_epoch = epoch + 1
 
     trec_texts = deepcopy(trec_texts)
-    trec_texts[next_doc_id] = new_text
 
-    trec_reader = deepcopy(trec_reader)
-    trec_reader.add_epoch({qid: [next_doc_id]})
+    X = []
+    for text in [old_text, new_text]:
+        trec_texts[next_doc_id] = text
 
-    stopwords = open(stopwords_file).read().split('\n')[:-1]
-    query = utils.get_query_text(queries_file, qid)
+        trec_reader = deepcopy(trec_reader)
+        trec_reader.add_epoch({qid: [next_doc_id]})
 
-    utils.ensure_dirs(output_dir)
-    utils.create_trectext_file(trec_texts, trectext_file)
-    utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
-    utils.create_documents_workingset(
-        document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
-    generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                  swig_path=swig_path, base_index=base_index, new_index=rep_index)
+        stopwords = open(stopwords_file).read().split('\n')[:-1]
+        query = utils.get_query_text(queries_file, qid)
 
-    x = alternations.create_features(
-        qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords)
-    y = alternation_classifier.predict(x.reshape((1, -1)))
-    return y == 1
+        utils.ensure_dirs(output_dir)
+        utils.create_trectext_file(trec_texts, trectext_file)
+        utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
+        utils.create_documents_workingset(
+            document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
+        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
+                                      swig_path=swig_path, base_index=base_index, new_index=rep_index)
+
+        X.append(alternations.old_create_features(
+            qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords))
+    true_probabilities = alternation_classifier.predict_log_proba(X)[:, 1]
+    return np.argmax(true_probabilities) == 1
 
 
 # def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_path, indri_path, document_rank_model,
