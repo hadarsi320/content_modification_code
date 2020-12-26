@@ -9,7 +9,7 @@ import scipy.stats
 from matplotlib import pyplot as plt
 
 import utils
-from data_analysis import compute_average_rank, compute_average_promotion, cumpute_atd
+from utils.data_statistics import compute_average_rank, compute_average_promotion, cumpute_atd
 from utils.readers import TrecReader
 # from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file, read_trec_dir, \
 #     get_competitors, read_features_dir, parse_doc_id, \

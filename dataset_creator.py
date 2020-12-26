@@ -1,6 +1,4 @@
-import sys
-
-from utils import ensure_dirs
+from utils.utils import ensure_dirs
 
 
 def read_labels(file):

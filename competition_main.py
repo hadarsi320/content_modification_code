@@ -7,13 +7,14 @@ import sys
 from deprecated import deprecated
 
 import utils
-from bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
+from bot.bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_target_documents, generate_predictions, get_highest_ranked_pair, generate_updated_document, \
     update_trec_file, generate_document_tfidf_files, record_doc_similarity, record_replacement, replacement_validation
-from create_bot_features import create_bot_features
-from create_bot_features import run_reranking
+from bot.create_bot_features import create_bot_features
+from bot.create_bot_features import run_reranking
 from utils.readers import TrecReader
-from utils import get_doc_id, update_trectext_file, complete_sim_file, create_index, create_documents_workingset, \
+from utils.utils import get_doc_id, update_trectext_file, complete_sim_file, create_index, \
+    create_documents_workingset, \
     get_next_doc_id, load_word_embedding_model, get_competitors, ensure_dirs, get_model_name, get_qrid, \
     read_trectext_file
 

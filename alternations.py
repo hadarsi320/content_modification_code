@@ -16,9 +16,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
-import bot_competition
+from bot import bot_competition
 import utils
-from utils import get_player_acceleration, readers
+from utils import utils, readers
 from vector_functionality import tfidf_similarity, embedding_similarity, similarity_to_centroid_tf_idf, \
     document_centroid, similarity_to_centroid_semantic
 
@@ -124,7 +124,7 @@ def create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, w
             features.append(embed_sim(rival_doc_id, new_doc_id))
 
     doc_pid = utils.parse_doc_id(old_doc_id)[2]
-    player_acceleration = get_player_acceleration(epoch, qid, trec_reader)
+    player_acceleration = utils.get_player_acceleration(epoch, qid, trec_reader)
     if feature_booleans[6]:
         if player_acceleration is not None and player_acceleration[0] != doc_pid:
             accel_pid = player_acceleration[0]

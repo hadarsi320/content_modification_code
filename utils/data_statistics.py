@@ -2,8 +2,6 @@ from collections import defaultdict
 
 import numpy as np
 
-from utils import parse_doc_id
-
 
 def in_group(competitor, group, bots):
     dummy_bots = [bot for bot in bots if bot.startswith('DUMMY')]
@@ -71,23 +69,6 @@ def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=Fal
     :param scaled: if True: return average scaled promotion, if False: return average promotion
     :return: an array with 3 cells where the i-th cell is the promotion from i-th round to the i+1-th round
     """
-    # rank_promotion = []
-    # for competition_id in ranked_lists:
-    #     dummy_bot = None if paper_data else competition_id.split('_')[3]
-    #     competition = ranked_lists[competition_id]
-    #     competitors_list = competitors_lists[competition_id]
-    #     for competitor in competitors_list:
-    #         if not in_group(competitor, group, dummy_bot):
-    #             continue
-    #         lst = []
-    #         for last_epoch, epoch in zip(sorted(competition), sorted(competition)[1:]):
-    #             last_rank = competition[last_epoch].index(competitor)+1
-    #             rank = competition[epoch].index(competitor)+1
-    #             lst.append(get_scaled_promotion(last_rank, rank) if scaled else (last_rank - rank))
-    #         rank_promotion.append(lst)
-    # average_rank_promotion = np.average(rank_promotion, axis=0)
-    # return average_rank_promotion
-
     epochs = sorted(ranked_lists[next(iter(ranked_lists))])
     rank_promotion = defaultdict(list)
     for competition_id in ranked_lists:
@@ -118,6 +99,9 @@ def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=Fal
 
 
 def cumpute_atd(ranked_lists):
+    """
+    Computes the average top duration of students and bots
+    """
     bots_td, students_td = [], []
     for competition_id in ranked_lists:
         bots = competition_id.split('_')[3].split(',')
