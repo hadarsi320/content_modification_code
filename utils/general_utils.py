@@ -636,7 +636,7 @@ def get_terms(text):
     return set(clean_texts(text).split())
 
 
-def get_player_acceleration(last_epoch, qid, trec_reader, past=1, reverse=True):
+def get_player_accelerations(last_epoch, qid, trec_reader, past=1, reverse=True, leave_top=True):
     # look only at the relevant epochs
     epochs = [epoch for epoch in trec_reader.epochs() if int(epoch) <= int(last_epoch)]
 
@@ -654,6 +654,9 @@ def get_player_acceleration(last_epoch, qid, trec_reader, past=1, reverse=True):
         return None
 
     ordered_pids = sorted(player_rank_change, key=lambda x: average_rank_change[x], reverse=reverse)
+    if leave_top:
+        top_pid = trec_reader.get_top_player(qid, epoch=last_epoch)
+        ordered_pids = [pid for pid in ordered_pids if pid != top_pid]
     return ordered_pids
 
 
