@@ -13,7 +13,10 @@ class TrecReader:
         self.__qrid_list = set()
 
         if 'trec_file' in kwargs:
-            self.__ranked_list = self.__read_trec_file(kwargs.pop('trec_file'))
+            if 'raw' in kwargs and kwargs['raw'] is True:
+                self.__ranked_list = self.__read_raw_trec_file(kwargs.pop('trec_file'))
+            else:
+                self.__ranked_list = self.__read_trec_file(kwargs.pop('trec_file'))
         elif 'trec_dir' in kwargs:
             self.__ranked_list = self.__read_trec_dir(kwargs.pop('trec_dir'))
         else:
@@ -94,6 +97,12 @@ class TrecReader:
 
     def max_rank(self):
         return max(len(self.get_pids(qid)) for qid in self.__queries)
+
+    def get_top_player(self, qid, epoch=None):
+        if epoch is None:
+            epoch = max(self.__epochs)
+        top_doc_id = self[epoch][qid][0]
+        return utils.parse_doc_id(top_doc_id)[2]
 
 
 if __name__ == '__main__':
