@@ -17,7 +17,7 @@ from lxml import etree
 from nltk import sent_tokenize
 
 import constants
-from gen_utils import run_bash_command, run_command, run_and_print
+from utils.gen_utils import run_bash_command, run_command, run_and_print
 
 
 def create_features_file_diff(features_dir, base_index_path, new_index_path, new_features_file,

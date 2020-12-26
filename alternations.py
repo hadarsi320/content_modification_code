@@ -17,9 +17,8 @@ from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
 import bot_competition
-import readers
 import utils
-from utils import get_player_acceleration
+from utils import get_player_acceleration, readers
 from vector_functionality import tfidf_similarity, embedding_similarity, similarity_to_centroid_tf_idf, \
     document_centroid, similarity_to_centroid_semantic
 
