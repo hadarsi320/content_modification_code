@@ -9,7 +9,7 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-import alternations
+import alterations
 import constants
 import utils.general_utils as utils
 from bot.create_bot_features import update_text_doc
@@ -356,7 +356,7 @@ def replacement_validation(next_doc_id, old_text, new_text, qid, epoch, queries_
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=rep_index)
 
-        X.append(alternations.old_create_features(
+        X.append(alterations.old_create_features(
             qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords))
     true_probabilities = alternation_classifier.predict_log_proba(X)[:, 1]
     return np.argmax(true_probabilities) == 1
