@@ -19,6 +19,8 @@ class TrecReader:
                 self.__ranked_list = self.__read_trec_file(kwargs.pop('trec_file'))
         elif 'trec_dir' in kwargs:
             self.__ranked_list = self.__read_trec_dir(kwargs.pop('trec_dir'))
+        elif 'positions_file' in kwargs:
+            self.__ranked_list = self.__read_positions_file(kwargs.pop('positions_file'))
         else:
             raise ValueError('No value given to TrecReader')
 
@@ -65,6 +67,28 @@ class TrecReader:
                     ranked_list[epoch][qid].append(doc_id)
         return ranked_list
 
+    def __read_positions_file(self, positions_file):
+        max_rank = 0
+        with open(positions_file, 'r') as f:
+            for line in f:
+                rank = int(line.split()[-1])
+                max_rank = max(max_rank, rank)
+
+        ranked_list = defaultdict(dict)
+        with open(positions_file, 'r') as f:
+            for line in f:
+                _, _, doc_id, rank = line.split()
+                rank = int(rank) - 1
+                epoch, qid, _ = utils.parse_doc_id(doc_id)
+
+                self.__epochs.add(epoch)
+                self.__queries.add(qid)
+
+                if qid not in ranked_list[epoch]:
+                    ranked_list[epoch][qid] = [None] * max_rank
+                ranked_list[epoch][qid][rank] = doc_id
+        return ranked_list
+
     def __getitem__(self, epoch):
         epoch = str(epoch).zfill(2)
         return self.__ranked_list[epoch]
@@ -104,8 +128,3 @@ class TrecReader:
         top_doc_id = self[epoch][qid][0]
         return utils.parse_doc_id(top_doc_id)[2]
 
-
-if __name__ == '__main__':
-    # trec = TrecReader(trec_file='data/trec_file_original_sorted.txt')
-    trec_reader = TrecReader(trec_dir='results/1of5_12_21_highest_rated_inferiors_alteration_classifier/trec_files')
-    print(random.choice(trec_reader.queries()))
