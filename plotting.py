@@ -326,10 +326,9 @@ def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=Fals
         format_plot = True
 
     if 'method' in kwargs:
-        method = kwargs.pop('method')
-        labels = [f'{method}: Students', f'{method}: Bots']
+        label = kwargs.pop('method')
     else:
-        labels = ['Students', 'Bots']
+        label = 'Bots'
 
     bots_kwargs = {}
     if 'colors' in kwargs:
@@ -341,10 +340,10 @@ def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=Fals
         res = get_rank_distribution(bot_ranks[epoch], total_ranks=max_rank)
         if position == 'left':
             axis.bar(x_axis - width / 2, res,
-                     width=width, alpha=ALPHA, label=labels[1], **bots_kwargs)
+                     width=width, alpha=ALPHA, label=label, **bots_kwargs)
         else:
             axis.bar(x_axis + width / 2, res,
-                     width=width, alpha=ALPHA, label=labels[1], **bots_kwargs)
+                     width=width, alpha=ALPHA, label=label, **bots_kwargs)
 
         if format_plot:
             axis.legend()
@@ -403,7 +402,7 @@ def plot_top_distribution(trec_dir, show=True, set_ylabel=True, **kwargs):
         plt.show()
 
 
-def compare_rank_distributions(comp_dirs, rounds, plots_dir):
+def compare_rank_distributions(comp_dirs, rounds, run_name, plots_dir):
     assert len(comp_dirs) == 2
 
     fig, axes = plt.subplots(nrows=rounds, figsize=(10, 3 * rounds), squeeze=True, sharey='none')
@@ -413,7 +412,7 @@ def compare_rank_distributions(comp_dirs, rounds, plots_dir):
         pos = 'left' if i == 0 else 'right'
         plot_rank_distribution(competition_dir, pos, axes=axes, show=False, set_ylabel=i == 0, method=method)
 
-    fig.suptitle('Rank Distribution of Students and Bots', fontsize=18, y=.995)
+    fig.suptitle(f'Rank Distribution of Students and Bots {run_name}', fontsize=18, y=.995)
     for i, axis in enumerate(axes):
         axis.legend()
         axis.set_title(f'Round {i + 1}')
@@ -536,7 +535,7 @@ def plot_trm_comparisons(modes, tr_methods, plot_name, run_name=None, performanc
     if rank_distribution:
         assert len(tr_methods) == 2
         for mode in modes:
-            compare_rank_distributions(comp_dirs[mode], rounds, plots_dir)
+            compare_rank_distributions(comp_dirs[mode], rounds, run_name, plots_dir)
 
     if similarity_to_winner:
         for mode in comp_dirs:
@@ -555,20 +554,40 @@ def plot_trm_comparisons(modes, tr_methods, plot_name, run_name=None, performanc
 
 
 def main():
-    modes = ['1of5']
-    runs = ['alteration_classifier', None]
-    tr_methods = ['acceleration', 'highest_rated_inferiors']
-    for run in runs:
-        for method in tr_methods:
-            plot_trm_comparisons(modes, ['vanilla', method], run_name=run, rounds=8, plot_name=None,
-                                 performance_comparison=False, rank_distribution=True, feature_values=False)
+    # modes = ['1of5']
+    # runs = ['proba-classify', 'alteration_classifier', None]
+    # tr_methods = ['acceleration', 'highest_rated_inferiors']
+    # for run in runs:
+    #     for method in tr_methods:
+    #         plot_trm_comparisons(modes, ['vanilla', method], run_name=run, rounds=8, plot_name=None,
+    #                              performance_comparison=False, rank_distribution=True, feature_values=False)
 
-    # competition_dirs = {'Acceleration': 'results/1of5_12_06_acceleration_feature-analysis',
-    #                     'Everything': 'results/1of5_12_06_everything_feature-analysis',
-    #                     'HRI': 'results/1of5_12_06_highest_rated_inferiors_feature-analysis'}
-    # for name, comp_dir in competition_dirs.items():
-    #     print(f'\n\t\t{name}:')
-    #     plot_feature_values(comp_dir, name, show=True, seperate=True, ttest=False)
+    # comp_dirs = {'Naive': 'results/1of5_10_22_22_acceleration/',
+    #              'Classifier Predictions': 'results/1of5_12_21_acceleration_alteration_classifier/',
+    #              'Classifier Probabilities': 'results/1of5_12_26_acceleration_proba-classify/'}
+    comp_dirs = {'Naive': 'results/1of5_10_23_04_highest_rated_inferiors/',
+                 'Classifier Predictions': 'results/1of5_12_21_highest_rated_inferiors_alteration_classifier/',
+                 'Classifier Probabilities': 'results/1of5_12_26_highest_rated_inferiors_proba-classify/'}
+    vanilla_comp_dir = 'results/1of5_10_22_13_vanilla/'
+
+    fig, axes = plt.subplots(ncols=3, nrows=8, figsize=(15, 2.5 * 8), squeeze=True, sharey='row')
+    plt.tight_layout(pad=4)
+    for i, key in enumerate(comp_dirs):
+        ax = axes[:, i]
+        plot_rank_distribution(vanilla_comp_dir, 'left', axes=ax, show=False, set_ylabel=True, method='Vanilla')
+        plot_rank_distribution(comp_dirs[key], 'right', axes=ax, show=False, set_ylabel=False, method='HRI')
+
+    fig.suptitle(f'Rank Distribution of Students and Bots Using HRI', fontsize=18, y=.995)
+    for i, row in enumerate(axes):
+        for axis, key in zip(row, comp_dirs):
+            axis.legend()
+            axis.set_title(f'{key}- Round {i + 1}')
+            axis.set_xlabel('Rank')
+            axis.set_ylabel('Rank Distribution')
+
+    # plt.savefig(plots_dir + '/Rank Distribution ' + plot_name)
+    plt.show()
+    plt.close()
 
 
 if __name__ == '__main__':
