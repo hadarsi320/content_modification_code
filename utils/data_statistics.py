@@ -2,6 +2,8 @@ from collections import defaultdict
 
 import numpy as np
 
+from utils import general_utils as utils
+
 
 def in_group(competitor, group, bots):
     dummy_bots = [bot for bot in bots if bot.startswith('DUMMY')]
@@ -125,3 +127,7 @@ def cumpute_atd(ranked_lists):
     students_atd = np.average(students_td) if len(students_td) > 0 else 0
     bots_atd = np.average(bots_td) if len(bots_td) > 0 else 0
     return students_atd, bots_atd
+
+
+def term_difference(text_1, text_2, terms, opposite=False):
+    return utils.count_occurrences(text_1, terms, opposite) - utils.count_occurrences(text_2, terms, opposite)

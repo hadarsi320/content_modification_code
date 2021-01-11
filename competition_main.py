@@ -18,7 +18,7 @@ from utils.general_utils import get_doc_id, update_trectext_file, create_index, 
 from utils.readers import TrecReader
 
 
-@deprecated("This function is outdated and is incompatible with many of the current ")
+# @deprecated("This function is outdated and is incompatible with many of the current ")
 # def run_2_bot_competition(qid, competitor_list, trectext_file, full_trec_file, output_dir, base_index, comp_index,
 #                           document_workingset_file, doc_tfidf_dir, reranking_dir, trec_dir, trectext_dir, raw_ds_dir,
 #                           predictions_dir, final_features_dir, swig_path, indri_path, replacements_file,
@@ -93,7 +93,8 @@ from utils.readers import TrecReader
 #                                       swig_path=swig_path, base_index=base_index, new_index=comp_index)
 #         record_doc_similarity(doc_texts, epoch + 1, similarity_file, word_embedding_model, doc_tfidf_dir)
 
-def run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
+def run_general_competition(qid, competitors, bots, rounds, top_refinement, validation_method, trectext_file,
+                            output_dir,
                             document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir, trec_dir,
                             trectext_dir, raw_ds_dir, predictions_dir, final_features_dir, base_index, comp_index,
                             replacements_file, svm_rank_scripts_dir, scripts_dir, stopwords_file,
@@ -165,9 +166,10 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
                                                 out_index=out_index, in_index=in_index)
 
             if bot_rank == 0:
-                # reconsider replacement TODO NONE
+                # reconsider replacement
                 replacement_valid = replacement_validation(next_doc_id, old_doc, new_doc, qid,
-                                                           epoch, None, queries_xml_file, trec_reader, trec_texts,
+                                                           epoch, validation_method, queries_xml_file, trec_reader,
+                                                           trec_texts,
                                                            alternation_classifier, word_embedding_model, stopwords_file,
                                                            rep_val_dir, base_index, indri_path, swig_path)
             else:
@@ -199,10 +201,11 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
     shutil.rmtree(comp_index)
 
 
-def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='output/tmp/', mute=False, **kwargs):
+def competition_setup(mode, qid: str, bots: list, top_refinement, validation_method, output_dir='output/tmp/',
+                      mute=False, **kwargs):
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
+    alternation_classifier_pickle = 'classifiers/alteration_classifier.pkl'
     clueweb_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
-    alternation_classifier_file = 'classifiers/alteration_classifier.pkl'
     swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
     coherency_qrels_file = 'data/coherency_aggregated_labels.txt'
     queries_text_file = 'data/working_comp_queries_expanded.txt'
@@ -268,7 +271,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
         word_embedding_model = load_word_embedding_model(embedding_model_file)
         logger.info('Loaded word Embedding Model from file')
 
-    alternation_classifier = pickle.load(open('classifiers/alteration_classifier.pkl', 'rb'))
+    alternation_classifier = pickle.load(open(alternation_classifier_pickle, 'rb'))
 
     if mode == '2of2':
         trectext_file = trectext_file_raifer
@@ -285,39 +288,46 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
                               indri_path, replacements_file, similarity_file, svm_rank_scripts_dir,
                               10, scripts_dir, stopwords_file, queries_text_file, queries_xml_file,
                               ranklib_jar, rank_model, pair_ranker, top_ranker, word_embedding_model)
+
     else:
         replacements_file = output_dir + 'replacements/replacements_' + '_'.join([qid, ','.join(bots)])
         if os.path.exists(replacements_file):
             os.remove(replacements_file)
-        competitors = get_competitors(qid=qid, trec_file=(trec_file if mode == 'raifer'
-                                                          else positions_file))
-
-        if not all([bot in competitors for bot in bots]):
-            raise ValueError(f'Not all given bots are competitors in the query \n'
-                             f'bots: {bots} \ncompetitors: {competitors}')
+        competitors = get_competitors(qid=qid, trec_file=(trec_file if mode == 'raifer' else positions_file))
 
         if mode == 'raifer':
             trectext_file = trectext_file_raifer
             kwargs = dict(trec_file=trec_file)
             rounds = 7
-        else:
+        elif mode == 'greg':
             trectext_file = trectext_file_paper
             kwargs = dict(positions_file=positions_file)
             rounds = 3
+        else:
+            raise ValueError('Illegal mode given')
 
-        run_general_competition(qid, competitors, bots, rounds, top_refinement, trectext_file, output_dir,
-                                document_workingset_file, indri_path, swig_path, doc_tfidf_dir, reranking_dir,
-                                trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
-                                clueweb_index, competition_index, replacements_file,
-                                svm_rank_scripts_dir, scripts_dir, stopwords_file, queries_text_file,
-                                queries_xml_file, ranklib_jar, rank_model, pair_ranker, top_ranker,
-                                word_embedding_model, alternation_classifier, rep_val_dir, **kwargs)
+        if not all([bot in competitors for bot in bots]):
+            raise ValueError(f'Not all given bots are competitors in the query \n'
+                             f'bots: {bots} \ncompetitors: {competitors}')
+
+        run_general_competition(qid, competitors, bots, rounds, top_refinement, validation_method, trectext_file,
+                                output_dir, document_workingset_file, indri_path, swig_path, doc_tfidf_dir,
+                                reranking_dir, trec_dir, trectext_dir, raw_ds_dir, predictions_dir, final_features_dir,
+                                clueweb_index, competition_index, replacements_file, svm_rank_scripts_dir, scripts_dir,
+                                stopwords_file, queries_text_file, queries_xml_file, ranklib_jar, rank_model,
+                                pair_ranker, top_ranker, word_embedding_model, alternation_classifier, rep_val_dir,
+                                **kwargs)
 
 
 if __name__ == '__main__':
     import constants
 
-    competition_setup(mode='raifer', qid='002', bots=['44'], top_refinement=constants.ACCELERATION)
+    # competition_setup(mode='greg', qid='051', bots=['BOT'],
+    #                   top_refinement=constants.ACCELERATION,
+    #                   validation_method=constants.PREDICTION)
+    competition_setup(mode='greg', qid='051', bots=['BOT'],
+                      top_refinement=constants.ACCELERATION,
+                      validation_method=constants.PROBABILITIES)
 
     # parser = OptionParser()
     # parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])

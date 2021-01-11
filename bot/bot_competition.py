@@ -5,7 +5,6 @@ from copy import deepcopy
 from os.path import exists, basename, splitext
 
 import numpy as np
-import shutil
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
@@ -14,12 +13,12 @@ import alterations
 import constants
 import utils.general_utils as utils
 from bot.create_bot_features import update_text_doc
+from constants import PROBABILITIES, PREDICTION
 from dataset_creator import generate_pair_ranker_learning_dataset
 from utils.gen_utils import run_and_print
-from utils.readers import TrecReader
 from utils.general_utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, \
-    get_doc_id, \
-    parse_feature_line, get_player_accelerations
+    get_doc_id, parse_feature_line, get_player_accelerations
+from utils.readers import TrecReader
 from utils.vector_utils import embedding_similarity, tfidf_similarity
 
 
@@ -339,7 +338,7 @@ def replacement_validation(next_doc_id, old_text, new_text, qid, epoch, validati
     rep_index = output_dir + rep_index_fname
     next_epoch = epoch + 1
 
-    if validation_method == 'probabilities':
+    if validation_method == PROBABILITIES:
         trec_texts = deepcopy(trec_texts)
         X = []
         for text in [old_text, new_text]:
@@ -359,11 +358,31 @@ def replacement_validation(next_doc_id, old_text, new_text, qid, epoch, validati
             generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                           swig_path=swig_path, base_index=base_index, new_index=rep_index)
 
-            X.append(alterations.old_create_features(
+            X.append(alterations.create_features(
                 qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords))
-        true_probabilities = alternation_classifier.predict_log_proba(X)[:, 1]
-
+        true_probabilities = alternation_classifier.predict_log_proba(np.concatenate(X))[:, 1]
         return np.argmax(true_probabilities) == 1
-    elif validation_method == 'prediction':
-        pass
+
+    if validation_method == PREDICTION:
+        trec_texts = deepcopy(trec_texts)
+        trec_texts[next_doc_id] = new_text
+
+        trec_reader = deepcopy(trec_reader)
+        trec_reader.add_epoch({qid: [next_doc_id]})
+
+        stopwords = open(stopwords_file).read().split('\n')[:-1]
+        query = utils.get_query_text(queries_file, qid)
+
+        utils.ensure_dirs(output_dir)
+        utils.create_trectext_file(trec_texts, trectext_file)
+        utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
+        utils.create_documents_workingset(
+            document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
+        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
+                                      swig_path=swig_path, base_index=base_index, new_index=rep_index)
+
+        x = alterations.create_features(
+            qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords)
+        return alternation_classifier.predict(x.reshape((1, -1))) == 1
+
     return True

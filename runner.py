@@ -77,7 +77,6 @@ def runnner_2of2(output_dir, pickle_file, trec_file='./data/trec_file_original_s
 def get_bots(num_of_bots, total_players, **kwargs):
     bots_list = {}
     if 'positions_file' in kwargs:
-        mode = 'paper'
         positions_file = kwargs.pop('positions_file')
         qid_list = sorted(get_query_ids(positions_file))
         for qid in qid_list:
@@ -89,7 +88,6 @@ def get_bots(num_of_bots, total_players, **kwargs):
                 bots_list[qid] = [['BOT', 'DUMMY1', 'DUMMY2']]
 
     elif 'trec_file' in kwargs:
-        mode = 'raifer'
         trec_file = kwargs.pop('trec_file')
         competitors = get_competitors_dict(trec_file)
         qid_list = sorted(get_query_ids(trec_file))
@@ -99,13 +97,14 @@ def get_bots(num_of_bots, total_players, **kwargs):
     else:
         raise ValueError('No source file given')
 
-    return mode, bots_list
+    return bots_list
 
 
-def run_all_queries(output_dir, results_dir, num_of_bots, tr_method, pickle_file, print_interval=15,
-                    total_players=5, **kwargs):
+def run_all_queries(output_dir, results_dir, num_of_bots, tr_method, validation_method, word2vec_pickle,
+                    print_interval=15, total_players=5, **kwargs):
     error_dir = output_dir + 'errors/'
-    mode, bots_list = get_bots(num_of_bots, total_players, **kwargs)
+    bots_list = get_bots(num_of_bots, total_players, **kwargs)
+    mode = kwargs.pop('mode')
 
     iteration = 1
     for qid in bots_list:
@@ -117,8 +116,8 @@ def run_all_queries(output_dir, results_dir, num_of_bots, tr_method, pickle_file
             stdout = sys.stdout
             sys.stdout = open(os.devnull, 'w')
             try:
-                competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_dump=pickle_file,
-                                  top_refinement=tr_method, mute=True)
+                competition_setup(mode=mode, output_dir=output_dir, qid=qid, bots=bots, word2vec_pickle=word2vec_pickle,
+                                  top_refinement=tr_method, validation_method=validation_method, mute=True)
                 sys.stdout = stdout
             except Exception as e:
                 sys.stdout = stdout
@@ -133,7 +132,7 @@ def run_all_queries(output_dir, results_dir, num_of_bots, tr_method, pickle_file
             iteration += 1
 
 
-def run_all_competitions(mode, tr_method, tr_name, run_name, source='raifer',
+def run_all_competitions(mode, tr_method, validation_method, run_name, source='raifer',
                          positions_file_paper='./data/paper_data/documents.positions',
                          trec_file_raifer='data/trec_file_original_sorted.txt',
                          embedding_model_file='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'):
@@ -146,7 +145,7 @@ def run_all_competitions(mode, tr_method, tr_name, run_name, source='raifer',
         print('Implement this rerunning thing')
         return
 
-    name = tr_name
+    name = tr_method + '_' + validation_method
     if run_name is not '':
         name += '_' + run_name
 
@@ -154,7 +153,7 @@ def run_all_competitions(mode, tr_method, tr_name, run_name, source='raifer',
     results_dir = f'results/{folder_name}/'
     output_dir = f'output/{folder_name}/'
 
-    print('Running mode {} with refinement method {}'.format(mode, tr_name))
+    print(f'Running mode {mode} with top refinement method {tr_method} and validation method {validation_method}')
 
     word2vec_pkl = output_dir + 'word_embedding_model.pkl'
     ensure_dirs(output_dir)
@@ -164,15 +163,15 @@ def run_all_competitions(mode, tr_method, tr_name, run_name, source='raifer',
 
     assert mode.endswith('of5')
     num_of_bots = int(mode[0])
-    if source == 'paper':
-        kwargs = {'positions_file': positions_file_paper}
+    if source == 'greg':
+        kwargs = {'mode': source, 'positions_file': positions_file_paper}
     elif source == 'raifer':
-        kwargs = {'trec_file': trec_file_raifer}
+        kwargs = {'mode': source, 'trec_file': trec_file_raifer}
     else:
         raise ValueError(f'Illegal source given {source}')
 
-    run_all_queries(output_dir, results_dir, num_of_bots, tr_method, word2vec_pkl, **kwargs)
-    print(f'\t\tFinished running {name} with mode {mode} and TRM {tr_name}')
+    run_all_queries(output_dir, results_dir, num_of_bots, tr_method, validation_method, word2vec_pkl, **kwargs)
+    print(f'\t\tFinished running {name} with mode {mode} and TRM {tr_method}')
     os.remove(word2vec_pkl)
 
 
@@ -181,18 +180,19 @@ def main():
 
     results_dir = 'results/'
     modes = ['1of5']
-    tr_methods = [
-        constants.VANILLA, constants.ACCELERATION, constants.HIGHEST_RATED_INFERIORS, constants.EVERYTHING]
-    tr_names = ['vanilla', 'acceleration', 'highest_rated_inferiors']
+    tr_methods = [constants.VANILLA, constants.ACCELERATION, constants.HIGHEST_RATED_INFERIORS]
+    validation_methods = [constants.OPTIMISTIC, constants.PROBABILITIES, constants.PREDICTION]
+
     args = []
     for mode in modes:
-        for tr_method, tr_name in zip(tr_methods, tr_names):
-            folder_name = tr_name
-            if len(run_name) > 0:
-                folder_name += '_' + run_name
-            reg_exp = mode + '.*' + '_' + folder_name
-            if all(re.match(reg_exp, file) is None for file in os.listdir(results_dir)):
-                args.append((mode, tr_method, tr_name, run_name))
+        for tr_method in tr_methods:
+            for validation_method in validation_methods:
+                folder_name = f'{tr_method}_{validation_method}'
+                if len(run_name) > 0:
+                    folder_name += '_' + run_name
+                reg_exp = mode + '.*' + '_' + folder_name
+                if all(re.match(reg_exp, file) is None for file in os.listdir(results_dir)):
+                    args.append((mode, tr_method, validation_method, run_name))
 
     with Pool() as p:
         p.starmap(run_all_competitions, args)
