@@ -86,7 +86,7 @@ class TrecReader:
 
                 if qid not in ranked_list[epoch]:
                     ranked_list[epoch][qid] = [None] * max_rank
-                ranked_list[epoch][qid][rank] = doc_id
+                ranked_list[epoch][qid][rank] = utils.fix_format(doc_id)
         return ranked_list
 
     def __getitem__(self, epoch):
