@@ -241,7 +241,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, output_dir='ou
     logger = logging.getLogger(program)
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
     logging.root.setLevel(level=logging.CRITICAL + 1 if mute else logging.INFO)
-    logger.info("Running %s" % ' '.join(sys.argv))
+    logger.info("Running {}".format(' '.join(sys.argv)))
 
     pair_ranker = svm_models_dir + get_model_name(pair_ranker_args)
     if not os.path.exists(pair_ranker):

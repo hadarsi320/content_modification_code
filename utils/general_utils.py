@@ -281,9 +281,9 @@ def parse_qrid(qrid):
 
 
 def fix_format(doc_id):
-    # epoch, qid, pid = parse_doc_id(doc_id)
-    # return get_doc_id(epoch, qid, pid)
-    return get_doc_id(*parse_doc_id(doc_id))
+    epoch, qid, pid = parse_doc_id(doc_id)
+    pid = pid.replace('_', '')
+    return get_doc_id(epoch, qid, pid)
 
 
 def get_java_object(obj_file):
@@ -438,15 +438,8 @@ def create_documents_workingset(output_file, **kwargs):
 
     if 'ranked_lists' in kwargs:
         ranked_lists = kwargs.pop('ranked_lists')
-        if 'epochs' in kwargs:
-            epochs = kwargs.pop('epochs')
-        else:
-            epochs = ranked_lists.epochs()
-
-        if 'qid_list' in kwargs:
-            qid_list = kwargs.pop('qid-list')
-        else:
-            qid_list = ranked_lists.queries()
+        epochs = kwargs.pop('epochs', ranked_lists.epochs())
+        qid_list = kwargs.pop('qid_list', ranked_lists.queries())
 
         with open(output_file, 'w') as f:
             for epoch in epochs:
