@@ -5,6 +5,7 @@ from copy import deepcopy
 from os.path import exists, basename, splitext
 
 import numpy as np
+import shutil
 from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
@@ -16,7 +17,8 @@ from bot.create_bot_features import update_text_doc
 from dataset_creator import generate_pair_ranker_learning_dataset
 from utils.gen_utils import run_and_print
 from utils.readers import TrecReader
-from utils.general_utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, get_doc_id, \
+from utils.general_utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, \
+    get_doc_id, \
     parse_feature_line, get_player_accelerations
 from utils.vector_utils import embedding_similarity, tfidf_similarity
 
@@ -310,7 +312,8 @@ def get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, top_
 
     elif top_refinement == constants.EVERYTHING:
         target_documents = []
-        methods = [constants.ACCELERATION, constants.PAST_TOP, constants.HIGHEST_RATED_INFERIORS, constants.PAST_TARGETS]
+        methods = [constants.ACCELERATION, constants.PAST_TOP, constants.HIGHEST_RATED_INFERIORS,
+                   constants.PAST_TARGETS]
         for method in methods:
             targets = get_target_documents(epoch, qid, ranked_lists, rank, past_targets, method, )
             if targets is None:
@@ -325,77 +328,42 @@ def get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, top_
     return target_documents
 
 
-def replacement_validation(next_doc_id, old_text, new_text, qid, epoch, queries_file, trec_reader, trec_texts,
-                           alternation_classifier, word_embedding_model, stopwords_file, output_dir, base_index,
-                           indri_path, swig_path, rep_index_fname='rep_val_index', trectext_fname='trectext_file',
+def replacement_validation(next_doc_id, old_text, new_text, qid, epoch, validation_method, queries_file, trec_reader,
+                           trec_texts, alternation_classifier, word_embedding_model, stopwords_file, output_dir,
+                           base_index, indri_path, swig_path,
+                           rep_index_fname='rep_val_index', trectext_fname='trectext_file',
                            document_workingset_fname='doc_ws', doc_tfidf_dname='doc_tfidf'):
     document_workingset_file = output_dir + document_workingset_fname
     doc_tfidf_dir = output_dir + doc_tfidf_dname + '/'
     trectext_file = output_dir + trectext_fname
     rep_index = output_dir + rep_index_fname
-
     next_epoch = epoch + 1
 
-    trec_texts = deepcopy(trec_texts)
+    if validation_method == 'probabilities':
+        trec_texts = deepcopy(trec_texts)
+        X = []
+        for text in [old_text, new_text]:
+            trec_texts[next_doc_id] = text
 
-    X = []
-    for text in [old_text, new_text]:
-        trec_texts[next_doc_id] = text
+            trec_reader = deepcopy(trec_reader)
+            trec_reader.add_epoch({qid: [next_doc_id]})
 
-        trec_reader = deepcopy(trec_reader)
-        trec_reader.add_epoch({qid: [next_doc_id]})
+            stopwords = open(stopwords_file).read().split('\n')[:-1]
+            query = utils.get_query_text(queries_file, qid)
 
-        stopwords = open(stopwords_file).read().split('\n')[:-1]
-        query = utils.get_query_text(queries_file, qid)
+            utils.ensure_dirs(output_dir)
+            utils.create_trectext_file(trec_texts, trectext_file)
+            utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
+            utils.create_documents_workingset(
+                document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
+            generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
+                                          swig_path=swig_path, base_index=base_index, new_index=rep_index)
 
-        utils.ensure_dirs(output_dir)
-        utils.create_trectext_file(trec_texts, trectext_file)
-        utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
-        utils.create_documents_workingset(
-            document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
-        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                      swig_path=swig_path, base_index=base_index, new_index=rep_index)
+            X.append(alterations.old_create_features(
+                qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords))
+        true_probabilities = alternation_classifier.predict_log_proba(X)[:, 1]
 
-        X.append(alterations.old_create_features(
-            qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords))
-    true_probabilities = alternation_classifier.predict_log_proba(X)[:, 1]
-    return np.argmax(true_probabilities) == 1
-
-
-# def replacement_validation(qid, old_doc, new_doc, output_dir, base_index, swig_path, indri_path, document_rank_model,
-#                            scripts_dir, stopwords_file, queries_text_file, ranklib_jar):
-#     ensure_dirs(output_dir)
-#     document_workingset_file = output_dir + 'document_ws'
-#     doc_tfidf_dir = output_dir + 'document_tfidf/'
-#     trectext_file = output_dir + 'trectext_file'
-#     trec_file = output_dir + 'trec_file'
-#     val_index = output_dir + 'rec_index'
-#     epoch = '0'
-#     next_epoch = '01'
-#     qrid = get_qrid(qid, epoch)
-#     competitors = ['old', 'new']
-#
-#     ranked_list = {qid: {epoch: [get_doc_id(epoch, qid, pid) for pid in competitors]}}
-#     create_trec_file(trec_file, ranked_list, name='replacement_validation')
-#
-#     trectext_dict = {get_doc_id(next_epoch, qid, 'old'): old_doc, get_doc_id(next_epoch, qid, 'new'): new_doc}
-#     create_trectext_file(trectext_dict, trectext_file)
-#
-#     create_index(trectext_file, new_index_name=val_index, indri_path=indri_path)
-#     create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epoch=next_epoch)
-#     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-#                                   swig_path=swig_path, base_index=base_index, new_index=val_index)
-#
-#     reranked_trec_file = run_reranking(qrid, trec_file, base_index, val_index, swig_path,
-#                                        scripts_dir, stopwords_file, queries_text_file, ranklib_jar,
-#                                        document_rank_model, output_dir=output_dir)
-#     reranked_list = TrecReader(reranked_trec_file)
-#     top_doc_id = reranked_list[next_epoch][qid][0]
-#     top_player = parse_doc_id(top_doc_id)[2]
-#
-#     shutil.rmtree(output_dir)
-#
-#     res = top_player == 'new'
-#     # a way of simulating the results we would receive had we had a rank model which was only right about 3/4 of the time.
-#     # return res if random() < 3/4 else not res
-#     return res
+        return np.argmax(true_probabilities) == 1
+    elif validation_method == 'prediction':
+        pass
+    return True

@@ -165,11 +165,11 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, trec
                                                 out_index=out_index, in_index=in_index)
 
             if bot_rank == 0:
-                # reconsider replacement
-                replacement_valid = replacement_validation(next_doc_id, old_doc, new_doc, qid, epoch, queries_xml_file,
-                                                           trec_reader, trec_texts, alternation_classifier,
-                                                           word_embedding_model, stopwords_file, rep_val_dir,
-                                                           base_index, indri_path, swig_path)
+                # reconsider replacement TODO NONE
+                replacement_valid = replacement_validation(next_doc_id, old_doc, new_doc, qid,
+                                                           epoch, None, queries_xml_file, trec_reader, trec_texts,
+                                                           alternation_classifier, word_embedding_model, stopwords_file,
+                                                           rep_val_dir, base_index, indri_path, swig_path)
             else:
                 replacement_valid = True
 
