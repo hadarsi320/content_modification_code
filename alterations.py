@@ -1,12 +1,13 @@
+import copy
 import datetime
-import itertools
 import os
-import pickle
 import shutil
-from multiprocessing import Pool, Lock
+from collections import defaultdict
+from multiprocessing import Lock
 
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression, Perceptron
 from sklearn.model_selection import KFold
 from sklearn.naive_bayes import GaussianNB, BernoulliNB
@@ -15,6 +16,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.utils._testing import ignore_warnings
+from tqdm import tqdm
 
 import utils.general_utils as utils
 from bot import bot_competition
@@ -229,24 +232,30 @@ def create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, w
 #     return results
 
 
-def generate_learning_dataset(feature_setup):
+def generate_learning_dataset(feature_setup, local_dir, rm_local_dir=False, use_raifer_data=True):
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
     base_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
     swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
-    trec_file = 'data/trec_file_original_sorted.txt'
     indri_path = '/lv_local/home/hadarsi/indri/'
     queries_file = 'data/queries_seo_exp.xml'
-    trectext_file = 'data/documents.trectext'
     stopwords_file = 'data/stopwords_list'
 
-    local_dir = 'tmp/'
-    document_workingset_file = local_dir + 'doc_ws'
+    document_workingset_file = local_dir + 'doc_ws.txt'
     doc_tfidf_dir = local_dir + 'doc_tf_idf/'
     index = local_dir + 'index'
 
-    trec_reader = readers.TrecReader(trec_file=trec_file)
+    if use_raifer_data:
+        trec_file = 'data/trec_file_original_sorted.txt'
+        trectext_file = 'data/documents.trectext'
+        trec_reader = readers.TrecReader(trec_file=trec_file)
+    else:
+        positions_file = 'data/paper_data/documents.positions'
+        trectext_file = 'data/paper_data/documents.trectext'
+        trec_reader = readers.TrecReader(positions_file=positions_file)
+
     trec_texts = utils.read_trectext_file(trectext_file)
     stopwords = open(stopwords_file).read().split('\n')[:-1]
+    word_embedding_model = utils.load_word_embedding_model(embedding_model_file)
 
     lock.acquire()
     if not os.path.exists(doc_tfidf_dir):
@@ -256,7 +265,7 @@ def generate_learning_dataset(feature_setup):
         bot_competition.generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                                       swig_path=swig_path, base_index=base_index, new_index=index)
     lock.release()
-    word_embedding_model = utils.load_word_embedding_model(embedding_model_file)
+
 
     X = []
     Y = []
@@ -279,20 +288,87 @@ def generate_learning_dataset(feature_setup):
             next_rank = trec_reader[next_epoch][qid].index(next_doc_id)
             Y.append(next_rank == 0)
 
-    # shutil.rmtree(local_dir)
+    if rm_local_dir:
+        shutil.rmtree(local_dir)
     return np.stack(X), np.stack(Y)
 
 
-def test_models(models, X, Y):
-    results = {}
-    for model in models:
-        results[str(model)] = run_kfold_cross_val(X, Y, model)
+def feature_selection(models, num_features, local_dir='alterations_tmp/', use_raifer_data=True, reverse=False):
+    if reverse is False:
+        features = [True] * num_features
+        X, Y = generate_learning_dataset(features, local_dir, use_raifer_data=use_raifer_data)
+        accuracy = cross_validate_models(models, X, Y)  # baseline accuracy
+        print(f'The baseline accuracy is {accuracy:.2%}')
 
-    sorted_models = sorted(results, key=lambda key: results[key][1], reverse=True)
-    # for i, model in enumerate(sorted_models[:5]):
-    #     print(f'{str(i + 1) + ".":3} {model:75} '
-    #           f'train: {results[model][0]:.3f}\ttest: {results[model][1]:.3f}')
-    return sorted_models, results
+        while sum(features) > 1:
+            feature_acc = {}
+            for i, feature in tqdm(enumerate(features), desc='Feature Combinations', total=len(features)):
+                if feature:
+                    new_features = copy.copy(features)
+                    new_features[i] = False
+
+                    X, Y = generate_learning_dataset(new_features, local_dir, use_raifer_data=use_raifer_data)
+                    feature_acc[i] = cross_validate_models(models, X, Y)
+
+            disable_feature = max(feature_acc, key=lambda x: feature_acc[x])
+            if feature_acc[disable_feature] > accuracy:
+                features[disable_feature] = False
+                accuracy = feature_acc[disable_feature]
+                print(f'Disabled feature {disable_feature}, new accuracy is {accuracy:.2%}')
+            else:
+                print('No bad feature was found')
+                break
+
+    else:
+        features = [False] * num_features
+        accuracy = 0  # baseline accuracy
+        print(f'The baseline accuracy is {accuracy:.2%} (since there are no features)')
+
+        while sum(features) < num_features:
+            feature_acc = {}
+            for i, feature in tqdm(enumerate(features), desc='Feature Combinations', total=len(features)):
+                if not feature:
+                    new_features = copy.copy(features)
+                    new_features[i] = True
+
+                    X, Y = generate_learning_dataset(new_features, local_dir, use_raifer_data=use_raifer_data)
+                    feature_acc[i] = cross_validate_models(models, X, Y)
+
+            disable_feature = max(feature_acc, key=lambda x: feature_acc[x])
+            if feature_acc[disable_feature] > accuracy:
+                features[disable_feature] = True
+                accuracy = feature_acc[disable_feature]
+                print(f'Enabled feature {disable_feature}, new accuracy is {accuracy:.2%}')
+            else:
+                print('No good feature was found')
+                break
+
+    shutil.rmtree(local_dir)
+    return accuracy, features
+
+
+@ignore_warnings(category=ConvergenceWarning)
+def cross_validate_models(models, X, Y, random_state=35):
+    pipelines = [Pipeline([('scaler', StandardScaler()), ('classifier', model)]) for model in models]
+    kf = KFold(shuffle=True, random_state=random_state)
+
+    acc = []
+    for indices, test_indices in kf.split(X):
+        X_, X_test = X[indices], X[test_indices]
+        Y_, Y_test = Y[indices], Y[test_indices]
+
+        val_acc = defaultdict(list)
+        for train_indices, val_indices in kf.split(X_):
+            X_train, X_val = X_[train_indices], X_[val_indices]
+            Y_train, Y_val = Y_[train_indices], Y_[val_indices]
+
+            for model in pipelines:
+                model.fit(X_train, Y_train)
+                val_acc[model].append(model.score(X_val, Y_val))
+        best_model = max(val_acc, key=lambda key: np.average(val_acc[key]))
+        best_model.fit(X_, Y_)
+        acc.append(best_model.score(X_test, Y_test))
+    return np.average(acc)
 
 
 def run_kfold_cross_val(X, Y, model, n_splits=10):
@@ -329,21 +405,7 @@ def train_alteration_classifier(X, Y, model=RandomForestClassifier, model_params
     return classifier
 
 
-def test_feature_setup(bool_vec, models, pickles_dir):
-    if any(item != 0 for item in bool_vec):
-        X, Y = generate_learning_dataset(bool_vec)
-        res = test_models(models, X, Y)
-        pickle.dump(res, open(f'{pickles_dir}/{bool_vec}.pkl', 'wb'))
-        print(f'Finished running: {bool_vec}')
-
-
 def main():
-    # classifiers_dir = 'classifiers/'
-    # utils.ensure_dirs(classifiers_dir)
-    # params = [{'max_depth': 5}, {'max_depth': 10}, {'max_depth':20}, {'max_depth': 50}, {'max_depth': None}, ]
-    # alter_classifier = train_alteration_classifier(X, Y, model_params=params)
-    # pickle.dump(alter_classifier, open(f'{classifiers_dir}/alteration_classifier.pkl', 'wb'))
-
     models = [Perceptron(), GaussianNB(), BernoulliNB(), SVC(kernel='linear'), SVC(kernel='poly'), SVC(kernel='rbf'),
               LogisticRegression(penalty='l1', solver='liblinear'), LogisticRegression(penalty='l2'),
               LogisticRegression(penalty='elasticnet', l1_ratio=0.5, solver='saga'),
@@ -354,13 +416,19 @@ def main():
               RandomForestClassifier(max_depth=5), RandomForestClassifier(max_depth=10),
               RandomForestClassifier(max_depth=None), ]
 
-    pickles_dir = 'pickles_v2/'
-    bool_vec = list(itertools.product([0, 1], repeat=10))
-    utils.ensure_dirs(pickles_dir)
-    args = [(f, models, pickles_dir) for f in bool_vec]
-    with Pool() as p:
-        p.starmap(test_feature_setup, args)
-    shutil.rmtree('tmp/')
+    accuracy, feature_vec = feature_selection(models, 10, use_raifer_data=False, reverse=False)
+    accuracy_, feature_vec_ = feature_selection(models, 10, use_raifer_data=False, reverse=True)
+    if accuracy_ > accuracy:
+        accuracy, feature_vec = accuracy_, feature_vec_
+    print(f'The cross validated accuracy is {accuracy:.2%} with features {feature_vec}')
+
+    # pickles_dir = 'pickles_v2/'
+    # bool_vec = list(itertools.product([0, 1], repeat=10))
+    # utils.ensure_dirs(pickles_dir)
+    # args = [(f, models, pickles_dir) for f in bool_vec]
+    # with Pool() as p:
+    #     p.starmap(test_feature_setup, args)
+    # shutil.rmtree('tmp/')
 
     # results_dict = {feature_setups[i]: results[i] for i in range(len(feature_setups))}
     # pickle.dump(results_dict, open('features_dict.pkl', 'wb'))
