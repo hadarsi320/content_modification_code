@@ -299,7 +299,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, validation_met
             trectext_file = trectext_file_raifer
             kwargs = dict(trec_file=trec_file)
             rounds = 7
-        elif mode == 'greg':
+        elif mode == 'goren':
             trectext_file = trectext_file_paper
             kwargs = dict(positions_file=positions_file)
             rounds = 3
@@ -322,10 +322,10 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, validation_met
 if __name__ == '__main__':
     import constants
 
-    # competition_setup(mode='greg', qid='051', bots=['BOT'],
+    # competition_setup(mode='goren', qid='051', bots=['BOT'],
     #                   top_refinement=constants.ACCELERATION,
     #                   validation_method=constants.PREDICTION)
-    competition_setup(mode='greg', qid='051', bots=['BOT'],
+    competition_setup(mode='goren', qid='051', bots=['BOT'],
                       top_refinement=constants.ACCELERATION,
                       validation_method=constants.PROBABILITIES)
 

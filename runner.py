@@ -109,7 +109,8 @@ def run_all_queries(output_dir, results_dir, num_of_bots, tr_method, validation_
     iteration = 1
     for qid in bots_list:
         for bots in bots_list[qid]:
-            run_description = f'output_dir={output_dir} qid={qid} bots={",".join(bots)}'
+            run_description = f'output_dir={output_dir} qid={qid} bots={",".join(bots)} trm={tr_method} ' \
+                              f'val={validation_method}'
             if iteration == 1 or iteration % print_interval == 0:
                 print(f'{iteration}. {run_description}')
 
@@ -125,15 +126,15 @@ def run_all_queries(output_dir, results_dir, num_of_bots, tr_method, validation_
                 log_error(error_dir, run_description, e)
 
             ensure_dirs(results_dir)
-            for directory in ['trec_files', 'trectext_files', 'errors', 'replacements']:
+            for directory in ['trec_files', 'trectext_filces', 'errors', 'replacements']:
                 if os.path.exists(f'{output_dir}/{directory}'):
                     command = f'cp -r {output_dir}/{directory} {results_dir}'
                     run_bash_command(command)
             iteration += 1
 
 
-def run_all_competitions(mode, tr_method, validation_method, run_name, source='raifer',
-                         positions_file_paper='./data/paper_data/documents.positions',
+def run_all_competitions(mode, tr_method, validation_method, run_name,
+                         source='goren', positions_file_paper='./data/paper_data/documents.positions',
                          trec_file_raifer='data/trec_file_original_sorted.txt',
                          embedding_model_file='/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'):
     """
@@ -163,7 +164,7 @@ def run_all_competitions(mode, tr_method, validation_method, run_name, source='r
 
     assert mode.endswith('of5')
     num_of_bots = int(mode[0])
-    if source == 'greg':
+    if source == 'goren':
         kwargs = {'mode': source, 'positions_file': positions_file_paper}
     elif source == 'raifer':
         kwargs = {'mode': source, 'trec_file': trec_file_raifer}
