@@ -4,17 +4,13 @@ import pickle
 import shutil
 import sys
 
-from deprecated import deprecated
-
 from bot.bot_competition import create_pair_ranker, create_initial_trectext_file, create_initial_trec_file, \
     get_rankings, get_target_documents, generate_predictions, get_highest_ranked_pair, generate_updated_document, \
     update_trec_file, generate_document_tfidf_files, record_replacement, replacement_validation
 from bot.create_bot_features import create_bot_features
 from bot.create_bot_features import run_reranking
-from utils.general_utils import get_doc_id, update_trectext_file, create_index, \
-    create_documents_workingset, \
-    load_word_embedding_model, get_competitors, ensure_dirs, get_model_name, get_qrid, \
-    read_trectext_file
+from utils.general_utils import get_doc_id, update_trectext_file, create_index, create_documents_workingset, \
+    load_word_embedding_model, get_competitors, ensure_dirs, get_model_name, get_qrid, read_trectext_file
 from utils.readers import TrecReader
 
 

@@ -101,7 +101,7 @@ def get_bots(num_of_bots, total_players, **kwargs):
 
 
 def run_all_queries(output_dir, results_dir, num_of_bots, tr_method, validation_method, word2vec_pickle,
-                    print_interval=15, total_players=5, **kwargs):
+                    print_interval=5, total_players=5, **kwargs):
     error_dir = output_dir + 'errors/'
     bots_list = get_bots(num_of_bots, total_players, **kwargs)
     mode = kwargs.pop('mode')
@@ -172,7 +172,7 @@ def run_all_competitions(mode, tr_method, validation_method, run_name,
         raise ValueError(f'Illegal source given {source}')
 
     run_all_queries(output_dir, results_dir, num_of_bots, tr_method, validation_method, word2vec_pkl, **kwargs)
-    print(f'\t\tFinished running {name} with mode {mode} and TRM {tr_method}')
+    print(f'\t\tFinished running {name} with mode {mode} and TRM {tr_method} and val method {validation_method}')
     os.remove(word2vec_pkl)
 
 
