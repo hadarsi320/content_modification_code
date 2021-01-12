@@ -34,6 +34,10 @@ class TrecReader:
     def __len__(self):
         return len(self.__epochs)
 
+    def __eq__(self, other):
+        return self.__ranked_list == other.__ranked_list and self.__epochs == other.__epochs and \
+               self.__queries == other.__queries and self.__qrid_list == other.__qrid_list
+
     def __read_trec_file(self, trec_file):
         ranked_list = defaultdict(dict)
         with open(trec_file) as file:
