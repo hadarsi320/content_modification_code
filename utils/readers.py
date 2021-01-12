@@ -24,6 +24,16 @@ class TrecReader:
         else:
             raise ValueError('No value given to TrecReader')
 
+    def __getitem__(self, epoch):
+        epoch = str(epoch).zfill(2)
+        return self.__ranked_list[epoch]
+
+    def __iter__(self):
+        return iter(sorted(self.__epochs))
+
+    def __len__(self):
+        return len(self.__epochs)
+
     def __read_trec_file(self, trec_file):
         ranked_list = defaultdict(dict)
         with open(trec_file) as file:
@@ -89,18 +99,11 @@ class TrecReader:
                 ranked_list[epoch][qid][rank] = utils.fix_format(doc_id)
         return ranked_list
 
-    def __getitem__(self, epoch):
-        epoch = str(epoch).zfill(2)
-        return self.__ranked_list[epoch]
-
     def add_epoch(self, ranked_lists: dict):
         last_epoch = max(self.__epochs)
         new_epoch = utils.get_next_epoch(last_epoch)
         self.__ranked_list[new_epoch] = ranked_lists
         self.__epochs.add(new_epoch)
-
-    def __iter__(self):
-        return iter(sorted(self.__epochs))
 
     def epochs(self):
         return sorted(self.__epochs)
