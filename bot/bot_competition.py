@@ -292,12 +292,12 @@ def get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, top_
         target_documents = None
 
     elif top_refinement == constants.ACCELERATION:
-        player_acceleration = get_player_accelerations(epoch, qid, ranked_lists)
+        player_acceleration = get_player_accelerations(epoch, qid, ranked_lists,
+                                                       drop_top=True, demand_positivity=True)
         if player_acceleration is None:
             target_documents = None
         else:
-            accel_player = player_acceleration[0] if player_acceleration[0] != pid else player_acceleration[1]
-            target_documents = [get_doc_id(epoch, qid, accel_player)]
+            target_documents = [get_doc_id(epoch, qid, player_acceleration[0])]
 
     elif top_refinement == constants.PAST_TOP:
         past_top = get_last_top_document(ranked_lists, qid)
@@ -314,7 +314,7 @@ def get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, top_
         methods = [constants.ACCELERATION, constants.PAST_TOP, constants.HIGHEST_RATED_INFERIORS,
                    constants.PAST_TARGETS]
         for method in methods:
-            targets = get_target_documents(epoch, qid, ranked_lists, rank, past_targets, method, )
+            targets = get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, method)
             if targets is None:
                 continue
             for target in targets:
@@ -327,11 +327,15 @@ def get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, top_
     return target_documents
 
 
-def replacement_validation(next_doc_id, old_text, new_text, qid, epoch, validation_method, queries_file, trec_reader,
-                           trec_texts, alternation_classifier, word_embedding_model, stopwords_file, output_dir,
-                           base_index, indri_path, swig_path,
+def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch, validation_method, queries_file,
+                           trec_reader: TrecReader, trec_texts, alternation_classifier, word_embedding_model,
+                           stopwords_file, output_dir, base_index, indri_path, swig_path,
                            rep_index_fname='rep_val_index', trectext_fname='trectext_file',
                            document_workingset_fname='doc_ws', doc_tfidf_dname='doc_tfidf'):
+    # only check for top documents
+    if bot_rank != 0:
+        return True
+
     document_workingset_file = output_dir + document_workingset_fname
     doc_tfidf_dir = output_dir + doc_tfidf_dname + '/'
     trectext_file = output_dir + trectext_fname

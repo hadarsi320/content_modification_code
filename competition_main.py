@@ -142,10 +142,8 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, vali
                                                    documents_workingset_file=document_workingset_file,
                                                    base_index=base_index, new_index=comp_index, swig_path=swig_path,
                                                    queries_file=queries_xml_file, final_features_file=features_file)
-            else:
-                cant_replace = True
 
-            if cant_replace:
+            if target_documents is None or cant_replace:
                 new_docs[next_doc_id] = trec_texts[bot_doc_id]
                 logger.info('Bot {} cant replace any sentence'.format(bot_id))
                 continue
@@ -161,17 +159,12 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, vali
             new_doc = generate_updated_document(trec_texts, ref_doc_id=bot_doc_id, rep_doc_id=rep_doc_id,
                                                 out_index=out_index, in_index=in_index)
 
-            if bot_rank == 0:
-                # reconsider replacement
-                replacement_valid = replacement_validation(next_doc_id, old_doc, new_doc, qid,
-                                                           epoch, validation_method, queries_xml_file, trec_reader,
-                                                           trec_texts,
-                                                           alternation_classifier, word_embedding_model, stopwords_file,
-                                                           rep_val_dir, base_index, indri_path, swig_path)
-            else:
-                replacement_valid = True
+            is_rep_valid = replacement_validation(bot_rank, next_doc_id, old_doc, new_doc, qid, epoch,
+                                                       validation_method, queries_xml_file, trec_reader, trec_texts,
+                                                       alternation_classifier, word_embedding_model, stopwords_file,
+                                                       rep_val_dir, base_index, indri_path, swig_path)
 
-            if replacement_valid:
+            if is_rep_valid:
                 # Replace sentence
                 record_replacement(replacements_file, epoch, bot_doc_id, rep_doc_id, out_index, in_index, features)
                 new_docs[next_doc_id] = new_doc
@@ -318,9 +311,6 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, validation_met
 if __name__ == '__main__':
     import constants
 
-    # competition_setup(mode='goren', qid='051', bots=['BOT'],
-    #                   top_refinement=constants.ACCELERATION,
-    #                   validation_method=constants.PREDICTION)
     competition_setup(mode='goren', qid='051', bots=['BOT'],
                       top_refinement=constants.ACCELERATION,
                       validation_method=constants.NAIVE)
