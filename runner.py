@@ -182,7 +182,7 @@ def main():
     results_dir = 'results/'
     modes = ['1of5']
     tr_methods = [constants.VANILLA, constants.ACCELERATION, constants.HIGHEST_RATED_INFERIORS]
-    validation_methods = [constants.OPTIMISTIC, constants.PROBABILITIES, constants.PREDICTION]
+    validation_methods = [constants.NAIVE, constants.PROBABILITIES, constants.PREDICTION]
 
     args = []
     for mode in modes:

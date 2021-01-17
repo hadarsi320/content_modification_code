@@ -9,8 +9,8 @@ PAST_TARGETS = 'past_targets'
 EVERYTHING = 'everything'
 
 # Document Replacement Validation Methods
+NAIVE = 'naive'
 PROBABILITIES = 'probabilities'
-OPTIMISTIC = 'optimistic'
 PREDICTION = 'prediction'
 
 # Lock for multiprocessing

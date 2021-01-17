@@ -323,7 +323,7 @@ if __name__ == '__main__':
     #                   validation_method=constants.PREDICTION)
     competition_setup(mode='goren', qid='051', bots=['BOT'],
                       top_refinement=constants.ACCELERATION,
-                      validation_method=constants.OPTIMISTIC)
+                      validation_method=constants.NAIVE)
 
     # parser = OptionParser()
     # parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])
