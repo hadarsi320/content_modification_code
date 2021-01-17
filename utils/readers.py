@@ -135,3 +135,6 @@ class TrecReader:
         top_doc_id = self[epoch][qid][0]
         return utils.parse_doc_id(top_doc_id)[2]
 
+    def get_player_rank(self, epoch, qid, pid):
+        doc_id = utils.get_doc_id(epoch, qid.split('_')[0], pid)
+        return self.__ranked_list[epoch][qid].index(doc_id)
