@@ -48,7 +48,7 @@ def create_features_file_diff(features_dir, base_index_path, new_index_path, new
     return new_features_file
 
 
-def read_trectext_file(filename, qid=None):
+def read_trectext_file(filename: str, qid: int = None) -> dict:
     parser = etree.XMLParser(recover=True)
     tree = ET.parse(filename, parser=parser)
     root = tree.getroot()
@@ -629,7 +629,8 @@ def get_terms(text):
     return set(clean_texts(text).split())
 
 
-def get_player_accelerations(last_epoch, qid, trec_reader, past=1, reverse=True, leave_top=True):
+def get_player_accelerations(last_epoch, qid, trec_reader,
+                             past=1, reverse=True, drop_top=True, demand_positivity=False):
     # look only at the relevant epochs
     epochs = [epoch for epoch in trec_reader.epochs() if int(epoch) <= int(last_epoch)]
 
@@ -638,16 +639,21 @@ def get_player_accelerations(last_epoch, qid, trec_reader, past=1, reverse=True,
 
     pid_list = trec_reader.get_pids(qid)
     max_rank = len(pid_list)
-    player_ranks = {pid: get_player_ranks(last_epoch, qid, pid, trec_reader)[-(past+1):] for pid in pid_list}
+    player_ranks = {pid: get_player_ranks(last_epoch, qid, pid, trec_reader)[-(past + 1):] for pid in pid_list}
     player_rank_change = {pid: get_rank_change(player_ranks[pid], max_rank) for pid in pid_list}
+    mean_rank_change = {pid: np.average(player_rank_change[pid]) for pid in pid_list}
 
-    average_rank_change = {pid: np.average(player_rank_change[pid]) for pid in pid_list}
-    if all(item == 0 for item in average_rank_change):
-        # don't want to return anything if no one moved
+    if all(item == 0 for item in mean_rank_change.values()):
+        # don't want to return anything if no one changed rank
         return None
 
-    ordered_pids = sorted(player_rank_change, key=lambda x: average_rank_change[x], reverse=reverse)
-    if leave_top:
+    if demand_positivity:
+        mean_rank_change = {pid: mean_rank_change[pid] for pid in mean_rank_change if mean_rank_change[pid] > 0}
+        if len(mean_rank_change) == 0:
+            return None
+
+    ordered_pids = sorted(player_rank_change, key=lambda x: mean_rank_change[x], reverse=reverse)
+    if drop_top:
         top_pid = trec_reader.get_top_player(qid, epoch=last_epoch)
         ordered_pids = [pid for pid in ordered_pids if pid != top_pid]
     return ordered_pids
@@ -678,7 +684,7 @@ def get_rank_change(ranks, max_rank, scaled=False):
 
             last_rank = rank
     else:
-        rank_change = [ranks[i] - ranks[i+1] for i in range(len(ranks)-1)]
+        rank_change = [ranks[i] - ranks[i + 1] for i in range(len(ranks) - 1)]
     return rank_change
 
 
