@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 import utils.general_utils as utils
 from utils.data_statistics import compute_average_rank, compute_average_promotion, cumpute_atd
 from utils.readers import TrecReader
+
 # from utils import read_competition_trec_file, normalize_dict_len, ensure_dirs, read_positions_file, read_trec_dir, \
 #     get_competitors, read_features_dir, parse_doc_id, \
 #     get_next_epoch
@@ -45,7 +46,7 @@ def plot(data, start=0, stop=None, shape='o-', title=None, x_label=None, y_label
         plt.show()
 
 
-def word_similarity_analysis(sim_dir, show=False, plots_dir=None):
+def similarity_analysis(sim_dir, show=False, plots_dir=None):
     similarity_files = sorted(os.listdir(sim_dir))
 
     sim_lists = [], []
@@ -90,9 +91,9 @@ def competition_5_analysis(trec_dir, show=True, plots_dir=None):
     groups = ['bots', 'students', 'true_bots', 'dummy_bots']
     colors = {'bots': 'b', 'students': 'g', 'dummy_bots': 'r', 'true_bots': 'm'}
     labels = {'bots': 'All Bots', 'students': 'Student Documents', 'true_bots': 'True Bots', 'dummy_bots': 'Dummy Bots'}
-    functions = [lambda x: compute_average_rank(ranked_lists, competitors_lists, x),
-                 lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, False),
-                 lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, True)]
+    functions = [lambda x: compute_average_rank(ranked_lists, x),
+                 lambda x: compute_average_promotion(ranked_lists, x, False),
+                 lambda x: compute_average_promotion(ranked_lists, x, True)]
     titles = ['Average Rank', 'Average Raw Rank Promotion', 'Average Scaled Rank Promotion']
     x_ticks_list = [range(1, 5), range(2, 5), range(2, 5)]
 
@@ -125,54 +126,52 @@ def competition_5_analysis(trec_dir, show=True, plots_dir=None):
             plt.show()
 
 
-def recreate_paper_plots(positions_file, show=True, plots_dir=None):
+def recreate_paper_plots(trec_reader: TrecReader, show=False, plots_dir=None, **kwargs):
     """
     This function recreates the plots from the paper, based on the positions file from the paper
-    :param positions_file:
+    :param trec_reader:
     :param show:
     :param plots_dir:
     :return:
     """
-    ranked_lists = read_positions_file(positions_file)
-    normalize_dict_len(ranked_lists)
-    competitors_lists = {qid: next(iter(ranked_lists[qid].values())) for qid in ranked_lists}
-
     groups = ['actual_students', 'planted', 'bots']
     colors = {'bots': 'b', 'actual_students': 'r', 'planted': 'g'}
-    labels = {'bots': 'All Bots', 'actual_students': 'Student Documents', 'planted': 'Planted Documents'}
-    functions = [lambda x: compute_average_rank(ranked_lists, competitors_lists, x, is_paper_data=True),
-                 lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, scaled=False,
-                                                     is_paper_data=True),
-                 lambda x: compute_average_promotion(ranked_lists, competitors_lists, x, scaled=True,
-                                                     is_paper_data=True)]
+    labels = {'bots': 'Bots', 'actual_students': 'Student Documents', 'planted': 'Planted Documents'}
+    functions = [lambda x: compute_average_rank(trec_reader, x),
+                 lambda x: compute_average_promotion(trec_reader, x, scaled=False),
+                 lambda x: compute_average_promotion(trec_reader, x, scaled=True)]
     titles = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
     x_ticks_list = [range(1, 5), range(2, 5), range(2, 5)]
 
+    # plt.rcParams.update({'font.size': 14})
+    fig, axs = plt.subplots(ncols=3, figsize=(15, 5))
+    plt.tight_layout(pad=4)
+
     for i in range(3):
+        axis = axs[i]
         x_ticks = x_ticks_list[i]
         function = functions[i]
-        title = titles[i]
+        sub_title = titles[i]
 
-        results = {}
-        for group in groups:
-            results[group] = function(group)
-
-        plt.rcParams.update({'font.size': 14})
         for j, group in enumerate(groups):
-            result = results[group]
+            result = function(group)
             label = labels[group]
             color = colors[group]
-            plt.plot(x_ticks, result, label=label, color=color)
+            axis.plot(x_ticks, result, label=label, color=color)
 
-        plt.title(title)
-        plt.ylabel(title)
-        plt.legend()
-        plt.xticks(x_ticks)
-        plt.xlabel('Round')
-        if plots_dir:
-            plt.savefig(plots_dir + '/' + title)
-        if show:
-            plt.show()
+        axis.set_title(sub_title)
+        axis.set_ylabel(sub_title)
+        axis.set_xticks(x_ticks)
+        axis.set_xlabel('Round')
+        axis.legend()
+
+    if 'title' in kwargs:
+        fig.suptitle(kwargs.pop('title'))
+
+    # if plots_dir is not None:
+    #     plt.savefig(plots_dir + '/' + sub_title)
+    if show:
+        plt.show()
 
 
 def get_optimal_yticks(results: dict, jump_len):
@@ -209,9 +208,9 @@ def compare_competitions(title, show=True, plots_dir='plots/', legend_ncols=2, *
     y_labels = ['Average Rank', 'Raw Rank Promotion', 'Scaled Rank Promotion']
     x_ticks_list = [range(1, rounds + 1), range(2, rounds + 1), range(2, rounds + 1)]
     jump_lengths = [0.25, 0.1, 0.05]
-    functions = [lambda x, y, z, w: compute_average_rank(x, y, z, is_paper_data=w),
-                 lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=False, is_paper_data=w),
-                 lambda x, y, z, w: compute_average_promotion(x, y, z, scaled=True, is_paper_data=w)]
+    functions = [lambda x, y, z, w: compute_average_rank(x, z),
+                 lambda x, y, z, w: compute_average_promotion(x, z, scaled=False),
+                 lambda x, y, z, w: compute_average_promotion(x, z, scaled=True)]
 
     if 'axs' in kwargs:
         axs = kwargs.pop('axs')
@@ -298,31 +297,26 @@ def compare_to_paper_data():
                          savefig='Comparison to Paper Plots')
 
 
-def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=False, **kwargs):
+def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=False, width=0.4, **kwargs):
     ALPHA = 1
-    # ranked_lists, competitors_dict = read_trec_dir(competition_dir + '/trec_files/')
-    # rounds = len(next(iter(ranked_lists.values())))
-    # max_rank = len(next(iter(competitors_dict.values())))
 
-    comp_trec_reader = TrecReader(trec_dir=f'{competition_dir}/trec_files/')
-    rounds = comp_trec_reader.num_epochs()
-    max_rank = comp_trec_reader.max_rank()
+    trec_reader = TrecReader(trec_dir=f'{competition_dir}/trec_files/')
+    rounds = trec_reader.num_epochs()
+    max_rank = trec_reader.max_rank()
 
     bot_ranks = defaultdict(list)
-    for competition in comp_trec_reader.queries():
-        bots = competition.split('_')[1].split(',')
-        for epoch in comp_trec_reader.epochs():
-            for i, doc_id in enumerate(comp_trec_reader[epoch][competition]):
-                pid = utils.parse_doc_id(doc_id)[2]
-                if pid in bots:
-                    bot_ranks[epoch].append(i)
+    for qid in trec_reader.queries():
+        bots = qid.split('_')[1].split(',')
+        for epoch in trec_reader.epochs():
+            for bot in bots:
+                bot_ranks[epoch].append(trec_reader.get_player_rank(epoch, qid, bot))
 
     if 'axes' in kwargs:
         axes = kwargs.pop('axes')
         # assert len(axes) == rounds
         format_plot = False
     else:
-        _, axes = plt.subplots(nrows=rounds, figsize=(8, 3 * rounds), sharey='col')
+        _, axes = plt.subplots(nrows=rounds, figsize=(8, 3 * rounds), sharey='col', squeeze=False)
         format_plot = True
 
     if 'method' in kwargs:
@@ -334,16 +328,15 @@ def plot_rank_distribution(competition_dir, position, show=True, set_ylabel=Fals
     if 'colors' in kwargs:
         bots_kwargs['color'] = kwargs.pop('color')
 
-    x_axis = np.arange(1, max_rank + 1)
-    width = 0.4
+    x_axis = np.arange(1, max_rank + 1, dtype=float)
+    if position == 'left':
+        x_axis -= width / 2
+    elif position == 'right':
+        x_axis += width / 2
+
     for epoch, axis in zip(bot_ranks, axes):
         res = get_rank_distribution(bot_ranks[epoch], total_ranks=max_rank)
-        if position == 'left':
-            axis.bar(x_axis - width / 2, res,
-                     width=width, alpha=ALPHA, label=label, **bots_kwargs)
-        else:
-            axis.bar(x_axis + width / 2, res,
-                     width=width, alpha=ALPHA, label=label, **bots_kwargs)
+        axis.bar(x_axis, res, width=width, alpha=ALPHA, label=label, **bots_kwargs)
 
         if format_plot:
             axis.legend()
@@ -562,22 +555,19 @@ def main():
     #         plot_trm_comparisons(modes, ['vanilla', method], run_name=run, rounds=8, plot_name=None,
     #                              performance_comparison=False, rank_distribution=True, feature_values=False)
 
-    # comp_dirs = {'Naive': 'results/1of5_10_22_22_acceleration/',
-    #              'Classifier Predictions': 'results/1of5_12_21_acceleration_alteration_classifier/',
-    #              'Classifier Probabilities': 'results/1of5_12_26_acceleration_proba-classify/'}
-    comp_dirs = {'Naive': 'results/1of5_10_23_04_highest_rated_inferiors/',
-                 'Classifier Predictions': 'results/1of5_12_21_highest_rated_inferiors_alteration_classifier/',
-                 'Classifier Probabilities': 'results/1of5_12_26_highest_rated_inferiors_proba-classify/'}
-    vanilla_comp_dir = 'results/1of5_10_22_13_vanilla/'
+    # comp_dirs = {'HRI': 'results/1of5_01_12_highest_rated_inferiors_optimistic_goren/',
+    #              'Acceleration': 'results/1of5_01_12_acceleration_optimistic_goren/'}
+    comp_dirs = {'Acceleration': 'results/1of5_01_12_acceleration_optimistic_goren/'}
+    vanilla_comp_dir = 'results/1of5_01_12_vanilla_goren/'
 
-    fig, axes = plt.subplots(ncols=3, nrows=8, figsize=(15, 2.5 * 8), squeeze=True, sharey='row')
+    fig, axes = plt.subplots(ncols=len(comp_dirs), nrows=4, figsize=(15, 2.5 * 8), squeeze=False, sharey='row')
     plt.tight_layout(pad=4)
     for i, key in enumerate(comp_dirs):
         ax = axes[:, i]
         plot_rank_distribution(vanilla_comp_dir, 'left', axes=ax, show=False, set_ylabel=True, method='Vanilla')
-        plot_rank_distribution(comp_dirs[key], 'right', axes=ax, show=False, set_ylabel=False, method='HRI')
+        plot_rank_distribution(comp_dirs[key], 'right', axes=ax, show=False, set_ylabel=False, method=key)
 
-    fig.suptitle(f'Rank Distribution of Students and Bots Using HRI', fontsize=18, y=.995)
+    fig.suptitle(f'Rank Distribution of Bots', fontsize=18, y=.995)
     for i, row in enumerate(axes):
         for axis, key in zip(row, comp_dirs):
             axis.legend()
@@ -588,6 +578,13 @@ def main():
     # plt.savefig(plots_dir + '/Rank Distribution ' + plot_name)
     plt.show()
     plt.close()
+
+    # trec_dirs = ['1of5_01_12_vanilla_goren', '1of5_01_12_highest_rated_inferiors_optimistic_goren',
+    #              '1of5_01_12_acceleration_optimistic_goren']
+    # 
+    # for trec_dir in trec_dirs:
+    #     trec_reader = TrecReader(trec_dir=f'results/{trec_dir}/trec_files')
+    #     recreate_paper_plots(trec_reader, show=True, title=trec_dir)
 
 
 if __name__ == '__main__':
