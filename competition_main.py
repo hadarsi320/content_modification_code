@@ -160,9 +160,9 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, vali
                                                 out_index=out_index, in_index=in_index)
 
             is_rep_valid = replacement_validation(bot_rank, next_doc_id, old_doc, new_doc, qid, epoch,
-                                                       validation_method, queries_xml_file, trec_reader, trec_texts,
-                                                       alternation_classifier, word_embedding_model, stopwords_file,
-                                                       rep_val_dir, base_index, indri_path, swig_path)
+                                                  validation_method, queries_xml_file, trec_reader, trec_texts,
+                                                  alternation_classifier, word_embedding_model, stopwords_file,
+                                                  rep_val_dir, base_index, indri_path, swig_path)
 
             if is_rep_valid:
                 # Replace sentence
@@ -311,9 +311,13 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, validation_met
 if __name__ == '__main__':
     import constants
 
-    competition_setup(mode='goren', qid='051', bots=['BOT'],
-                      top_refinement=constants.ACCELERATION,
-                      validation_method=constants.NAIVE)
+    output_dir = 'output/tmp/'
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    competition_setup(mode='goren', qid='010', bots=['BOT'],
+                      top_refinement=constants.VANILLA,
+                      validation_method=constants.NAIVE,
+                      output_dir=output_dir)
 
     # parser = OptionParser()
     # parser.add_option('--mode', choices=['2of2', 'paper', 'raifer'])

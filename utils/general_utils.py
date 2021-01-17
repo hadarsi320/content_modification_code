@@ -649,13 +649,14 @@ def get_player_accelerations(last_epoch, qid, trec_reader,
 
     if demand_positivity:
         mean_rank_change = {pid: mean_rank_change[pid] for pid in mean_rank_change if mean_rank_change[pid] > 0}
-        if len(mean_rank_change) == 0:
-            return None
 
-    ordered_pids = sorted(player_rank_change, key=lambda x: mean_rank_change[x], reverse=reverse)
+    ordered_pids = sorted(mean_rank_change, key=lambda x: mean_rank_change[x], reverse=reverse)
     if drop_top:
         top_pid = trec_reader.get_top_player(qid, epoch=last_epoch)
         ordered_pids = [pid for pid in ordered_pids if pid != top_pid]
+
+    if len(ordered_pids) == 0:
+        return None
     return ordered_pids
 
 
