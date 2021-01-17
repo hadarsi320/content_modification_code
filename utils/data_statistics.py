@@ -3,17 +3,17 @@ from collections import defaultdict
 import numpy as np
 
 from utils import general_utils as utils
+from utils.readers import TrecReader
 
 
 def in_group(competitor, group, bots):
     dummy_bots = [bot for bot in bots if bot.startswith('DUMMY')]
-    planted_documents = ['DUMMY_1', 'DUMMY_2']
     return (group == 'bots' and competitor in bots) or \
            (group == 'students' and competitor not in bots) or \
            (group == 'true_bots' and competitor == 'BOT') or \
            (group == 'dummy_bots' and competitor in dummy_bots) or \
-           (group == 'planted' and competitor in planted_documents) or \
-           (group == 'actual_students' and competitor not in planted_documents and competitor != 'BOT')
+           (group == 'planted' and competitor.startswith('DUMMY')) or \
+           (group == 'actual_students' and not competitor.startswith('DUMMY') and competitor != 'BOT')
 
 
 def get_scaled_promotion(last_rank, current_rank, max_rank):
@@ -22,79 +22,48 @@ def get_scaled_promotion(last_rank, current_rank, max_rank):
     return (last_rank - current_rank) / ((last_rank - 1) if last_rank > current_rank else (max_rank - last_rank))
 
 
-def compute_average_rank(ranked_lists, competitors_lists, group, is_paper_data=False):
+def compute_average_rank(trec_reader: TrecReader, group):
     """
-    :param ranked_lists:
+    :param trec_reader:
     :param competitors_lists:
     :param group: who to compute for, the bots? the planted documents? the students?
-    :param is_paper_data:
     :return: an array with 4 cells where the i-th cell is the average rank in the i-th round
     """
     ranks = []
-    for competition_id in ranked_lists:
-        bots = ['BOT'] if is_paper_data else competition_id.split('_')[3].split(',')
-        if len(bots) == 1:
-            if bots[0] in ['1', '2']:
-                bots = ['BOT', 'DUMMY' + bots[0]]
-            elif bots[0] == 'both':
-                bots = ['BOT', 'DUMMY1', 'DUMMY2']
+    for qid in trec_reader.queries():
+        bots = ['BOT']
+        pid_list = [pid for pid in trec_reader.get_pids(qid) if in_group(pid, group, bots)]
 
-        competition = ranked_lists[competition_id]
-        competitors_list = competitors_lists[competition_id]
-
-        for competitor in competitors_list:
-            if not in_group(competitor, group, bots):
-                continue
-
+        for pid in pid_list:
             epoch_ranks = []
-            for epoch in sorted(competition):
-                rank = competition[epoch].index(competitor) + 1
-                epoch_ranks.append(rank)
+            for epoch in trec_reader.epochs():
+                epoch_ranks.append(trec_reader.get_player_rank(epoch, qid, pid) + 1)
             ranks.append(epoch_ranks)
-
-        # competition_ranks = defaultdict(list)
-        # for epoch in sorted(competition):
-        #     for i, pid in enumerate(competition[epoch]):
-        #         if in_group(pid, group, dummy_bot):
-        #             competition_ranks[pid].append(i+1)
-        # for pid in competition_ranks:
-        #     ranks.append(competition_ranks[pid])
 
     average_rank = np.average(ranks, axis=0)
     return average_rank
 
 
-def compute_average_promotion(ranked_lists, competitors_lists, group, scaled=False, is_paper_data=False):
+def compute_average_promotion(trec_reader: TrecReader, group, scaled=False):
     """
-    :param ranked_lists: di
+    :param trec_reader: di
     :param group: who to compute for, the bots? the planted documents? the students?
     :param scaled: if True: return average scaled promotion, if False: return average promotion
     :return: an array with 3 cells where the i-th cell is the promotion from i-th round to the i+1-th round
     """
-    epochs = sorted(ranked_lists[next(iter(ranked_lists))])
+    max_rank = trec_reader.max_rank()
+    epochs = trec_reader.epochs()
     rank_promotion = defaultdict(list)
-    for competition_id in ranked_lists:
-        bots = ['BOT'] if is_paper_data else competition_id.split('_')[3].split(',')
-        if len(bots) == 1:
-            if bots[0] in ['1', '2']:
-                bots = ['BOT', 'DUMMY' + bots[0]]
-            elif bots[0] == 'both':
-                bots = ['BOT', 'DUMMY1', 'DUMMY2']
+    for qid in trec_reader.queries():
+        bots = ['BOT']
+        pid_list = [pid for pid in trec_reader.get_pids(qid) if in_group(pid, group, bots)]
 
-        competition = ranked_lists[competition_id]
-        competitors_list = competitors_lists[competition_id]
-        max_rank = len(competitors_list)
-
-        for competitor in competitors_list:
-            if not in_group(competitor, group, bots):
-                continue
-
+        for pid in pid_list:
             for last_epoch, epoch in zip(epochs, epochs[1:]):
-                last_rank = competition[last_epoch].index(competitor) + 1
-                rank = competition[epoch].index(competitor) + 1
-                # if last_rank == 1 and group == 'bots':
-                #     continue
-                rank_promotion[epoch].append(get_scaled_promotion(last_rank, rank, max_rank) if scaled else last_rank - rank)
+                last_rank = trec_reader.get_player_rank(last_epoch, qid, pid) + 1
+                rank = trec_reader.get_player_rank(epoch, qid, pid) + 1
+                rank_promotion[epoch].append(
+                    get_scaled_promotion(last_rank, rank, max_rank) if scaled else last_rank - rank)
 
     average_rank_promotion = [np.average(rank_promotion[epoch]) for epoch in epochs[1:]]
     return average_rank_promotion
