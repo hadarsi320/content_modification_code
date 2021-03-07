@@ -9,11 +9,11 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-import alterations
-import constants
+from predictors import alterations
+from utils import constants
 import utils.general_utils as utils
 from bot.create_bot_features import update_text_doc
-from constants import PROBABILITIES, PREDICTION
+from utils.constants import PROBABILITIES, PREDICTION
 from dataset_creator import generate_pair_ranker_learning_dataset
 from utils.gen_utils import run_and_print
 from utils.general_utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, \
@@ -191,6 +191,7 @@ def update_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(line)
 
 
+# TODO figure if this is the place for this function
 def generate_document_tfidf_files(workingset_file, output_dir, swig_path, base_index, new_index):
     ensure_dirs(output_dir)
     command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
