@@ -200,7 +200,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, vali
 def competition_setup(mode, qid: str, bots: list, top_refinement, validation_method, output_dir='output/tmp/',
                       mute=False, **kwargs):
     embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
-    alternation_classifier_pickle = 'classifiers/alteration_classifier.pkl'
+    alternation_classifier_pickle = 'predictors/alteration_classifier.pkl'
     clueweb_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
     swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
     coherency_qrels_file = 'data/coherency_aggregated_labels.txt'
@@ -316,7 +316,7 @@ def competition_setup(mode, qid: str, bots: list, top_refinement, validation_met
 
 
 if __name__ == '__main__':
-    import constants
+    from utils import constants
 
     # competition_setup(mode='goren', qid='051', bots=['BOT'],
     #                   top_refinement=constants.ACCELERATION,

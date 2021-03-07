@@ -8,7 +8,7 @@ from copy import deepcopy
 import numpy as np
 from nltk import sent_tokenize
 
-import constants
+from utils import constants
 from utils.gen_utils import run_and_print
 from utils.readers import TrecReader
 from utils.general_utils import clean_texts, get_java_object, create_trectext_file, run_model, create_features_file_diff, \

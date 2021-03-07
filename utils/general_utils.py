@@ -16,7 +16,7 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-import constants
+from utils import constants
 from utils.gen_utils import run_bash_command, run_command, run_and_print
 
 

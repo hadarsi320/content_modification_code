@@ -8,7 +8,7 @@ from itertools import combinations
 from multiprocessing import Pool
 from os.path import exists
 
-import constants
+from utils import constants
 from utils.gen_utils import run_bash_command
 from competition_main import competition_setup
 from utils.general_utils import parse_qrid, ensure_dirs, get_query_ids, load_word_embedding_model

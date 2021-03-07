@@ -1,10 +1,8 @@
 import copy
 import datetime
-import os
 import pickle
 import shutil
 from collections import defaultdict
-from multiprocessing import Lock
 
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -21,8 +19,7 @@ from sklearn.utils._testing import ignore_warnings
 from tqdm import tqdm
 
 import utils.general_utils as utils
-from bot import bot_competition
-from utils import readers
+from utils import *
 from utils.vector_utils import tfidf_similarity, embedding_similarity, similarity_to_centroid_tf_idf, \
     document_centroid, similarity_to_centroid_semantic
 
@@ -159,66 +156,6 @@ def create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, w
     return np.array(features).reshape((1, -1))
 
 
-def generate_dataset(feature_vector, local_dir, rm_local_dir=True, use_raifer_data=True):
-    embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
-    base_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
-    swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
-    indri_path = '/lv_local/home/hadarsi/indri/'
-    queries_file = 'data/queries_seo_exp.xml'
-    stopwords_file = 'data/stopwords_list'
-
-    document_workingset_file = local_dir + 'doc_ws.txt'
-    doc_tfidf_dir = local_dir + 'doc_tf_idf/'
-    index = local_dir + 'index'
-
-    if use_raifer_data:
-        trec_file = 'data/trec_file_original_sorted.txt'
-        trectext_file = 'data/documents.trectext'
-        trec_reader = readers.TrecReader(trec_file=trec_file)
-    else:
-        positions_file = 'data/paper_data/documents.positions'
-        trectext_file = 'data/paper_data/documents.trectext'
-        trec_reader = readers.TrecReader(positions_file=positions_file)
-
-    trec_texts = utils.read_trectext_file(trectext_file)
-    stopwords = open(stopwords_file).read().split('\n')[:-1]
-    word_embedding_model = utils.load_word_embedding_model(embedding_model_file)
-
-    lock.acquire()
-    if not os.path.exists(doc_tfidf_dir):
-        utils.ensure_dirs(local_dir)
-        utils.create_index(trectext_file, new_index_name=index, indri_path=indri_path)
-        utils.create_documents_workingset(document_workingset_file, ranked_lists=trec_reader)
-        bot_competition.generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                                      swig_path=swig_path, base_index=base_index, new_index=index)
-    lock.release()
-
-    X = []
-    Y = []
-    for epoch in trec_reader.epochs():
-        next_epoch = utils.get_next_epoch(epoch)
-        if next_epoch not in trec_reader.epochs():
-            break
-
-        for qid in trec_reader.queries():
-            doc_id = trec_reader[epoch][qid][0]
-            next_doc_id = utils.get_next_doc_id(doc_id)
-            query = utils.get_query_text(queries_file, qid)
-
-            # create x
-            X.append(create_features(
-                qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords,
-                feature_vector))
-
-            # Create Y
-            next_rank = trec_reader[next_epoch][qid].index(next_doc_id)
-            Y.append(next_rank == 0)
-
-    if rm_local_dir:
-        shutil.rmtree(local_dir)
-    return np.concatenate(X), np.stack(Y)
-
-
 def feature_selection(models, num_features, local_dir='alterations_tmp/', use_raifer_data=True, reverse=False):
     if reverse is False:
         features = [True] * num_features
@@ -348,7 +285,7 @@ def main():
     X, Y = generate_dataset(features_vec, local_dir, use_raifer_data=False)
     model = select_model(models, X, Y)
     print('The chosen model is:', model, sep='\n')
-    pickle.dump(model, open('classifiers/alteration_classifier.pkl', 'wb'))
+    pickle.dump(model, open('../rank_models/alteration_classifier.pkl', 'wb'))
 
 
 if __name__ == '__main__':
