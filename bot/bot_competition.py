@@ -9,13 +9,13 @@ from deprecated import deprecated
 from lxml import etree
 from nltk import sent_tokenize
 
-from predictors import alterations
-from utils import constants
+import predictors.winner_survival
 import utils.general_utils as utils
 from bot.create_bot_features import update_text_doc
-from utils.constants import PROBABILITIES, PREDICTION
 from dataset_creator import generate_pair_ranker_learning_dataset
-from utils.gen_utils import run_and_print
+from utils import constants
+from utils.bash_utils import run_and_print
+from utils.constants import PROBABILITIES, PREDICTION
 from utils.general_utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, \
     get_doc_id, parse_feature_line, get_player_accelerations
 from utils.readers import TrecReader
@@ -363,7 +363,7 @@ def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch
             generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                           swig_path=swig_path, base_index=base_index, new_index=rep_index)
 
-            X.append(alterations.create_features(
+            X.append(predictors.winner_survival.create_features(
                 qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords))
         true_probabilities = alternation_classifier.predict_log_proba(np.concatenate(X))[:, 1]
         return np.argmax(true_probabilities) == 1
@@ -386,7 +386,7 @@ def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                       swig_path=swig_path, base_index=base_index, new_index=rep_index)
 
-        x = alterations.create_features(
+        x = predictors.winner_survival.create_features(
             qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords)
         return alternation_classifier.predict(x.reshape((1, -1))) == 1
 

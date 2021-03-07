@@ -13,6 +13,9 @@ def generate_dataset(local_dir, use_raifer_data):
         trectext_file = goren_trectext_file
         trec_reader = TrecReader(positions_file=goren_positions_file)
 
+    trec_texts = utils.read_trectext_file(trectext_file)
+    stopwords = open(stopwords_file).read().split('\n')[:-1]
+
 
 def main():
     pass

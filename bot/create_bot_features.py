@@ -9,7 +9,7 @@ import numpy as np
 from nltk import sent_tokenize
 
 from utils import constants
-from utils.gen_utils import run_and_print
+from utils.bash_utils import run_and_print
 from utils.readers import TrecReader
 from utils.general_utils import clean_texts, get_java_object, create_trectext_file, run_model, create_features_file_diff, \
     create_trec_eval_file, order_trec_file, retrieve_scores, get_query_text, parse_qrid, create_index_to_query_dict,\

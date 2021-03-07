@@ -7,7 +7,6 @@ import shutil
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
-from os import listdir
 
 import gensim
 import javaobj
@@ -17,7 +16,7 @@ from lxml import etree
 from nltk import sent_tokenize
 
 from utils import constants
-from utils.gen_utils import run_bash_command, run_command, run_and_print
+from utils.bash_utils import run_bash_command, run_command, run_and_print
 
 
 def create_features_file_diff(features_dir, base_index_path, new_index_path, new_features_file,
@@ -82,37 +81,62 @@ def read_trectext_file(filename: str, qid: int = None) -> dict:
 #     return dict(ranked_list)
 
 
-def read_raw_trec_file(trec_file):
-    stats = defaultdict(list)
-    with open(trec_file) as file:
-        for line in file:
-            qrid = line.split()[0]
-            doc_id = line.split()[2]
-            stats[qrid].append(doc_id)
-    return dict(stats)
+# def read_raw_trec_file(trec_file):
+#     stats = defaultdict(list)
+#     with open(trec_file) as file:
+#         for line in file:
+#             qrid = line.split()[0]
+#             doc_id = line.split()[2]
+#             stats[qrid].append(doc_id)
+#     return dict(stats)
 
 
-def read_competition_trec_file(trec_file):
-    stats = defaultdict(list)
-    with open(trec_file) as file:
-        for line in file:
-            doc_id = line.split()[2]
-            epoch, _, pid = parse_doc_id(doc_id)
-            stats[epoch].append(pid)
-    return dict(stats)
+# def read_trec_dir(trec_dir, **kwargs):
+#     """
+#     :param trec_dir: a directory of trec files
+#     :return: ranked_lists, competitors_lists
+#     """
+#     if 'bots' in kwargs:
+#         bots = kwargs['bots']
+#
+#     ranked_lists = {}
+#     competitors_lists = {}
+#     trec_files = sorted(listdir(trec_dir))
+#     for trec_file in trec_files:
+#         if 'bots' in kwargs:
+#             trec_bots = trec_file.split('_')[3].split(',')
+#             if not all(bot in bots for bot in trec_bots):
+#                 continue
+#
+#         trec_path = trec_dir + '/' + trec_file
+#         name = '_'.join(trec_file.split('_')[-2:])
+#         ranked_lists[name] = read_competition_trec_file(trec_path)
+#         competitors_lists[name] = get_competitors(trec_path)
+#
+#     return ranked_lists, competitors_lists
 
 
-def read_positions_file(positions_file):
-    qid_list = get_query_ids(positions_file)
-    stats = {qid: {epoch: [None] * 5 for epoch in range(1, 5)} for qid in qid_list}
-    with open(positions_file, 'r') as f:
-        for line in f:
-            doc_id = line.split()[2]
-            epoch, qid, pid = parse_doc_id(doc_id)
-            epoch = int(epoch)
-            position = int(line.split()[3]) - 1
-            stats[qid][epoch][position] = pid
-    return stats
+# def read_competition_trec_file(trec_file):
+#     stats = defaultdict(list)
+#     with open(trec_file) as file:
+#         for line in file:
+#             doc_id = line.split()[2]
+#             epoch, _, pid = parse_doc_id(doc_id)
+#             stats[epoch].append(pid)
+#     return dict(stats)
+
+
+# def read_positions_file(positions_file):
+#     qid_list = get_query_ids(positions_file)
+#     stats = {qid: {epoch: [None] * 5 for epoch in range(1, 5)} for qid in qid_list}
+#     with open(positions_file, 'r') as f:
+#         for line in f:
+#             doc_id = line.split()[2]
+#             epoch, qid, pid = parse_doc_id(doc_id)
+#             epoch = int(epoch)
+#             position = int(line.split()[3]) - 1
+#             stats[qid][epoch][position] = pid
+#     return stats
 
 
 def create_trectext_file(document_texts, trectext_file, working_set_file=None):
@@ -526,31 +550,6 @@ def load_word_embedding_model(model_file):
         return pickle.load(open('word2vec_model.pkl', 'rb'))
     else:
         return gensim.models.KeyedVectors.load_word2vec_format(model_file, binary=True, limit=700000)
-
-
-def read_trec_dir(trec_dir, **kwargs):
-    """
-    :param trec_dir: a directory of trec files
-    :return: ranked_lists, competitors_lists
-    """
-    if 'bots' in kwargs:
-        bots = kwargs['bots']
-
-    ranked_lists = {}
-    competitors_lists = {}
-    trec_files = sorted(listdir(trec_dir))
-    for trec_file in trec_files:
-        if 'bots' in kwargs:
-            trec_bots = trec_file.split('_')[3].split(',')
-            if not all(bot in bots for bot in trec_bots):
-                continue
-
-        trec_path = trec_dir + '/' + trec_file
-        name = '_'.join(trec_file.split('_')[-2:])
-        ranked_lists[name] = read_competition_trec_file(trec_path)
-        competitors_lists[name] = get_competitors(trec_path)
-
-    return ranked_lists, competitors_lists
 
 
 def get_competitors(trec_file, qid=None):

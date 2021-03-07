@@ -6,7 +6,7 @@ from utils import general_utils as utils
 from utils.readers import TrecReader
 
 
-def in_group(competitor, group, bots):
+def is_in_group(competitor, group, bots):
     dummy_bots = [bot for bot in bots if bot.startswith('DUMMY')]
     return (group == 'bots' and competitor in bots) or \
            (group == 'students' and competitor not in bots) or \
@@ -32,7 +32,7 @@ def compute_average_rank(trec_reader: TrecReader, group):
     ranks = []
     for qid in trec_reader.queries():
         bots = ['BOT']
-        pid_list = [pid for pid in trec_reader.get_pids(qid) if in_group(pid, group, bots)]
+        pid_list = [pid for pid in trec_reader.get_pids(qid) if is_in_group(pid, group, bots)]
 
         for pid in pid_list:
             epoch_ranks = []
@@ -56,7 +56,7 @@ def compute_average_promotion(trec_reader: TrecReader, group, scaled=False):
     rank_promotion = defaultdict(list)
     for qid in trec_reader.queries():
         bots = ['BOT']
-        pid_list = [pid for pid in trec_reader.get_pids(qid) if in_group(pid, group, bots)]
+        pid_list = [pid for pid in trec_reader.get_pids(qid) if is_in_group(pid, group, bots)]
 
         for pid in pid_list:
             for last_epoch, epoch in zip(epochs, epochs[1:]):
