@@ -10,15 +10,12 @@ from lxml import etree
 from nltk import sent_tokenize
 
 import predictors.winner_survival
-import utils.general_utils as utils
 from bot.create_bot_features import update_text_doc
 from dataset_creator import generate_pair_ranker_learning_dataset
-from utils import constants
+from utils import *
 from utils.bash_utils import run_and_print
-from utils.constants import PROBABILITIES, PREDICTION
 from utils.general_utils import get_qrid, create_trectext_file, parse_doc_id, ensure_dirs, get_learning_data_path, \
     get_doc_id, parse_feature_line, get_player_accelerations
-from utils.readers import TrecReader
 from utils.vector_utils import embedding_similarity, tfidf_similarity
 
 
@@ -192,11 +189,25 @@ def update_trec_file(comp_trec_file, reranked_trec_file):
 
 
 # TODO figure if this is the place for this function
-def generate_document_tfidf_files(workingset_file, output_dir, swig_path, base_index, new_index):
+def generate_document_tfidf_files(workingset_file, output_dir, base_index, new_index):
     ensure_dirs(output_dir)
-    command = f'java -Djava.library.path={swig_path} -cp seo_indri_utils.jar PrepareTFIDFVectorsWSDiff ' \
+    command = f'java -Djava.library.path={swig_path} -cp {indri_utils_path} PrepareTFIDFVectorsWSDiff ' \
               f'{base_index} {new_index} {workingset_file} {output_dir}'
     run_and_print(command, command_name='Document tfidf Creation')
+
+
+def create_doc_tfidf_files(local_dir, trectext_file, trec_reader, doc_tfidf_dir,
+                           document_workingset_file=None, index=None):
+    if document_workingset_file is None:
+        document_workingset_file = local_dir + 'doc_ws.txt'
+    if index is None:
+        index = local_dir + 'index'
+
+    utils.ensure_dirs(local_dir)
+    utils.create_index(trectext_file, new_index_name=index, indri_path=indri_path)
+    utils.create_documents_workingset(document_workingset_file, ranked_lists=trec_reader)
+    generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
+                                  base_index=base_index, new_index=index)
 
 
 def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedding_model, document_tfidf_dir):
@@ -330,9 +341,9 @@ def get_target_documents(epoch, qid, pid, rank, ranked_lists, past_targets, top_
 
 def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch, validation_method, queries_file,
                            trec_reader: TrecReader, trec_texts, alternation_classifier, word_embedding_model,
-                           stopwords_file, output_dir, base_index, indri_path, swig_path,
-                           rep_index_fname='rep_val_index', trectext_fname='trectext_file',
-                           document_workingset_fname='doc_ws', doc_tfidf_dname='doc_tfidf'):
+                           stopwords_file, output_dir, base_index, indri_path, rep_index_fname='rep_val_index',
+                           trectext_fname='trectext_file', document_workingset_fname='doc_ws',
+                           doc_tfidf_dname='doc_tfidf'):
     # only check for top documents
     if bot_rank != 0:
         return True
@@ -360,10 +371,10 @@ def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch
             utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
             utils.create_documents_workingset(
                 document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
-            generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                          swig_path=swig_path, base_index=base_index, new_index=rep_index)
+            generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, base_index=base_index,
+                                          new_index=rep_index)
 
-            X.append(predictors.winner_survival.create_features(
+            X.append(predictors.winner_survival.extract_features(
                 qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords))
         true_probabilities = alternation_classifier.predict_log_proba(np.concatenate(X))[:, 1]
         return np.argmax(true_probabilities) == 1
@@ -383,10 +394,10 @@ def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch
         utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
         utils.create_documents_workingset(
             document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
-        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                      swig_path=swig_path, base_index=base_index, new_index=rep_index)
+        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, base_index=base_index,
+                                      new_index=rep_index)
 
-        x = predictors.winner_survival.create_features(
+        x = predictors.winner_survival.extract_features(
             qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords)
         return alternation_classifier.predict(x.reshape((1, -1))) == 1
 

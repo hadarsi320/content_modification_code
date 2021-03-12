@@ -22,11 +22,14 @@ base_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
 swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
 indri_path = '/lv_local/home/hadarsi/indri/'
 
-# Project Files
+#   Project Files
 project_path = '/lv_local/home/hadarsi/pycharm_projects/content_modification_code/'
+# Data Files
 queries_file = project_path + 'data/queries_seo_exp.xml'
 stopwords_file = project_path + 'data/stopwords_list'
 raifer_trec_file = project_path + 'data/trec_file_original_sorted.txt'
 raifer_trectext_file = project_path + 'data/documents.trectext'
 goren_positions_file = project_path + 'data/paper_data/documents.positions'
 goren_trectext_file = project_path + 'data/paper_data/documents.trectext'
+# Scripts
+indri_utils_path = project_path + 'scripts/seo_indri_utils.jar'

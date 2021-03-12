@@ -1,3 +1,4 @@
+import itertools
 import logging
 import math
 import os
@@ -694,3 +695,9 @@ def dsum(lst: list, base=2):
         d_sum += item / math.log(i + base, base)
         # d_sum += item / math.pow(base, i)
     return d_sum
+
+
+def unpack_dictionary(packed_dict: dict):
+    keys = packed_dict.keys()
+    values = packed_dict.values()
+    return [dict(zip(keys, val)) for val in itertools.product(*values)]

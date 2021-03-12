@@ -1,3 +1,3 @@
 from .constants import *
 from .readers import TrecReader
-import general_utils as utils
+from . import general_utils as utils

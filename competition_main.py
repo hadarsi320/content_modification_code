@@ -104,8 +104,8 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, vali
 
     create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
     create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epochs=[1])
-    generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                  swig_path=swig_path, base_index=base_index, new_index=comp_index)
+    generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, base_index=base_index,
+                                  new_index=comp_index)
 
     past_targets = {}
     for epoch in range(1, rounds + 1):
@@ -162,7 +162,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, vali
             is_rep_valid = replacement_validation(bot_rank, next_doc_id, old_doc, new_doc, qid, epoch,
                                                   validation_method, queries_xml_file, trec_reader, trec_texts,
                                                   alternation_classifier, word_embedding_model, stopwords_file,
-                                                  rep_val_dir, base_index, indri_path, swig_path)
+                                                  rep_val_dir, base_index, indri_path)
 
             if is_rep_valid:
                 # Replace sentence
@@ -178,8 +178,8 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, vali
         # updating the index, workingset file and tfidf files
         create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
         create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epochs=[epoch + 1])
-        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                      swig_path=swig_path, base_index=base_index, new_index=comp_index)
+        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, base_index=base_index,
+                                      new_index=comp_index)
 
         # updating the  the trec file
         reranked_trec_file = run_reranking(qrid, comp_trec_file, base_index, comp_index, swig_path,
