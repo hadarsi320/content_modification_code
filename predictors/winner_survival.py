@@ -33,6 +33,7 @@ def is_reliable(pid, qid, last_epoch, trec_reader, scaled=False):
     return amount_superior >= 3
 
 
+# combine with other function
 def generate_dataset(feature_vector, local_dir, rm_local_dir=True, use_raifer_data=True):
     document_workingset_file = local_dir + 'doc_ws.txt'
     doc_tfidf_dir = local_dir + 'doc_tf_idf/'
@@ -49,13 +50,13 @@ def generate_dataset(feature_vector, local_dir, rm_local_dir=True, use_raifer_da
     stopwords = open(stopwords_file).read().split('\n')[:-1]
     word_embedding_model = utils.load_word_embedding_model(embedding_model_file)
 
-    lock.acquire()
+    lock.acquire()  # is this necessary?
     if not os.path.exists(doc_tfidf_dir):
         utils.ensure_dirs(local_dir)
         utils.create_index(trectext_file, new_index_name=index, indri_path=indri_path)
         utils.create_documents_workingset(document_workingset_file, ranked_lists=trec_reader)
         bot_competition.generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                                      swig_path=swig_path, base_index=base_index, new_index=index)
+                                                      base_index=base_index, new_index=index)
     lock.release()
 
     X = []
@@ -71,7 +72,7 @@ def generate_dataset(feature_vector, local_dir, rm_local_dir=True, use_raifer_da
             query = utils.get_query_text(queries_file, qid)
 
             # create x
-            X.append(create_features(
+            X.append(extract_features(
                 qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords,
                 feature_vector))
 
@@ -84,8 +85,8 @@ def generate_dataset(feature_vector, local_dir, rm_local_dir=True, use_raifer_da
     return np.concatenate(X), np.stack(Y)
 
 
-def create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords,
-                    feature_vec=(False, False, False, False, True, False, False, False, False, False)):
+def extract_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords,
+                     feature_vec=(False, False, False, False, True, False, False, False, False, False)):
     def tfidf_sim(x, y):
         return tfidf_similarity(doc_tfidf_dir + x, doc_tfidf_dir + y)
 
@@ -93,10 +94,10 @@ def create_features(qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, w
         return embedding_similarity(trec_texts[x], trec_texts[y], word_embedding_model)
 
     def count_terms(x, t, opposite=False):
-        return utils.count_occurrences(trec_texts[x], t, opposite, False)
+        return utils.count_occurrences(trec_texts[x], t, opposite, unique=False)
 
     def count_unique_terms(x, t, opposite=False):
-        return utils.count_occurrences(trec_texts[x], t, opposite, True)
+        return utils.count_occurrences(trec_texts[x], t, opposite, unique=True)
 
     query_words = query.split()
     old_doc_id = trec_reader[epoch][qid][0]
