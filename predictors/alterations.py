@@ -21,31 +21,6 @@ from tqdm import tqdm
 from utils import *
 
 
-def get_term_statistics(old_text, new_text, rival_text, target_terms):
-    """
-    Inspired by Raifer's paper
-    """
-    res = [0] * 4
-    added_terms = utils.get_terms(new_text) - utils.get_terms(old_text)
-    removed_terms = utils.get_terms(old_text) - utils.get_terms(new_text)
-
-    for term in added_terms:
-        if term in target_terms:
-            if term in rival_text:
-                res[0] += 1
-            else:
-                res[1] += 1
-
-    for term in removed_terms:
-        if term in target_terms:
-            if term in rival_text:
-                res[2] += 1
-            else:
-                res[3] += 1
-
-    return res
-
-
 def feature_selection(models, num_features, local_dir='alterations_tmp/', use_raifer_data=True, reverse=False):
     if reverse is False:
         features = [True] * num_features
