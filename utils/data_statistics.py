@@ -2,8 +2,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from utils import general_utils as utils
-from utils.readers import TrecReader
+from utils import *
 
 
 def is_in_group(competitor, group, bots):

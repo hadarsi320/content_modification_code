@@ -1,7 +1,5 @@
-import random
-from collections import defaultdict
-
 import os
+from collections import defaultdict
 
 import utils.general_utils as utils
 
@@ -28,15 +26,8 @@ class TrecReader:
         epoch = str(epoch).zfill(2)
         return self.__ranked_list[epoch]
 
-    def __iter__(self):
-        return iter(sorted(self.__epochs))
-
     def __len__(self):
         return len(self.__epochs)
-
-    def __eq__(self, other):
-        return self.__ranked_list == other.__ranked_list and self.__epochs == other.__epochs and \
-               self.__queries == other.__queries and self.__qrid_list == other.__qrid_list
 
     def __read_trec_file(self, trec_file):
         ranked_list = defaultdict(dict)
