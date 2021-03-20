@@ -1,9 +1,10 @@
 import os
+import re
 import shutil
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
-import sklearn
 
 from bot import bot_competition
 from utils import *
@@ -41,53 +42,71 @@ def generate_dataset(use_raifer_data, local_dir='local_dir/') -> (pd.DataFrame, 
             for pid in trec_reader.get_pids(qid):
                 if pid == trec_reader.get_top_player(epoch=last_epoch, qid=qid):
                     continue
-                query_terms = utils.get_terms(utils.get_query_text(queries_file, qid))
+                query_terms = utils.get_query_text(queries_file, qid).split()
 
                 item = dict(qid=qid, epoch=epoch, pid=pid)
-                item['x'] = extract_features(last_epoch, qid, pid, query_terms, trec_reader, trec_texts,
-                                             doc_tfidf_dir, stopwords)
+                item['x'] = extract_features(
+                    last_epoch, qid, pid, query_terms, trec_reader, trec_texts, doc_tfidf_dir, stopwords)
                 item['y'] = trec_reader.get_top_player(epoch=epoch, qid=qid) == pid
                 res.append(item)
         last_epoch = epoch
 
     shutil.rmtree(local_dir)
 
-    res_df = pd.DataFrame(res) \
-        .set_index(['epoch', 'qid', 'pid'])
-    x = pd.DataFrame(res_df['x'].tolist(), index=res_df.index)
+    res_df = pd.DataFrame(res).set_index(['epoch', 'qid', 'pid'])
+    x = pd.DataFrame(res_df['x'].tolist(), index=res_df.index)  # unpacks the vector column
     y = res_df['y']
     return x, y
 
 
-def term_changes(added_terms, removed_terms, reference_text, terms, complement_terms=False):
-    res = [0] * 4
+def term_changes(old_document: str, new_document: str, reference_document: str, terms: Iterable,
+                 complement_terms=False):
+    """
+    Returns the micro features from Raifer's Paper (section 6.1) for some set of terms
+    :param old_document: The version of the document in the last round
+    :param new_document: The most recent version of the document in the last round
+    :param reference_document: The document that the changes in our main document are compared to
+    :param terms: The terms we focus on
+    :param complement_terms: if true we look on all terms other than "terms"
+    :return: The list [ADD(RD), ADD(~RD), RMV(RD),  RMV(~RD)]
+    """
 
+    new_document_ = re.sub("[^\w]", " ", new_document.lower())
+    old_document_ = re.sub("[^\w]", " ", old_document.lower())
+
+    new_terms = set(new_document_.split())
+    old_terms = set(old_document_.split())
+
+    added_terms = new_terms - old_terms
+    removed_terms = old_terms - new_terms
+
+    res = [[] for _ in range(4)]
     for term in added_terms:
         if (not complement_terms and term in terms) or (complement_terms and term not in terms):
-            if term in reference_text:
-                res[0] += 1
+            if term in reference_document:
+                res[0].append(term)
             else:
-                res[1] += 1
+                res[1].append(term)
 
     for term in removed_terms:
         if (not complement_terms and term in terms) or (complement_terms and term not in terms):
-            if term in reference_text:
-                res[2] += 1
+            if term in reference_document:
+                res[2].append(term)
             else:
-                res[3] += 1
+                res[3].append(term)
 
-    return res
+    return [len(item) for item in res]
 
 
-def extract_features(epoch, qid, pid, query_terms, trec_reader: TrecReader, trec_texts, doc_tfidf_dir, stopwords):
+def extract_features(last_epoch, qid, pid, query_terms, trec_reader: TrecReader, trec_texts, doc_tfidf_dir, stopwords):
     def tfidf_sim(x, y):
         return tfidf_similarity(doc_tfidf_dir + x, doc_tfidf_dir + y)
 
     features = []
 
-    prev_doc_id = utils.get_doc_id(epoch, qid, pid)
+    prev_doc_id = utils.get_doc_id(last_epoch, qid, pid)
     doc_id = utils.get_next_doc_id(prev_doc_id)
-    prev_winner_id = trec_reader[epoch][qid][0]
+    prev_winner_id = trec_reader[last_epoch][qid][0]
     assert prev_winner_id != prev_doc_id
 
     # Macro features
@@ -96,12 +115,10 @@ def extract_features(epoch, qid, pid, query_terms, trec_reader: TrecReader, trec
     features.append(tfidf_sim(prev_doc_id, prev_winner_id))
 
     # Micro features
-    removed_terms = utils.get_terms(trec_texts[prev_doc_id]) - utils.get_terms(trec_texts[doc_id])
-    added_terms = utils.get_terms(trec_texts[doc_id]) - utils.get_terms(trec_texts[prev_doc_id])
-    features.extend(term_changes(added_terms, removed_terms, trec_texts[prev_winner_id], query_terms))
-    features.extend(term_changes(added_terms, removed_terms, trec_texts[prev_winner_id], stopwords))
-    features.extend(term_changes(added_terms, removed_terms, trec_texts[prev_winner_id], query_terms.union(stopwords),
-                                 complement_terms=True))
+    features.extend(term_changes(trec_texts[prev_doc_id], trec_texts[doc_id], trec_texts[prev_winner_id], query_terms))
+    features.extend(term_changes(trec_texts[prev_doc_id], trec_texts[doc_id], trec_texts[prev_winner_id], stopwords))
+    features.extend(term_changes(trec_texts[prev_doc_id], trec_texts[doc_id], trec_texts[prev_winner_id],
+                                 set(query_terms + stopwords), complement_terms=True))
     return np.array(features)
 
 
@@ -112,6 +129,25 @@ def predict_winners(model, dataset: pd.DataFrame):
         queries = dataset.loc[epoch].index.get_level_values(0).unique()
         for query in queries:
             x = dataset.loc[epoch, query]
-            scores = model.decision_function(x)
+            if hasattr(model, 'predict_proba'):
+                scores = model.predict_proba(x)[:, 1]
+            else:
+                scores = model.decision_function(x)
             predictions.extend(scores == max(scores))
     return pd.Series(predictions, index=dataset.index)
+
+
+if __name__ == '__main__':
+    trec_reader = TrecReader(trec_file=raifer_trec_file)
+    last_epoch = None
+    for epoch in trec_reader.epochs():
+        if last_epoch is None:
+            last_epoch = epoch
+            continue
+
+        counter = 0
+        for query in trec_reader.queries():
+            if trec_reader.get_top_player(query, last_epoch) != trec_reader.get_top_player(query, epoch):
+                counter += 1
+        print(f'Epoch {epoch}: {counter}/{len(trec_reader.queries())}')
+        last_epoch = epoch

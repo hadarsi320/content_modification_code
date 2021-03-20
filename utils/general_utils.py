@@ -473,7 +473,7 @@ def create_documents_workingset(output_file, **kwargs):
                         line = get_qrid(qid, epoch) + ' Q0 ' + doc_id + ' 0 0 indri\n'
                         f.write(line)
 
-    else:
+    elif 'qid' in kwargs and 'epochs':
         qid = kwargs.pop('qid')
         epochs = kwargs.pop('epochs')
         with open(output_file, 'w') as f:
@@ -482,6 +482,8 @@ def create_documents_workingset(output_file, **kwargs):
                     line = get_qrid(qid, epoch) + ' Q0 ' + get_doc_id(epoch, qid, competitor) + ' 0 0 indri\n'
                     f.write(line)
 
+    else:
+        raise ValueError('Illegal keyword variables given')
 
 def ensure_dirs(*files):
     for file in files:
@@ -625,7 +627,10 @@ def count_occurrences(text, terms, opposite=False, unique=False):
     return res
 
 
-def get_terms(text):
+def get_terms(text: str) -> set:
+    """
+    Returns the terms that show up in the text
+    """
     return set(clean_texts(text).split())
 
 

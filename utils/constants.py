@@ -18,7 +18,7 @@ lock = Lock()
 
 # Machine Files
 embedding_model_file = '/lv_local/home/hadarsi/work_files/word2vec_model/word2vec_model'
-base_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
+clueweb_index = '/lv_local/home/hadarsi/work_files/clueweb_index/'
 swig_path = '/lv_local/home/hadarsi/indri-5.6/swig/obj/java/'
 indri_path = '/lv_local/home/hadarsi/indri/'
 

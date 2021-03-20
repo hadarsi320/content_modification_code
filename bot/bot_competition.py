@@ -188,14 +188,6 @@ def update_trec_file(comp_trec_file, reranked_trec_file):
                 trec.write(line)
 
 
-# TODO figure if this is the place for this function
-def generate_document_tfidf_files(workingset_file, output_dir, base_index, new_index):
-    ensure_dirs(output_dir)
-    command = f'java -Djava.library.path={swig_path} -cp {indri_utils_path} PrepareTFIDFVectorsWSDiff ' \
-              f'{base_index} {new_index} {workingset_file} {output_dir}'
-    run_and_print(command, command_name='Document tfidf Creation')
-
-
 def create_doc_tfidf_files(local_dir, trectext_file, trec_reader, doc_tfidf_dir,
                            document_workingset_file=None, index=None):
     if document_workingset_file is None:
@@ -206,8 +198,14 @@ def create_doc_tfidf_files(local_dir, trectext_file, trec_reader, doc_tfidf_dir,
     utils.ensure_dirs(local_dir)
     utils.create_index(trectext_file, new_index_name=index, indri_path=indri_path)
     utils.create_documents_workingset(document_workingset_file, ranked_lists=trec_reader)
-    generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                  base_index=base_index, new_index=index)
+    generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, new_index=index)
+
+
+def generate_document_tfidf_files(workingset_file, output_dir, new_index, base_index=clueweb_index):
+    ensure_dirs(output_dir)
+    command = f'java -Djava.library.path={swig_path} -cp {indri_utils_path} PrepareTFIDFVectorsWSDiff ' \
+              f'{base_index} {new_index} {workingset_file} {output_dir}'
+    run_and_print(command, command_name='Document tfidf Creation')
 
 
 def record_doc_similarity(doc_texts, current_epoch, similarity_file, word_embedding_model, document_tfidf_dir):
@@ -371,8 +369,7 @@ def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch
             utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
             utils.create_documents_workingset(
                 document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
-            generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, base_index=base_index,
-                                          new_index=rep_index)
+            generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, new_index=rep_index)
 
             X.append(predictors.winner_survival.extract_features(
                 qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords))
@@ -394,8 +391,7 @@ def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch
         utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
         utils.create_documents_workingset(
             document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
-        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, base_index=base_index,
-                                      new_index=rep_index)
+        generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, new_index=rep_index)
 
         x = predictors.winner_survival.extract_features(
             qid, epoch, query, trec_reader, trec_texts, doc_tfidf_dir, word_embedding_model, stopwords)

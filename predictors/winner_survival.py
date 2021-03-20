@@ -56,7 +56,7 @@ def generate_dataset(feature_vector, local_dir, rm_local_dir=True, use_raifer_da
         utils.create_index(trectext_file, new_index_name=index, indri_path=indri_path)
         utils.create_documents_workingset(document_workingset_file, ranked_lists=trec_reader)
         bot_competition.generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
-                                                      base_index=base_index, new_index=index)
+                                                      new_index=index)
     lock.release()
 
     X = []
