@@ -59,38 +59,41 @@ def generate_dataset(use_raifer_data, local_dir='local_dir/') -> (pd.DataFrame, 
     return x, y
 
 
-def term_changes(old_document: str, new_document: str, reference_document: str, terms: Iterable,
+def term_changes(old_document: str, new_document: str, reference_document: str, target_terms: Iterable,
                  complement_terms=False):
     """
     Returns the micro features from Raifer's Paper (section 6.1) for some set of terms
     :param old_document: The version of the document in the last round
     :param new_document: The most recent version of the document in the last round
     :param reference_document: The document that the changes in our main document are compared to
-    :param terms: The terms we focus on
+    :param target_terms: The terms we focus on
     :param complement_terms: if true we look on all terms other than "terms"
     :return: The list [ADD(RD), ADD(~RD), RMV(RD),  RMV(~RD)]
     """
+    cond = (lambda t, l: t in l) if not complement_terms else (lambda t, l: t not in l)
 
     new_document_ = re.sub("[^\w]", " ", new_document.lower())
     old_document_ = re.sub("[^\w]", " ", old_document.lower())
+    reference_document_ = re.sub("[^\w]", " ", reference_document.lower())
 
     new_terms = set(new_document_.split())
     old_terms = set(old_document_.split())
+    ref_terms = set(reference_document_.split())
 
     added_terms = new_terms - old_terms
     removed_terms = old_terms - new_terms
 
     res = [[] for _ in range(4)]
     for term in added_terms:
-        if (not complement_terms and term in terms) or (complement_terms and term not in terms):
-            if term in reference_document:
+        if cond(term, target_terms):
+            if term in ref_terms:
                 res[0].append(term)
             else:
                 res[1].append(term)
 
     for term in removed_terms:
-        if (not complement_terms and term in terms) or (complement_terms and term not in terms):
-            if term in reference_document:
+        if cond(term, target_terms):
+            if term in ref_terms:
                 res[2].append(term)
             else:
                 res[3].append(term)
