@@ -53,7 +53,7 @@ def generate_dataset(feature_vector, local_dir, rm_local_dir=True, use_raifer_da
     lock.acquire()  # is this necessary?
     if not os.path.exists(doc_tfidf_dir):
         utils.ensure_dirs(local_dir)
-        utils.create_index(trectext_file, new_index_name=index, indri_path=indri_path)
+        utils.create_index(trectext_file, index_name=index, indri_path=indri_path)
         utils.create_documents_workingset(document_workingset_file, ranked_lists=trec_reader)
         bot_competition.generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir,
                                                       new_index=index)
