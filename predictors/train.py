@@ -80,7 +80,9 @@ def naive_optimize(algorithm, parameter_grid, X, y):
         model = deepcopy(algorithm)
         model.set_params(**params)
         model.fit(X, y)
-        score = model.score(X, y)
+        # score = model.score(X, y)
+        predictions = winner_prediction.predict_winners(model, X)
+        score = np.mean(predictions == y)
         if score > best_score:
             best_score = score
             best_model = model
@@ -111,25 +113,25 @@ def main():
         X_train, X_test = x.loc[other_epochs], x.loc[[epoch]]
         y_train, y_test = y.loc[other_epochs], y.loc[[epoch]]
         # X_train, y_train = sub_sample(X_train, y_train)
-        # minmax_scale_queries(X_train, X_test, y_test)
+        minmax_scale_queries(X_train, X_test, y_test)
 
-        # model = naive_optimize(algorithm, parameter_grid, X_train, y_train)
-        grid_search = GridSearchCV(estimator=algorithm, param_grid=parameter_grid).fit(X_train, y_train)
-        model = grid_search.best_estimator_
+        model = naive_optimize(algorithm, parameter_grid, X_train, y_train)
+        # grid_search = GridSearchCV(estimator=algorithm, param_grid=parameter_grid).fit(X_train, y_train)
+        # model = grid_search.best_estimator_
 
-        from collections import Counter
-        train_score = model.score(X_train, y_train)
-        train_counter = Counter(model.predict(X_train))
-        test_score = model.score(X_test, y_test)
-        test_counter = Counter(model.predict(X_test))
+        # from collections import Counter
+        # train_score = model.score(X_train, y_train)
+        # train_counter = Counter(model.predict(X_train))
+        # test_score = model.score(X_test, y_test)
+        # test_counter = Counter(model.predict(X_test))
 
-        # predictions = winner_prediction.predict_winners(model, X_train)
-        # train_accuracies.append(np.mean(predictions == y_train))
-        # predictions = winner_prediction.predict_winners(model, X_test)
-        # test_accuracies.append(np.mean(predictions == y_test))
+        predictions = winner_prediction.predict_winners(model, X_train)
+        train_accuracies.append(np.mean(predictions == y_train))
+        predictions = winner_prediction.predict_winners(model, X_test)
+        test_accuracies.append(np.mean(predictions == y_test))
         
-        train_accuracies.append(model.score(X_train, y_train))
-        test_accuracies.append(model.score(X_test, y_test))
+        # train_accuracies.append(model.score(X_train, y_train))
+        # test_accuracies.append(model.score(X_test, y_test))
     print(f'The average train accuracy is {np.mean(train_accuracies):.3f}')
     print(train_accuracies)
     print(f'The average test accuracy is {np.mean(test_accuracies):.3f}')

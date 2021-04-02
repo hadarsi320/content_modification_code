@@ -133,8 +133,8 @@ def predict_winners(model, dataset: pd.DataFrame):
                 scores = model.predict_proba(x)[:, 1]
             else:
                 scores = model.decision_function(x)
-            predictions.extend(scores == max(scores))
-    return pd.Series(predictions, index=dataset.index)
+            predictions.append(scores == max(scores))
+    return pd.Series(np.concatenate(predictions), index=dataset.index)
 
 
 if __name__ == '__main__':
