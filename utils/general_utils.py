@@ -191,20 +191,21 @@ def update_trectext_file(trectext_file, old_documents, new_documents):
     logger.info('Trectext file updated')
 
 
-def create_index(trectext_file, new_index_name, indri_path):
+def create_index(trectext_file, index_name, indri_path=constants.indri_path):
     """
     Parse the trectext file given, and create an index.
     """
-    if os.path.exists(new_index_name):
-        shutil.rmtree(new_index_name)
-    ensure_dirs(new_index_name)
+    if os.path.exists(index_name):
+        shutil.rmtree(index_name)
+    ensure_dirs(index_name)
 
     corpus_class = 'trectext'
     memory = '1G'
     stemmer = 'krovetz'
     command = f'{indri_path}bin/IndriBuildIndex -corpus.path={trectext_file} -corpus.class={corpus_class} ' \
-              f'-index={new_index_name} -memory={memory} -stemmer.name={stemmer}'
+              f'-index={index_name} -memory={memory} -stemmer.name={stemmer}'
     run_and_print(command, command_name='IndriBuildIndex')
+    return index_name
 
 
 def merge_indices(merged_index, new_index_name, base_index, home_path, indri_path):

@@ -196,7 +196,7 @@ def create_doc_tfidf_files(local_dir, trectext_file, trec_reader, doc_tfidf_dir,
         index = local_dir + 'index'
 
     utils.ensure_dirs(local_dir)
-    utils.create_index(trectext_file, new_index_name=index, indri_path=indri_path)
+    utils.create_index(trectext_file, index_name=index, indri_path=indri_path)
     utils.create_documents_workingset(document_workingset_file, ranked_lists=trec_reader)
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, new_index=index)
 
@@ -366,7 +366,7 @@ def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch
 
             utils.ensure_dirs(output_dir)
             utils.create_trectext_file(trec_texts, trectext_file)
-            utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
+            utils.create_index(trectext_file, index_name=rep_index, indri_path=indri_path)
             utils.create_documents_workingset(
                 document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
             generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, new_index=rep_index)
@@ -388,7 +388,7 @@ def replacement_validation(bot_rank, next_doc_id, old_text, new_text, qid, epoch
 
         utils.ensure_dirs(output_dir)
         utils.create_trectext_file(trec_texts, trectext_file)
-        utils.create_index(trectext_file, new_index_name=rep_index, indri_path=indri_path)
+        utils.create_index(trectext_file, index_name=rep_index, indri_path=indri_path)
         utils.create_documents_workingset(
             document_workingset_file, ranked_lists=trec_reader, epochs=[epoch, next_epoch])
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, new_index=rep_index)

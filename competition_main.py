@@ -102,7 +102,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, vali
     comp_trectext_file = create_initial_trectext_file(trectext_file, trectext_dir, qid, bots=bots, only_bots=False)
     comp_trec_file = create_initial_trec_file(output_dir=trec_dir, qid=qid, bots=bots, only_bots=False, **kwargs)
 
-    create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
+    create_index(comp_trectext_file, index_name=comp_index, indri_path=indri_path)
     create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epochs=[1])
     generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, new_index=comp_index)
 
@@ -175,7 +175,7 @@ def run_general_competition(qid, competitors, bots, rounds, top_refinement, vali
         update_trectext_file(comp_trectext_file, trec_texts, new_docs)
 
         # updating the index, workingset file and tfidf files
-        create_index(comp_trectext_file, new_index_name=comp_index, indri_path=indri_path)
+        create_index(comp_trectext_file, index_name=comp_index, indri_path=indri_path)
         create_documents_workingset(document_workingset_file, competitors=competitors, qid=qid, epochs=[epoch + 1])
         generate_document_tfidf_files(document_workingset_file, output_dir=doc_tfidf_dir, new_index=comp_index)
 
