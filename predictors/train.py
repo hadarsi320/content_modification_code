@@ -9,6 +9,7 @@ from sklearn.model_selection import cross_val_score, GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm import SVC
+from tqdm import tqdm
 
 import winner_prediction
 from utils import *
@@ -45,14 +46,17 @@ def minmax_scale_queries(X_train, X_test, y_test):
 
     train_queries = X_train.index.get_level_values(1).unique()
     test_queries = X_test.index.get_level_values(1).unique()
+
+    for query in test_queries:
+        if query not in train_queries:
+            X_test.drop(index=query, level=1, inplace=True)
+            y_test.drop(index=query, level=1, inplace=True)
+
     for query in train_queries:
         scaler = MinMaxScaler()
         X_train.loc[idx[:, query], :] = scaler.fit_transform(X_train.loc[idx[:, query], :])
         if query in test_queries:
             X_test.loc[idx[:, query], :] = scaler.transform(X_test.loc[idx[:, query], :])
-        else:
-            X_test.drop(index=query, level=1, inplace=True)
-            y_test.drop(index=query, level=1, inplace=True)
 
 
 def sub_sample(X: pd.DataFrame, y: pd.Series):
@@ -81,8 +85,7 @@ def naive_optimize(algorithm, parameter_grid, X, y):
         model.set_params(**params)
         model.fit(X, y)
         # score = model.score(X, y)
-        predictions = winner_prediction.predict_winners(model, X)
-        score = np.mean(predictions == y)
+        score = winner_prediction.score(model, X, y)
         if score > best_score:
             best_score = score
             best_model = model
@@ -90,25 +93,27 @@ def naive_optimize(algorithm, parameter_grid, X, y):
 
 
 def main():
+    # parameter_grid = {'C': [1, 10, 50, 100]}
+    # algorithm = LogisticRegression(penalty='l1', solver='liblinear')
+
+    # parameter_grid = {'Classifier__C': [1, 10, 50, 100]}
+    # algorithm = Pipeline([('Scaler', MinMaxScaler()),
+    #                       ('Classifier', LogisticRegression(penalty='l1', solver='liblinear'))])
+
+    # parameter_grid = {'C': [1, 10, 50, 100]}
+    # algorithm = SVC(kernel='linear', probability=True)
+
     # parameter_grid = {'C': [1, 10, 50, 100], 'degree': [2, 3, 4, 5]}
     # algorithm = SVC(kernel='poly', probability=True)
 
-    # parameter_grid = {'Classifier__C': [1, 10, 50, 100]}
-    # algorithm = Pipeline([('Scaler', StandardScaler()),
-    #                       ('Classifier', LogisticRegression(penalty='l1', solver='liblinear'))])
-
-    parameter_grid = {'C': [1, 10, 50, 100]}
-    algorithm = LogisticRegression(penalty='l1', solver='liblinear')
-
-    # parameter_grid = {'n_estimators': [10, 50, 100, 500], 'max_leaf_nodes': [10, 20, 30]}
-    # parameter_grid = {'n_estimators': [10, 50, 100, 500]}
-    # algorithm = RandomForestClassifier()
+    parameter_grid = {'n_estimators': [10, 50, 100, 500], 'max_leaf_nodes': [10, 20, 30]}
+    algorithm = RandomForestClassifier()
 
     x, y = winner_prediction.generate_dataset(use_raifer_data=True)
     train_accuracies = []
     test_accuracies = []
     epochs = x.index.get_level_values(0).unique()
-    for epoch in epochs:
+    for epoch in tqdm(epochs, 'Epoch'):
         other_epochs = epochs.difference([epoch])
         X_train, X_test = x.loc[other_epochs], x.loc[[epoch]]
         y_train, y_test = y.loc[other_epochs], y.loc[[epoch]]
@@ -119,23 +124,13 @@ def main():
         # grid_search = GridSearchCV(estimator=algorithm, param_grid=parameter_grid).fit(X_train, y_train)
         # model = grid_search.best_estimator_
 
-        # from collections import Counter
-        # train_score = model.score(X_train, y_train)
-        # train_counter = Counter(model.predict(X_train))
-        # test_score = model.score(X_test, y_test)
-        # test_counter = Counter(model.predict(X_test))
+        train_accuracies.append(winner_prediction.score(model, X_train, y_train))
+        test_accuracies.append(winner_prediction.score(model, X_test, y_test))
 
-        predictions = winner_prediction.predict_winners(model, X_train)
-        train_accuracies.append(np.mean(predictions == y_train))
-        predictions = winner_prediction.predict_winners(model, X_test)
-        test_accuracies.append(np.mean(predictions == y_test))
-        
-        # train_accuracies.append(model.score(X_train, y_train))
-        # test_accuracies.append(model.score(X_test, y_test))
     print(f'The average train accuracy is {np.mean(train_accuracies):.3f}')
-    print(train_accuracies)
+    # print(train_accuracies)
     print(f'The average test accuracy is {np.mean(test_accuracies):.3f}')
-    print(test_accuracies)
+    # print(test_accuracies)
 
 
 if __name__ == '__main__':

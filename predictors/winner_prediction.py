@@ -59,12 +59,12 @@ def generate_dataset(use_raifer_data, local_dir='local_dir/') -> (pd.DataFrame, 
     return x, y
 
 
-def term_changes(old_document: str, new_document: str, reference_document: str, target_terms: Iterable,
+def term_changes(prev_document: str, document: str, reference_document: str, target_terms: Iterable,
                  complement_terms=False):
     """
     Returns the micro features from Raifer's Paper (section 6.1) for some set of terms
-    :param old_document: The version of the document in the last round
-    :param new_document: The most recent version of the document in the last round
+    :param prev_document: The version of the document in the last round
+    :param document: The most recent version of the document
     :param reference_document: The document that the changes in our main document are compared to
     :param target_terms: The terms we focus on
     :param complement_terms: if true we look on all terms other than "terms"
@@ -72,8 +72,8 @@ def term_changes(old_document: str, new_document: str, reference_document: str, 
     """
     cond = (lambda t, l: t in l) if not complement_terms else (lambda t, l: t not in l)
 
-    new_document_ = re.sub("[^\w]", " ", new_document.lower())
-    old_document_ = re.sub("[^\w]", " ", old_document.lower())
+    new_document_ = re.sub("[^\w]", " ", document.lower())
+    old_document_ = re.sub("[^\w]", " ", prev_document.lower())
     reference_document_ = re.sub("[^\w]", " ", reference_document.lower())
 
     new_terms = set(new_document_.split())
@@ -140,17 +140,21 @@ def predict_winners(model, dataset: pd.DataFrame):
     return pd.Series(np.concatenate(predictions), index=dataset.index)
 
 
-if __name__ == '__main__':
-    trec_reader = TrecReader(trec_file=raifer_trec_file)
-    last_epoch = None
-    for epoch in trec_reader.epochs():
-        if last_epoch is None:
-            last_epoch = epoch
-            continue
+def score(model, X, y):
+    predictions = predict_winners(model, X)
+    return np.mean(predictions == y)
 
-        counter = 0
-        for query in trec_reader.queries():
-            if trec_reader.get_top_player(query, last_epoch) != trec_reader.get_top_player(query, epoch):
-                counter += 1
-        print(f'Epoch {epoch}: {counter}/{len(trec_reader.queries())}')
-        last_epoch = epoch
+# if __name__ == '__main__':
+#     trec_reader = TrecReader(trec_file=raifer_trec_file)
+#     last_epoch = None
+#     for epoch in trec_reader.epochs():
+#         if last_epoch is None:
+#             last_epoch = epoch
+#             continue
+#
+#         counter = 0
+#         for query in trec_reader.queries():
+#             if trec_reader.get_top_player(query, last_epoch) != trec_reader.get_top_player(query, epoch):
+#                 counter += 1
+#         print(f'Epoch {epoch}: {counter}/{len(trec_reader.queries())}')
+#         last_epoch = epoch
